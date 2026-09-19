@@ -9,6 +9,7 @@ return [
     'record' => 'Record :n of :m',
     'no_records' => 'No records',
     'query_mode' => 'Enter query mode — type criteria (% wildcard, >, <, a..b) and press F8',
+    'reorder_hint' => 'Reorder rows: Ctrl+↑ / Ctrl+↓',
     'unsaved' => 'Unsaved changes',
     'unsaved_title' => 'Save changes?',
     'unsaved_body' => 'You have unsaved changes on this form.',
