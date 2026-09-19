@@ -10,7 +10,7 @@ import { can } from '@/lib/can';
 import { t } from '@/lib/i18n';
 
 const groups = computed(() => visibleNavigation(NAVIGATION, can));
-const { isCurrentUrl } = useCurrentUrl();
+const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>
 
 <template>
@@ -18,7 +18,7 @@ const { isCurrentUrl } = useCurrentUrl();
         <SidebarGroupLabel>{{ t(group.titleKey) }}</SidebarGroupLabel>
         <SidebarMenu>
             <SidebarMenuItem v-for="item in group.items" :key="item.key">
-                <SidebarMenuButton as-child :is-active="isCurrentUrl(item.href)" :tooltip="t(item.titleKey)">
+                <SidebarMenuButton as-child :is-active="isCurrentOrParentUrl(item.href)" :tooltip="t(item.titleKey)">
                     <Link :href="item.href" prefetch>
                         <component :is="item.icon" />
                         <span>{{ t(item.titleKey) }}</span>

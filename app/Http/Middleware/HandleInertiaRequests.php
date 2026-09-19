@@ -47,6 +47,7 @@ class HandleInertiaRequests extends Middleware
                         ? Permissions::ALL
                         : $request->user()->getAllPermissions()->pluck('name')->values()->all()
                 ),
+                'departments' => $request->user()?->departments()->orderBy('sort')->get()->map(fn ($d) => ['id' => $d->id, 'code' => $d->code, 'name' => $d->name])->values()->all() ?? [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'locale' => app()->getLocale(),

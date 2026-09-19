@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import LanguageSwitch from '@/components/LanguageSwitch.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem } from '@/types';
 
@@ -13,6 +16,8 @@ withDefaults(
         breadcrumbs: () => [],
     },
 );
+
+const auth = computed(() => usePage().props.auth);
 </script>
 
 <template>
@@ -26,6 +31,8 @@ withDefaults(
             </template>
         </div>
         <div class="ms-auto flex items-center gap-1">
+            <span class="hidden text-sm text-muted-foreground md:inline">{{ auth.user?.name }}</span>
+            <Badge v-for="dept in auth.departments" :key="dept.id" variant="secondary">{{ dept.name }}</Badge>
             <ThemeToggle />
             <LanguageSwitch />
         </div>
