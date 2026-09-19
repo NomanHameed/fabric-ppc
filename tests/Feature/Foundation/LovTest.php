@@ -60,7 +60,9 @@ it('finds parties by alias', function () {
 });
 
 it('requires list_key for lookups and returns 404 for unknown lovs', function () {
-    $this->actingAs($this->user)->getJson('/lov/lookup')->assertUnprocessable();
+    $this->actingAs($this->user)->getJson('/lov/lookup')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['filters.list_key' => 'Choose which list to show']);
     $this->actingAs($this->user)->getJson('/lov/lookup?filters[list_key]=loss_reason')->assertOk()->assertJsonCount(5, 'data');
     $this->actingAs($this->user)->getJson('/lov/nope')->assertNotFound();
 });

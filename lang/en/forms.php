@@ -22,4 +22,5 @@ return [
     'search' => 'Search',
     'select' => 'Select',
     'lov_failed' => 'Could not load the list. Check your connection and try again.',
+    'lov_list_key_required' => 'Choose which list to show (list_key is required).',
 ];

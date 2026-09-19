@@ -21,7 +21,7 @@ class LookupLov implements LovDefinition
 
     public function query(array $filters): Builder
     {
-        $key = $filters['list_key'] ?? throw ValidationException::withMessages(['filters.list_key' => 'list_key is required']);
+        $key = $filters['list_key'] ?? throw ValidationException::withMessages(['filters.list_key' => __('forms.lov_list_key_required')]);
 
         return LookupValue::query()->where('list_key', $key)->where('is_active', true);
     }
