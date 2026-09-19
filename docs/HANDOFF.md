@@ -116,7 +116,8 @@ i.e. it points at port **3306** (the MySQL default), not the Docker Compose host
 docker compose up -d                      # MySQL 8.4 + Redis 7
 cp .env.example .env                      # if no .env exists yet — check DB_PORT per above first
 php artisan key:generate
-php artisan migrate:fresh --seed
+php artisan migrate:fresh --seed   # first setup only — wipes the database
+php artisan migrate                # after pulling new code — adds new tables, keeps data
 ```
 Default dev admin login, seeded by `AdminUserSeeder` from `.env` (`ADMIN_EMAIL`/`ADMIN_PASSWORD`), with the values shown in `.env.example`:
 - Email: `admin@fabric.local`
