@@ -16,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Modules\Foundation\Lov\LovRegistry::class);
     }
 
     /**
@@ -27,6 +27,20 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(
             fn ($user) => $user->hasRole(\App\Modules\Foundation\Access\Permissions::ROLE_ADMIN) ? true : null
         );
+
+        $lovs = $this->app->make(\App\Modules\Foundation\Lov\LovRegistry::class);
+        foreach ([
+            \App\Modules\Foundation\Lov\Definitions\DepartmentLov::class,
+            \App\Modules\Foundation\Lov\Definitions\MachineLov::class,
+            \App\Modules\Foundation\Lov\Definitions\OperationLov::class,
+            \App\Modules\Foundation\Lov\Definitions\PartyLov::class,
+            \App\Modules\Foundation\Lov\Definitions\QualityLov::class,
+            \App\Modules\Foundation\Lov\Definitions\UserLov::class,
+            \App\Modules\Foundation\Lov\Definitions\LookupLov::class,
+            \App\Modules\Foundation\Lov\Definitions\ShiftLov::class,
+        ] as $class) {
+            $lovs->register(new $class);
+        }
 
         $this->configureDefaults();
     }

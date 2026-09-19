@@ -7,4 +7,5 @@ Route::get('i18n/{locale}.json', [\App\Modules\Foundation\Http\Controllers\Trans
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('locale', [\App\Modules\Foundation\Http\Controllers\LocaleController::class, 'update'])->name('locale.update');
+    Route::get('lov/{name}', [\App\Modules\Foundation\Lov\LovController::class, 'show'])->name('lov.show');
 });
