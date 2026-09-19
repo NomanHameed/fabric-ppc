@@ -9,4 +9,5 @@ return [
     'last_import' => 'Last Oracle import',
     'no_import' => 'No Oracle import has been committed yet.',
     'go_to_import' => 'Go to Oracle Import',
+    'metres' => ':qty m',
 ];

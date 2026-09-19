@@ -30,7 +30,7 @@ const props = defineProps<{ stats: DashboardStats; lastImport: LastImport | null
 const tiles = computed(() => [
     { key: 'open_lots', label: t('dashboard.open_lots'), value: props.stats.open_lots.toLocaleString('en-US') },
     { key: 'open_contracts', label: t('dashboard.open_contracts'), value: props.stats.open_contracts.toLocaleString('en-US') },
-    { key: 'open_greige', label: t('dashboard.open_greige'), value: `${props.stats.open_greige_qty.toLocaleString('en-US')} m` },
+    { key: 'open_greige', label: t('dashboard.open_greige'), value: t('dashboard.metres', { qty: props.stats.open_greige_qty.toLocaleString('en-US') }) },
     { key: 'parties', label: t('dashboard.parties'), value: props.stats.parties.toLocaleString('en-US') },
     { key: 'missing_from_oracle', label: t('dashboard.missing_from_oracle'), value: props.stats.missing_from_oracle.toLocaleString('en-US') },
 ]);

@@ -32,6 +32,7 @@ return [
         'stale' => 'Another import was committed after this preview. Upload the file again.',
         'code_conflict' => 'This party is already linked to Oracle code :code.',
         'party_claimed' => 'This party is already matched to Oracle code :code in this file. Create a new party for this code instead.',
+        'no_cli_user' => 'No user found to record as uploader. Create an admin user or pass --user=<id>.',
     ],
     'committed' => 'Import committed: :new new, :changed changed, :missing missing.',
 ];

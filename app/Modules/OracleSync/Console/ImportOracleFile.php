@@ -7,7 +7,9 @@ use App\Modules\OracleSync\Exceptions\InvalidOracleFile;
 use App\Modules\OracleSync\Services\ImportCommitService;
 use App\Modules\OracleSync\Services\ImportPreviewService;
 use App\Modules\OracleSync\Sources\ExcelUploadSource;
+use DomainException;
 use Illuminate\Console\Command;
+use Spatie\Permission\Exceptions\RoleDoesNotExist;
 
 class ImportOracleFile extends Command
 {
@@ -17,7 +19,20 @@ class ImportOracleFile extends Command
 
     public function handle(ImportPreviewService $preview, ImportCommitService $commit): int
     {
-        $user = User::query()->findOrFail($this->option('user') ?? User::query()->role('admin')->value('id'));
+        $userId = $this->option('user');
+        if ($userId === null) {
+            try {
+                $userId = User::query()->role('admin')->value('id');
+            } catch (RoleDoesNotExist) {
+                $userId = null;
+            }
+        }
+        $user = $userId === null ? null : User::query()->find($userId);
+        if ($user === null) {
+            $this->error(__('oracle.errors.no_cli_user'));
+
+            return self::FAILURE;
+        }
         try {
             $import = $preview->preview(new ExcelUploadSource($this->argument('path')), $user);
         } catch (InvalidOracleFile $e) {
@@ -41,7 +56,13 @@ class ImportOracleFile extends Command
 
             return self::FAILURE;
         }
-        $commit->commit($import, $user);
+        try {
+            $commit->commit($import, $user);
+        } catch (DomainException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
         $this->info("Committed import #{$import->id}.");
 
         return self::SUCCESS;
