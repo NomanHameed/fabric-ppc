@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             FoundationSeeder::class,
             PartySeeder::class,
+            RouteTemplateSeeder::class,
             AdminUserSeeder::class,
         ]);
     }
