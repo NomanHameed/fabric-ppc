@@ -1,6 +1,6 @@
 # Fabric PPC — Project Handoff
 
-**Read this first.** It is written so a new Claude Code session or a developer with no prior context can open this repo cold and continue. Everything here was verified against the spec, the plan, the progress ledger, the git log and the actual code as of branch `feat/p1-foundation`, commit `3d98fc2` (2026-09-19).
+**Read this first.** It is written so a new Claude Code session or a developer with no prior context can open this repo cold and continue. Everything here was verified against the spec, the plan, the progress ledger, the git log and the actual code as of branch `feat/p1-foundation` (2026-09-20): all 19 Phase-1 tasks are done and the final whole-branch review's fixes are in (§8.1). Check `git log` for anything newer.
 
 ---
 
@@ -35,13 +35,13 @@ Fabric PPC is a web application for the **Production Planning & Control (PPC)** 
 
 Business source files live in the **parent folder** (`/home/noman/Videos/Personal/Farhan Baig/`, one level above the repo), not in the repo:
 
-| File                                    | What it contains                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OPERATION.pdf`                         | The mill's 12 cost centres (departments) and all 112 named operations performed within them, grouped by department. Two operations are unclassified and were seeded as `normal` kind.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `Production Data Sheets from FLOOR.pdf` | Sample handwritten floor production sheets — the paper form the Production Sheet screen (P2) must replace: date/shift/machine header, batch/lot/operation lines, G/Mtrs and F/Mtrs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `Wip Data Socures From ERP.xlsx`        | The actual Oracle export format ("Processing Contract Status [Party Wise]"). **623 data rows.** Lot numbers (`LOT_NUM1`) are **not unique** — the same 6-digit lot number can appear under different POs (e.g. lot `264899` appears in both PO `261071` and PO `261072`), so the app keys lots on `PC_DTL_ID` (Oracle's internal line id), stored as `lots.oracle_line_id`. This file is also used as a **Pest test fixture** (`tests/Fixtures/oracle-wip-2026-09.xlsx`, copied from it) and its exact row counts (471 unchanged/new, 152 changed, 78 parties-affecting rows, etc., recorded in the ledger) are the basis for the import feature tests in the still-unbuilt Task 17. Of the 17 distinct Oracle party names in the Sep-26 export, **4 need manual mapping** to an app party the first time they're imported: `U&I`, `Image`, `Al Hamd`, `Lenok`. |
-| `Fabric Report.xlsm`                    | The existing macro-driven Excel tracker PPC maintains by hand today. Its "Report" sheet is the Month Wise Fabric Report that R1 (§7.1 of the spec) must reproduce exactly, and its "Data Source" sheet is the one-time migration source (spec §10) that gives R1 its acceptance baseline.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `Greige-to-Dispatch Data Trail.html`    | An earlier stand-alone analysis of the four files above (not authored by this project); useful background but the spec is the authoritative synthesis of it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| File                                    | What it contains                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPERATION.pdf`                         | The mill's 12 cost centres (departments) and all 112 named operations performed within them, grouped by department. Two operations are unclassified and were seeded as `normal` kind.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `Production Data Sheets from FLOOR.pdf` | Sample handwritten floor production sheets — the paper form the Production Sheet screen (P2) must replace: date/shift/machine header, batch/lot/operation lines, G/Mtrs and F/Mtrs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `Wip Data Socures From ERP.xlsx`        | The actual Oracle export format ("Processing Contract Status [Party Wise]"). **623 data rows.** Lot numbers (`LOT_NUM1`) are **not unique** — the same 6-digit lot number can appear under different POs (e.g. lot `264899` appears in both PO `261071` and PO `261072`), so the app keys lots on `PC_DTL_ID` (Oracle's internal line id), stored as `lots.oracle_line_id`. This file is also used as a **Pest test fixture** (`tests/Fixtures/oracle-wip-2026-09.xlsx`, copied from it) and its exact row counts (471 unchanged/new, 152 changed, 78 parties-affecting rows, etc., recorded in the ledger) are the basis for the import feature tests (`tests/Feature/OracleSync/ImportFlowTest.php`, `CommitJobTest.php`). Of the 17 distinct Oracle party names in the Sep-26 export, **4 need manual mapping** to an app party the first time they're imported: `U&I`, `Image`, `Al Hamd`, `Lenok`. |
+| `Fabric Report.xlsm`                    | The existing macro-driven Excel tracker PPC maintains by hand today. Its "Report" sheet is the Month Wise Fabric Report that R1 (§7.1 of the spec) must reproduce exactly, and its "Data Source" sheet is the one-time migration source (spec §10) that gives R1 its acceptance baseline.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `Greige-to-Dispatch Data Trail.html`    | An earlier stand-alone analysis of the four files above (not authored by this project); useful background but the spec is the authoritative synthesis of it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ---
 
@@ -147,27 +147,31 @@ npm run types:check      # vue-tsc --noEmit
 npm run build            # vp build (production Vite build)
 ```
 
-Tests run on **in-memory SQLite** (configured in `phpunit.xml`), independent of the Docker MySQL — so `./vendor/bin/pest` works without Docker running. Note: `composer.json` also defines a broader `composer ci:check` (`npm run check` [Prettier/ESLint via `vp check`] + `types:check` + `@test`) and a `composer test` (config:clear + pest) — these exist but the four commands above are the ones the plan and every task's ledger entry actually gate on.
+Tests run on **in-memory SQLite** (configured in `phpunit.xml`), independent of the Docker MySQL — so `./vendor/bin/pest` works without Docker running.
+
+**CI gate** (green since the final-review fix wave): `composer ci:check` runs `npm run check` (`vp check`: Prettier + lint), `npm run types:check` and `@test` (config:clear + pest). Also keep `./vendor/bin/phpstan analyse` (level 7) and `./vendor/bin/pint --test` clean. PHPStan uses `phpstan-baseline.neon` (243 pre-existing findings, mostly Eloquent magic properties and missing iterable/generic types, to be burned down in P2); **new code must not add baseline entries**. Run `npx vp check --fix` and `./vendor/bin/pint` before committing.
+
+**MySQL-specific checks**: the suite doesn't catch MySQL-only behaviour (strict mode, `time` columns returning `HH:MM:SS`). To run a test file against MySQL without touching a real database, point it at a scratch database on the Docker MySQL: `DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=33306 DB_DATABASE=fabric_ppc_verify DB_USERNAME=fabric DB_PASSWORD=secret ./vendor/bin/pest tests/Feature/...` (create the database first as root; `RefreshDatabase` wipes it). **Never** run tests or `migrate:fresh` against the `.env` database.
 
 ---
 
 ## 6. Architecture and code map
 
-Modular monolith, one Laravel app. Each module owns its own models, migrations (via a reserved numeric range), controllers, Vue pages and tests. Spec §3 defines six modules; only the first three have anything built yet:
+Modular monolith, one Laravel app. Each module owns its own models, migrations (via a reserved numeric range), controllers, Vue pages and tests. Spec §3 defines six modules; the first three are built for P1:
 
-| Module                                | Responsibility                                                                                                                                                                 | Status                                                             |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **Foundation**                        | Auth, roles/permissions, departments/machines/operations/shifts/parties/qualities/route-templates/lookups/settings, i18n, audit, Oracle-Forms UI kit, app shell, admin screens | Built (Tasks 1–14)                                                 |
-| **OracleSync**                        | `OracleLotSource` interface, Excel upload source, import preview/diff/commit                                                                                                   | Not started (Tasks 16–18)                                          |
-| **Production**                        | Contracts, lots, lot routes, ledger, production sheets, batches, movements, balances                                                                                           | Only `Contract`/`Lot` models + LOVs planned (Task 15); not started |
-| **Colour**, **Dispatch**, **Reports** | Per spec §3                                                                                                                                                                    | Not started — P2–P5                                                |
+| Module                                | Responsibility                                                                                                                                                                 | Status                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| **Foundation**                        | Auth, roles/permissions, departments/machines/operations/shifts/parties/qualities/route-templates/lookups/settings, i18n, audit, Oracle-Forms UI kit, app shell, admin screens | Built (Tasks 1–14)                                                        |
+| **OracleSync**                        | `OracleLotSource` interface, Excel upload source, import preview/diff/commit, `oracle:import` command                                                                          | Built (Tasks 16–19)                                                       |
+| **Production**                        | Contracts, lots, lot routes, ledger, production sheets, batches, movements, balances                                                                                           | P1: `Contract`/`Lot` models + contract/lot LOVs (Task 15); the rest is P2 |
+| **Colour**, **Dispatch**, **Reports** | Per spec §3                                                                                                                                                                    | Not started — P2–P5                                                       |
 
 ### 6.1 Current directory tree (backend, `app/Modules/`)
 
 ```
 app/Modules/Foundation/
   Access/Permissions.php
-  Http/Controllers/{LocaleController,TranslationController,PartyController,RouteTemplateController}.php
+  Http/Controllers/{DashboardController,LocaleController,TranslationController,PartyController,RouteTemplateController}.php
   Http/Controllers/Admin/{UserController,RoleController,SettingsController}.php
   Http/Middleware/{EnsureUserIsActive,SetLocale}.php
   I18n/TranslationRepository.php
@@ -183,14 +187,35 @@ app/Modules/Foundation/
   Support/{PartyName,QualityParser,ParsedQuality}.php
 ```
 
-`app/Modules/Production/` and `app/Modules/OracleSync/` do not exist yet on disk — they arrive with Tasks 15–18.
+```
+app/Modules/Production/
+  Models/{Contract,Lot}.php               (Auditable; lots keyed by Oracle PC_DTL_ID = lots.oracle_line_id)
+  Lov/{ContractLov,LotLov}.php            (LotLov: 4-digit floor lookup on the lot_no suffix)
+
+app/Modules/OracleSync/
+  Contracts/OracleLotSource.php           (the seam the Oracle API will implement later)
+  Data/OracleLotRow.php                   (one normalised export row)
+  Sources/ExcelUploadSource.php           (openspout streaming reader for the WIP export)
+  Exceptions/InvalidOracleFile.php
+  Models/{OracleImport,OracleImportRow}.php
+  Services/ImportPreviewService.php       (diff: new/changed/unchanged/missing/error; resolveParty; discard)
+  Services/PartyResolver.php              (oracle_code -> normalised name -> alias)
+  Services/ImportCommitService.php        (assertCommittable, claim, commit in one transaction, asAuditUser)
+  Jobs/CommitOracleImport.php             (queued commit; failed() marks the import failed)
+  Events/{LotImported,LotChanged}.php     (fired after the commit transaction)
+  Http/Controllers/OracleImportController.php
+  Console/ImportOracleFile.php            (php artisan oracle:import {path} [--user=] [--commit])
+```
+
+Import status flow: `previewed` → (commit screen: checks + atomic flip) `committing` → queued job → `committed`, or `failed` with `error_message`; a preview can also be `discarded`. The CLI path claims `previewed` → `committing` itself.
 
 ### 6.2 Frontend layout (`resources/js/`)
 
 ```
 pages/
   auth/*, settings/*                     (starter kit)
-  Dashboard.vue                          (placeholder; real dashboard is Task 19)
+  Dashboard.vue                          (summary widgets, Task 19)
+  oracle/{Imports,ImportPreview}.vue     (upload + history; preview tabs, party resolution, commit + polling)
   masters/{MasterForm,Parties,RouteTemplates}.vue
   admin/{Users,Roles,Settings}.vue
 components/
@@ -210,7 +235,7 @@ config/
 
 ### 6.3 Routes per module
 
-`routes/web.php` sets up `/` and `/dashboard`, requires `settings.php`, then globs and requires **every file under `routes/modules/*.php`**. Currently only `routes/modules/foundation.php` exists (it registers `/i18n/{locale}.json`, `/locale`, `/lov/{name}`, the explicit `masters/parties` and `masters/route-templates` routes, the **generic** `masters/{resource}` CRUD group, and `/admin/{users,roles,settings}`). Task 18 will add `routes/modules/oracle.php`.
+`routes/web.php` sets up `/` and `/dashboard`, requires `settings.php`, then globs and requires **every file under `routes/modules/*.php`**. `routes/modules/foundation.php` registers `/i18n/{locale}.json`, `/locale`, `/lov/{name}`, the explicit `masters/parties` and `masters/route-templates` routes, the **generic** `masters/{resource}` CRUD group, and `/admin/{users,roles,settings}`. `routes/modules/oracle.php` registers `/oracle/imports` (index and show under `oracle.import.view`; upload, `parties/{code}` resolve, `commit` and `discard` under `oracle.import.run`). `/dashboard` is in `routes/web.php`. The kit's `routes/settings.php` no longer has `DELETE settings/profile`: self-service account deletion was removed, and admins deactivate users instead.
 
 **Route ordering matters**: the explicit `masters/parties` and `masters/route-templates` routes are registered _above_ the generic `masters/{resource}` group in `foundation.php`, otherwise the generic route would swallow them. Any new master-detail screen (not handled by the generic `MasterController`) must follow the same placement.
 
@@ -218,7 +243,8 @@ config/
 
 - PHP translation files live per module group: `lang/en/{app,auth,forms,masters,admin}.php`, `lang/ur/{app,forms,masters,admin}.php` (Urdu currently lacks `auth.php`, `pagination.php`, `passwords.php`, `validation.php` — these fall back to English via `APP_FALLBACK_LOCALE=en`).
 - `App\Modules\Foundation\I18n\TranslationRepository` reads a locale's lang groups and serves them as **cached JSON** at `GET /i18n/{locale}.json?v={version}` (`TranslationController`). `version()` is a cache-busting token shared to the page as `i18nVersion`.
-- On first load, the initial locale's dict is inlined as `window.__I18N__` (Blade `app.blade.php`) and installed by the `i18n` Vue plugin. Subsequent calls to `t('group.key', replacements)` from **`@/lib/i18n`** read a shared reactive dict; `switchLocale(locale)` posts to `/locale`, then refetches and re-installs the JSON dict.
+- On first load, the initial locale's dict and version are inlined as `window.__I18N__` (Blade `app.blade.php`) and installed by the `i18n` Vue plugin. Subsequent calls to `t('group.key', replacements)` from **`@/lib/i18n`** read a shared reactive dict.
+- `initializeLocaleSync()` (registered in `app.ts`) listens to Inertia's `navigate` event and reloads the dict whenever the page's `locale` or `i18nVersion` differs from what is loaded, so a locale changed outside the switcher (e.g. restored at login) applies. `switchLocale(locale)` posts to `/locale` and shares the same in-flight load.
 - **RTL**: `SetLocale` middleware sets `app()->setLocale()`; `HandleInertiaRequests::share()` sends `locale`, `dir` (`ltr`/`rtl`, from `config('app.available_locales')`) and `locales`. `document.documentElement.dir`/`.lang` are set client-side in `setTranslations()`. Urdu's `dir` is `rtl`; Tailwind logical properties are used in layout so the sidebar and app shell mirror correctly (Task 11).
 
 ### 6.5 Permissions
@@ -260,7 +286,7 @@ Built across Tasks 7–9 to make every data-entry screen behave like Oracle Form
 - `LovDefinition` interface (`app/Modules/Foundation/Lov/LovDefinition.php`): `name()`, `permission()`, `columns()`, `query(filters)`, `searchColumns()`, `exactColumn()`, `row($model)`.
 - `LovRegistry` — name → `LovDefinition` map, registered in `AppServiceProvider::boot()`.
 - `LovController::show($name)` — `GET /lov/{name}`. Authorizes on `permission()` if set, then: an `?exact=` query does an exact match on `exactColumn()` (case-insensitive, plus an id match if numeric); a `?q=` query does a `LIKE '%needle%'` across `searchColumns()`; otherwise returns the first 50 rows ordered by `exactColumn()`.
-- **Current parties special-case**: `LovController::show()` still hardcodes `if ($name === 'parties' && $exact ...)` to resolve an exact match through `Party::findByName()` (which also checks aliases) — this is a known, ledger-flagged wart. **`applyExact()` does not exist yet.** The ledger's Task 10 review already anticipated this and explicitly scheduled its removal for **Task 15**, which is expected to add an `applyExact(string $exact): ?Model` (or similar) method to `LovDefinition`, generalise `LovController` to call it, and move the parties-specific alias lookup into `PartyLov::applyExact()`. Whoever implements Task 15 must keep the existing `tests/Feature/Foundation/LovTest.php` green.
+- **Exact lookups**: an LOV definition may implement an optional `applyExact($query, $exact)` (checked with `method_exists`); `PartyLov` uses it for the alias-aware lookup and `LotLov` for the 4-digit floor lookup. **Remaining wart (backlog M-12):** the `?q=` search still special-cases `$name === 'parties'` to normalise the needle.
 - **To add a new LOV**: implement `LovDefinition` under `Lov/Definitions/`, register it in `AppServiceProvider::boot()`'s `$lovs` loop. `LovField`/`LovDialog` consume it generically via `/lov/{name}`.
 
 ---
@@ -270,13 +296,14 @@ Built across Tasks 7–9 to make every data-entry screen behave like Oracle Form
 From the plan's **Global Constraints** plus the rulings that later hardened into project-wide conventions (see §10 for the full ruling list with rationale):
 
 - **Namespaces**: new PHP code under `App\Modules\<Module>\...`; models under `App\Modules\<Module>\Models\*`.
-- **Auditing**: every Foundation master model, and `Contract`/`Lot` when they land, implement `OwenIt\Auditing\Contracts\Auditable` (spec's "(A)" marker).
+- **Auditing**: every Foundation master model and `Contract`/`Lot` implement `OwenIt\Auditing\Contracts\Auditable` (spec's "(A)" marker). **Exception: `Setting`.** Its primary key is the string `key` but `audits.auditable_id` is a BIGINT, so auditing it broke saves on MySQL (final review C-1). Code that writes audited models from the console or queue must switch auditing on and set the acting user (see `ImportCommitService::asAuditUser`), because `audit.console` is false.
 - **Quantities**: `decimal(12,2)` metres, cast `'decimal:2'` on the model.
 - **No bare strings.** All user-visible text goes through translations: PHP `__('group.key')`, Vue `t('group.key')` from `@/lib/i18n`. Each module/task owns its own lang group file — never add strings to another task's group file.
 - **Routes**: one file per module under `routes/modules/<module>.php`, auto-loaded by `routes/web.php`. Explicit routes for a resource must be registered **above** any generic catch-all route for the same prefix (see §6.3).
 - **Seeders**: one class per concern, called in dependency order from `DatabaseSeeder`.
 - **Migration numbering**: prefix `2026_09_19_` + a 6-digit sequence from the task's **reserved range** (e.g. Task 2 = `000100`–`000199`, Task 3 = `000200`–`000299`, Task 4 = `000300`–`000349`, Task 5 = `000350`–`000399`, Task 15 = `000500`–`000549`, Task 17 = `000600`–`000649`) so tasks never collide on migration filenames.
-- **Verification gate**: `./vendor/bin/pest`, `npm run build`, `npm run types:check`, `npm run test:js` (from Task 8 onward) must all pass before a task is considered done.
+- **Verification gate**: `./vendor/bin/pest`, `npm run build`, `npm run types:check`, `npm run test:js`, plus `composer ci:check` and `./vendor/bin/phpstan analyse` (no new baseline entries) must all pass before a change is considered done.
+- **Grid keys**: inside an AG Grid (`.ag-root-wrapper`), `useFormsKeys` leaves the New/Delete/Previous/Next record keys to the grid; Save, query and Exit keys still work.
 - **Commit trailer**: Conventional Commits ending `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>` (the plan's text; used by every commit on this branch). If a future session's harness supplies a different attribution line, follow the harness instruction for new commits.
 - **Permission/role names** are exactly the constants in `App\Modules\Foundation\Access\Permissions` — never invent a new spelling ad hoc.
 - **Registration is disabled** — users are created only by an Admin.
@@ -294,42 +321,52 @@ From the plan's **Global Constraints** plus the rulings that later hardened into
 
 ### 8.1 The 19 Phase-1 tasks
 
-| #   | Task                                                                     | Status      | Commits                                                                                                                  |
-| --- | ------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Project scaffold and dev services                                        | Done        | `addbd79..b259ac3`                                                                                                       |
-| 2   | Roles, permissions, active users                                         | Done        | `b259ac3..60b251e`                                                                                                       |
-| 3   | Auditing and core masters                                                | Done        | `60b251e..f3fe3f8`                                                                                                       |
-| 4   | Parties, aliases, qualities + parser                                     | Done        | `f3fe3f8..c7ece85`                                                                                                       |
-| 5   | Route templates and matcher                                              | Done        | `c7ece85..d2d12e8`                                                                                                       |
-| 6   | Languages (EN/UR) and RTL                                                | Done        | `d2d12e8..9e19425`                                                                                                       |
-| 7   | Query-mode criteria parser (backend)                                     | Done        | `9e19425..be35c52`                                                                                                       |
-| 8   | Forms UI kit A (keymap, toolbar, status line, query mode, unsaved guard) | Done        | `be35c52..c975b66`                                                                                                       |
-| 9   | Forms UI kit B (LOV field, grids)                                        | Done        | `c975b66..c376a17`                                                                                                       |
-| —   | _Out-of-plan bugfix: seeding + Spatie permission cache_                  | Done        | `c376a17..e4b9f7a`                                                                                                       |
-| 10  | LOV backend                                                              | Done        | `e4b9f7a..21be0de`                                                                                                       |
-| 11  | App shell — nav, top bar, status line, RTL sidebar                       | Done        | `21be0de..b6544a4`                                                                                                       |
-| 12  | Generic master screens                                                   | Done        | `b6544a4..3da93e4`                                                                                                       |
-| 13  | Master-detail masters (Parties, Route Templates)                         | Done        | `3da93e4..14b3567`                                                                                                       |
-| 14  | Administration — users, roles, settings                                  | Done        | `14b3567..db062ee` (fix round 1: only admins manage admin accounts, 404 for unknown roles, translated permission groups) |
-| 15  | Contracts and lots + lot/PO LOVs                                         | Not started | —                                                                                                                        |
-| 16  | Oracle source interface and Excel reader                                 | Not started | —                                                                                                                        |
-| 17  | Import preview, party resolution and commit                              | Not started | —                                                                                                                        |
-| 18  | Oracle import screens                                                    | Not started | —                                                                                                                        |
-| 19  | Dashboard summary, import command, e2e verification                      | Not started | —                                                                                                                        |
+| #   | Task                                                                     | Status | Commits                                                                                                                                |
+| --- | ------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Project scaffold and dev services                                        | Done   | `addbd79..b259ac3`                                                                                                                     |
+| 2   | Roles, permissions, active users                                         | Done   | `b259ac3..60b251e`                                                                                                                     |
+| 3   | Auditing and core masters                                                | Done   | `60b251e..f3fe3f8`                                                                                                                     |
+| 4   | Parties, aliases, qualities + parser                                     | Done   | `f3fe3f8..c7ece85`                                                                                                                     |
+| 5   | Route templates and matcher                                              | Done   | `c7ece85..d2d12e8`                                                                                                                     |
+| 6   | Languages (EN/UR) and RTL                                                | Done   | `d2d12e8..9e19425`                                                                                                                     |
+| 7   | Query-mode criteria parser (backend)                                     | Done   | `9e19425..be35c52`                                                                                                                     |
+| 8   | Forms UI kit A (keymap, toolbar, status line, query mode, unsaved guard) | Done   | `be35c52..c975b66`                                                                                                                     |
+| 9   | Forms UI kit B (LOV field, grids)                                        | Done   | `c975b66..c376a17`                                                                                                                     |
+| —   | _Out-of-plan bugfix: seeding + Spatie permission cache_                  | Done   | `c376a17..e4b9f7a`                                                                                                                     |
+| 10  | LOV backend                                                              | Done   | `e4b9f7a..21be0de`                                                                                                                     |
+| 11  | App shell — nav, top bar, status line, RTL sidebar                       | Done   | `21be0de..b6544a4`                                                                                                                     |
+| 12  | Generic master screens                                                   | Done   | `b6544a4..3da93e4`                                                                                                                     |
+| 13  | Master-detail masters (Parties, Route Templates)                         | Done   | `3da93e4..14b3567`                                                                                                                     |
+| 14  | Administration — users, roles, settings                                  | Done   | `14b3567..db062ee` (fix round 1: only admins manage admin accounts, 404 for unknown roles, translated permission groups)               |
+| —   | _Handoff docs_                                                           | Done   | `db062ee..38cff68`                                                                                                                     |
+| 15  | Contracts and lots + lot/PO LOVs                                         | Done   | `38cff68..22995f3`                                                                                                                     |
+| 16  | Oracle source interface and Excel reader                                 | Done   | `22995f3..9991264`                                                                                                                     |
+| 17  | Import preview, party resolution and commit                              | Done   | `9991264..9a99b18` (2 fix rounds: duplicate-line errors kept, codes sharing one party, atomic commit start, one oracle_code per party) |
+| 18  | Oracle import screens                                                    | Done   | `9a99b18..8db6414` (fix: unreadable workbooks are invalid uploads)                                                                     |
+| 19  | Dashboard summary, import command, e2e verification                      | Done   | `8db6414..b45e309` (`bbd8afe` is a docs note inside this range)                                                                        |
+| —   | _Final whole-branch review fixes_ (C-1, I-1…I-8)                         | Done   | `b45e309..` the I-8 docs commit (see below)                                                                                            |
 
-Task 14 is complete (tip at time of writing: `db062ee`). Task 15 (contracts/lots + lot LOV) was dispatched next — check `git log` for its commit before resuming.
+**All 19 Phase-1 tasks are done.** Task 19's end-to-end run on the Docker MySQL: preview 471 new / 152 errors → resolve 4 parties → commit 623 lots / 167 contracts → re-import shows 623 unchanged.
+
+**Final whole-branch review** (base `addbd79`) returned "with fixes". The fix wave:
+
+- `22fb78a`: C-1 `Setting` no longer Auditable (500 on MySQL); I-3 shift times `HH:MM:SS`; I-6 queued and CLI import commits audited as the committing user; I-7 self-service account deletion removed.
+- `ed3e44b`: I-2 commit checks plus an atomic `previewed → committing` flip in the controller, the job's `failed()` hook, rollback and job tests, and the page polls until committed or failed.
+- `d0bd829`: I-1 record keys left to AG Grid; I-4 locale re-synced on every navigation.
+- `89e5dc0` and `b38b5fb`: I-5 CI green (`deleteOrFail()` for the FK-guarded deletes, alias filter, `vp check --fix`, Pint, PHPStan baseline).
+- The docs commit that added this section: I-8.
 
 **Out-of-plan bugfix** (done, between Task 9 and Task 10): a user-reported `PermissionDoesNotExist` on `php artisan db:seed`. Root cause: `DatabaseSeeder` uses `WithoutModelEvents`, which disabled Spatie's permission-cache refresh after `RolesAndPermissionsSeeder` created new permissions, so role assignment later in the same seeding run couldn't find them. Fix: call `forgetCachedPermissions()` after creating permissions, plus a regression test that seeds through the real `DatabaseSeeder`. Commit `e4b9f7a`, verified against MySQL (`ppc` role got 18 permissions, admin role ok, 112 operations, 124 parties seeded).
 
-### 8.2 Remaining P1 tasks (15–19)
+### 8.2 What P1 delivered (Tasks 15–19)
 
-| #   | Purpose                                                                                                                                                                                                    |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 15  | Add `contracts`/`lots` models (Oracle-owned fields only, no ledger yet) and their LOVs (`LotLov`, `ContractLov`); also expected to generalise the LOV parties special-case into `applyExact()` (see §6.7). |
-| 16  | Define the `OracleLotSource` contract, `OracleLotRow` DTO, and the `ExcelUploadSource` implementation that reads the Oracle XLSX export via openspout.                                                     |
-| 17  | Build import preview (new/changed/unchanged/missing + diffs), `PartyResolver` (oracle_code → normalised name → alias, with manual-mapping fallback), and `ImportCommitService` running on the queue.       |
-| 18  | Build the Oracle Import Vue screens (upload, preview, commit, history) and `routes/modules/oracle.php`.                                                                                                    |
-| 19  | Build the real Dashboard controller/widgets, an `artisan` import command, and do end-to-end verification of the whole P1 slice.                                                                            |
+| #   | Delivered                                                                                                                                                 |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 15  | `contracts`/`lots` (Oracle-owned fields only, no ledger yet), `ContractLov`, `LotLov` (4-digit floor lookup), optional `applyExact()` on LOV definitions. |
+| 16  | `OracleLotSource` contract, `OracleLotRow` DTO, `ExcelUploadSource` (openspout streaming reader).                                                         |
+| 17  | Import preview and diff, `PartyResolver` with manual link/create, `ImportCommitService` (one transaction, events after commit, stale check).              |
+| 18  | Oracle Import screens (upload, history, preview tabs, party resolution, commit with polling) and `routes/modules/oracle.php`.                             |
+| 19  | Dashboard summary widgets, `php artisan oracle:import`, end-to-end verification on MySQL.                                                                 |
 
 ### 8.3 P2–P5 (from spec §12, not yet planned in detail)
 
@@ -353,7 +390,9 @@ Script locations (superpowers plugin, this machine):
 /home/noman/.claude/plugins/cache/claude-plugins-official/superpowers/6.3.0/skills/subagent-driven-development/scripts/review-package/
 ```
 
-**To resume:**
+**P1 is complete.** Next: merge `feat/p1-foundation` with the **`finishing-a-development-branch`** skill, work through the go-live checklist in §13, then plan P2 (step 7 below), starting from the backlog in §14.
+
+**To resume an interrupted plan** (kept for reference):
 
 1. Create a **new** SDD ledger for the same plan (`docs/superpowers/plans/2026-09-19-p1-foundation-oracle-sync.md`) — the old one under `.superpowers/sdd/2026-09-19-p1-foundation-oracle-sync/` is **git-ignored** and will not exist in a fresh checkout. Its first line must be the plan path, per the ledger format shown at the top of this doc's own ledger read (`# SDD ledger — plan: docs/superpowers/plans/2026-09-19-p1-foundation-oracle-sync.md`).
 2. Mark Tasks 1–13 complete using **`git log --oneline main..HEAD`** as ground truth (the commit ranges in §8.1 came straight from that log, cross-checked against the old ledger) — don't trust a stale ledger over the actual git history.
@@ -442,14 +481,14 @@ Grouped by area, copied from the ledger's deferred-minor notes. **None of these 
 - `FormsToolbar` keeps two manually-synced lists of actions internally.
 - The **Clear** action outside query mode discards edits without the Save/Discard/Cancel prompt that Oracle Forms itself shows on Clear (Task 12) — `guard()` and the router visit guard currently share one `pendingAction` slot, which made wiring Clear through it non-trivial.
 - Master `destroy` flashes a `selectedId` that the frontend doesn't currently use (new/updated record isn't auto-selected after save).
-- `LovController` still special-cases `$name === 'parties'` twice (see §6.7) — scheduled for cleanup in Task 15.
+- `LovController` still special-cases `$name === 'parties'` for the `?q=` search (see §6.7, backlog M-12); the exact-match case moved to `PartyLov::applyExact()` in Task 15.
 - `OperationLov::row()` returns extra keys beyond the interface's documented shape (undocumented, not necessarily wrong).
 - `QualityParser`'s `LOOM` regex is lazy — flagged as worth revisiting if quality descriptions grow more varied.
 - `PartySeeder` silently skips an alias whose target party is missing, rather than failing loudly.
 - `RouteTemplateMatcher`'s `LIKE` pattern matching has no escaping for literal `%`/`_` characters in a `quality_pattern`.
 - Department badges in the top bar render nothing (no explicit empty state) for a user with no assigned departments.
 - The plan's own test for "syncs machine departments" (Task 12) compared a sorted `pluck()` to an unsorted literal array — a plan defect, not a code bug; the implementer sorted both sides to match intent.
-- `npm run check` (lint/format — not one of the four required gates) flags pre-existing formatting issues across ~38 files, first noticed at Task 11 — someone should eventually run `npm run check:fix` or explicitly accept the style as-is.
+- ~~`npm run check` flags pre-existing formatting issues~~: fixed in the final-review fix wave (`vp check --fix`, Pint); `composer ci:check` is green.
 
 **Open review risk (flagged, not yet resolved):**
 
@@ -475,3 +514,66 @@ From spec §13, still unresolved and blocking full accuracy of downstream work:
 - The Save/Discard/Cancel dialog's actual on-screen behaviour during a real guarded navigation.
 
 Whoever next has a working browser against a running `composer run dev` instance should do a manual pass over all of the above before P1 is considered visually, not just functionally, complete.
+
+---
+
+## 13. Production / go-live
+
+Checklist for the first deploy, and for every deploy after it:
+
+- **Run migrations on every deploy**: `php artisan migrate --force`. It is additive; never run `migrate:fresh` on a real database. On the first install only: `php artisan migrate --force --seed`.
+- **Seed before caching config.** `AdminUserSeeder` reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` with `env()`, which returns the defaults (`admin@fabric.local` / `password`) once `php artisan config:cache` has run.
+- **Change the seeded admin password** right after the first login (Settings → Security), whatever `.env` said.
+- **A queue worker must be running.** Oracle import commits run on the queue (`CommitOracleImport`); without a worker an import stays in `committing` forever. Run the worker under Supervisor or systemd, restarted on failure and after each deploy (`php artisan queue:restart`):
+
+    ```ini
+    [program:fabric-ppc-queue]
+    command=php /var/www/fabric-ppc/artisan queue:work redis --timeout=600 --tries=1 --sleep=3
+    autostart=true
+    autorestart=true
+    stopwaitsecs=660
+    user=www-data
+    ```
+
+- **Set `REDIS_QUEUE_RETRY_AFTER` to at least 660** in `.env` (`config/queue.php` defaults to 90). It must exceed the job's 600 s timeout. Otherwise Redis hands a long commit to a second worker while the first is still running. With `tries=1` that second delivery fails at once, its `failed()` hook marks the still-running import `failed`, and the first worker then overwrites that with `committed`. See backlog M-9.
+- Use `QUEUE_CONNECTION=redis`, and `CACHE_STORE`/`SESSION_DRIVER` as in `.env.example`. After each deploy run `php artisan config:cache`, `route:cache` and `view:cache`, and build the assets with `npm ci && npm run build`.
+- **Auditing**:
+    - Web requests are audited automatically (owen-it, `audit.console=false`).
+    - Queue workers and artisan commands count as the console. So `CommitOracleImport` and `oracle:import --commit` wrap the commit in `ImportCommitService::asAuditUser()`. It switches auditing on and acts as the committing user, then restores both, so lot, contract and party audits carry `user_id`.
+    - The bulk `oracle_missing_at` flag changes are query-builder updates and produce **no** per-lot audit rows. The flag is set when a lot is missing from an export and cleared when it reappears. These changes are traced by that import's `oracle_import_rows` with action `missing` (and `unchanged` for the clears).
+    - `Setting` is not audited (see §7).
+- Uploaded exports are kept under the local disk's `oracle-imports/` folder, with no retention policy yet (backlog).
+
+---
+
+## 14. P2 backlog from final review
+
+The final whole-branch review (base `addbd79`) deferred these items. Plan them into P2; none of them blocks P1 use.
+
+| #    | Item                                                                                                                                                             |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M-1  | `users.email_verified_at` is not fillable, so admin-created users depend on how the controller sets it.                                                          |
+| M-2  | A non-admin user manager (has `admin.users.manage`) can't save their own record.                                                                                 |
+| M-3  | A roles manager can grant `admin.*` permissions to a non-admin role (privilege-escalation path).                                                                 |
+| M-4  | Inactive users can still log in; `EnsureUserIsActive` only kicks them out on the next request. Block this at login.                                              |
+| M-5  | Array-valued query criteria (`q[field][]=…`) cause a 500 instead of a validation error.                                                                          |
+| M-6  | One bad Excel row aborts the whole preview, and overlong values pass the preview but fail the commit. Validate lengths per row, into error rows.                 |
+| M-7  | Two _different_ previews can commit concurrently, because the stale check isn't atomic across imports. Wrap the commit in `Cache::lock('oracle-import-commit')`. |
+| M-8  | `contracts.oracle_missing_at` is never set, and alias and route-step bulk deletes aren't audited.                                                                |
+| M-9  | The queue's `retry_after` (90 s default) is below the commit job's 600 s timeout. This is documented in §13; also make the config default safe.                  |
+| M-10 | The `users` LOV exposes email addresses to anyone who can open it.                                                                                               |
+| M-11 | Urdu coverage for the starter kit's auth and settings pages: `lang/ur/auth.php` and others are missing, and the kit's Vue pages have hard-coded English.         |
+| M-12 | `LovController` still special-cases the `parties` search (`?q=`). Move it into the definition, as `applyExact()` did for exact lookups.                          |
+| M-13 | The lot LOV doesn't accept a PO number, and the generic exact fallback ORs a numeric needle on the primary key, so a lot number can match a lot id.              |
+| M-14 | The Roles page has no Forms toolbar, unlike every other screen.                                                                                                  |
+| —    | **Clear** outside query mode discards edits without the Save/Discard/Cancel prompt.                                                                              |
+| —    | A new or updated record isn't auto-selected after save (the flashed `selectedId` is unused).                                                                     |
+
+**Plan gaps** (spec features the P1 plan didn't cover):
+
+- Global search (spec §4.1 top bar).
+- Enter-to-next-field navigation on forms (Oracle Forms behaviour).
+- An error reference id shown to users for unexpected errors and logged with the exception (spec §9).
+- Browser smoke tests: keyboard flows, the LOV modal, RTL and themes (see the manual checks in §12).
+- A MySQL-backed CI job. The suite runs on SQLite, and C-1 and I-3 were MySQL-only bugs.
+- Burning down `phpstan-baseline.neon`.

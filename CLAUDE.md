@@ -17,12 +17,13 @@ php artisan migrate               # after pulling new code: applies new tables, 
 composer run dev                  # serve + queue + vite together
 ```
 
-Verification gate — all four must pass before any change is done:
+Verification gate — all of these must pass before any change is done:
 ```bash
 ./vendor/bin/pest        # PHP tests (in-memory SQLite, no Docker needed)
 npm run test:js          # Vitest
 npm run types:check      # vue-tsc --noEmit
 npm run build            # vite production build
+composer ci:check        # vp check (format+lint) + vue-tsc + pest; also ./vendor/bin/phpstan analyse (no new baseline entries)
 ```
 
 ## Non-negotiable conventions
@@ -36,7 +37,7 @@ npm run build            # vite production build
 - In-page record navigation (prev/next/new/grid row) must go through `useUnsavedGuard().guard(fn)`, not call it directly.
 - Delete errors must reach `form.setError(errors)`, not just a toast.
 - Never edit `resources/js/components/ui/*` (shadcn-vue primitives) — add new primitives via the shadcn-vue CLI instead.
-- Every Foundation master model, plus `Contract`/`Lot`, implements `Auditable`. Quantities are `decimal(12,2)`.
+- Every Foundation master model, plus `Contract`/`Lot`, implements `Auditable` (except `Setting`: string key vs BIGINT `auditable_id`). Console/queue writes use `ImportCommitService::asAuditUser()`. Quantities are `decimal(12,2)`.
 
 ## Workflow
 
@@ -44,4 +45,4 @@ Use the superpowers **subagent-driven-development** skill: one implementer subag
 
 ## Current status
 
-Branch `feat/p1-foundation`, Phase 1 (Foundation + OracleSync): Tasks 1–14 done, Task 15 in progress, Tasks 16–19 not started (check `git log` for the latest). Details and every ruling made so far are in `docs/HANDOFF.md`.
+Branch `feat/p1-foundation`, Phase 1 (Foundation + OracleSync): **all 19 tasks done** and the final whole-branch review's fixes (C-1, I-1…I-8) are committed; next is merging to `main`, the go-live checklist (`docs/HANDOFF.md` §13: queue worker, `REDIS_QUEUE_RETRY_AFTER` ≥ 660, admin password) and planning P2 from the backlog in §14. Check `git log` for anything newer.
