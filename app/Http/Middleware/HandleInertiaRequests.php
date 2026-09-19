@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Modules\Foundation\Access\Permissions;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -40,6 +41,12 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'roles' => $request->user()?->getRoleNames()->values()->all() ?? [],
+                'permissions' => $request->user() === null ? [] : (
+                    $request->user()->hasRole(Permissions::ROLE_ADMIN)
+                        ? Permissions::ALL
+                        : $request->user()->getAllPermissions()->pluck('name')->values()->all()
+                ),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
