@@ -49,6 +49,10 @@ class HandleInertiaRequests extends Middleware
                 ),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'locale' => app()->getLocale(),
+            'dir' => config('app.available_locales.'.app()->getLocale().'.dir', 'ltr'),
+            'locales' => config('app.available_locales'),
+            'i18nVersion' => app(\App\Modules\Foundation\I18n\TranslationRepository::class)->version(app()->getLocale()),
         ];
     }
 }

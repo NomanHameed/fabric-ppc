@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ config('app.available_locales.'.app()->getLocale().'.dir', 'ltr') }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,6 +33,15 @@
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+        @php
+            $__i18nBoot = [
+                'locale' => app()->getLocale(),
+                'dir' => config('app.available_locales.'.app()->getLocale().'.dir', 'ltr'),
+                'dict' => app(\App\Modules\Foundation\I18n\TranslationRepository::class)->all(app()->getLocale()),
+            ];
+        @endphp
+        <script>window.__I18N__ = @json($__i18nBoot);</script>
 
         @fonts
 

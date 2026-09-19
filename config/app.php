@@ -123,4 +123,9 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'available_locales' => [
+        'en' => ['name' => 'English', 'dir' => 'ltr'],
+        'ur' => ['name' => 'اردو', 'dir' => 'rtl'],
+    ],
+
 ];
