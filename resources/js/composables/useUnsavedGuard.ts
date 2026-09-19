@@ -1,5 +1,29 @@
+import type { PendingVisit, VisitOptions } from '@inertiajs/core';
 import { router } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+
+/**
+ * Picks the subset of a blocked visit's options that is safe to replay after
+ * Save/Discard, so a guarded GET navigation reproduces the original request
+ * (scroll/state preservation, partial reloads, headers, …) instead of a plain
+ * full reload. Deliberately excludes the `PendingVisit`-only bookkeeping
+ * fields (`id`, `url`, `completed`, `cancelled`, `interrupted`).
+ */
+export function replayOptions(visit: PendingVisit): VisitOptions {
+    return {
+        method: 'get',
+        preserveScroll: visit.preserveScroll,
+        preserveState: visit.preserveState,
+        only: visit.only,
+        except: visit.except,
+        headers: visit.headers,
+        replace: visit.replace,
+        errorBag: visit.errorBag,
+        reset: visit.reset,
+        queryStringArrayFormat: visit.queryStringArrayFormat,
+        forceFormData: visit.forceFormData,
+    };
+}
 
 /**
  * Oracle-Forms style "Save changes?" guard.
@@ -25,7 +49,7 @@ export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<bool
             if (bypass || !isDirty() || visit.method !== 'get') {
                 return;
             }
-            pendingVisit = () => router.visit(visit.url, { method: 'get' });
+            pendingVisit = () => router.visit(visit.url, replayOptions(visit));
             dialogOpen.value = true;
             return false;
         });
