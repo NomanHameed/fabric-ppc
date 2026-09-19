@@ -25,7 +25,7 @@ const { isMobile, state } = useSidebar();
     <SidebarMenu>
         <SidebarMenuItem>
             <DropdownMenu>
-                <DropdownMenuTrigger v-if="user" as-child>
+                <DropdownMenuTrigger as-child>
                     <SidebarMenuButton
                         size="lg"
                         class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
@@ -36,7 +36,6 @@ const { isMobile, state } = useSidebar();
                     </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                    v-if="user"
                     class="w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-lg"
                     :side="
                         isMobile
