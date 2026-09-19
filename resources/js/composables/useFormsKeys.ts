@@ -8,9 +8,17 @@ type Entry = { handlers: Handlers; active: () => boolean };
 const stack: Entry[] = [];
 let listening = false;
 
+/** Record navigation/editing keys an AG Grid handles itself (Ctrl+Delete, Ctrl+Down, Page Up/Down). */
+const GRID_OWNED: ReadonlySet<FormsAction> = new Set<FormsAction>(['newRecord', 'deleteRecord', 'previousRecord', 'nextRecord']);
+
 function onKeydown(e: KeyboardEvent): void {
     const action = matchAction(e);
     if (!action) {
+        return;
+    }
+    // Inside a grid these keys belong to the grid's rows, not the form's record (e.g. Ctrl+Delete in a
+    // detail grid must not delete the master record). Save, query and exit keys still apply.
+    if (GRID_OWNED.has(action) && (e.target as Element | null)?.closest?.('.ag-root-wrapper')) {
         return;
     }
     for (let i = stack.length - 1; i >= 0; i -= 1) {

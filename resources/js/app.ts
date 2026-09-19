@@ -5,7 +5,7 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { registerAgGrid } from '@/lib/agGrid';
 import { initializeFlashToast } from '@/lib/flashToast';
-import { i18n } from '@/lib/i18n';
+import { i18n, initializeLocaleSync } from '@/lib/i18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -37,3 +37,6 @@ initializeTheme();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
+
+// This will reload translations whenever a page arrives in a different locale (e.g. after login)...
+initializeLocaleSync();
