@@ -2,8 +2,10 @@
 
 use App\Models\User;
 use App\Modules\Foundation\Models\Party;
+use App\Modules\OracleSync\Services\ImportCommitService;
 use App\Modules\OracleSync\Services\ImportPreviewService;
 use App\Modules\OracleSync\Sources\ExcelUploadSource;
+use App\Modules\Production\Models\Lot;
 use Illuminate\Validation\ValidationException;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
@@ -45,6 +47,7 @@ function oracleRow(array $overrides = []): array
 beforeEach(function () {
     $this->user = User::factory()->create();
     $this->preview = app(ImportPreviewService::class);
+    $this->commit = app(ImportCommitService::class);
 });
 
 it('keeps a duplicate-line error alive when resolving an unknown party for its code', function () {
@@ -97,3 +100,49 @@ it('refuses to resolve a code that has no unknown-party rows', function () {
 
     $this->preview->resolveParty($import, 424242, ['mode' => 'create', 'type' => 'brand']);
 })->throws(ValidationException::class);
+
+it('refuses to link the second of two codes sharing one uncoded party, leaving it unlinked', function () {
+    $party = Party::create(['name' => 'ABC', 'type' => 'brand']);
+    $party->aliases()->create(['alias' => 'ABC LTD']);
+
+    $path = buildOracleXlsx([
+        oracleRow(['PARTY' => 'ABC', 'PARTY_CODE' => 100, 'CONTRACT_NUM' => 610001, 'LOT_NUM1' => 610001, 'PC_DTL_ID' => 9201]),
+        oracleRow(['PARTY' => 'ABC LTD', 'PARTY_CODE' => 200, 'CONTRACT_NUM' => 610002, 'LOT_NUM1' => 610002, 'PC_DTL_ID' => 9202]),
+    ]);
+    $import = $this->preview->preview(new ExcelUploadSource($path), $this->user);
+
+    try {
+        $this->preview->resolveParty($import, 200, ['mode' => 'link', 'party_id' => $party->id]);
+        $this->fail('Expected a ValidationException.');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('party_id');
+    }
+
+    expect($party->fresh()->oracle_code)->toBeNull();
+});
+
+it('commits both codes when the conflicting one creates a new party instead of linking', function () {
+    $party = Party::create(['name' => 'ABC', 'type' => 'brand']);
+    $party->aliases()->create(['alias' => 'ABC LTD']);
+
+    $path = buildOracleXlsx([
+        oracleRow(['PARTY' => 'ABC', 'PARTY_CODE' => 100, 'CONTRACT_NUM' => 620001, 'LOT_NUM1' => 620001, 'PC_DTL_ID' => 9301]),
+        oracleRow(['PARTY' => 'ABC LTD', 'PARTY_CODE' => 200, 'CONTRACT_NUM' => 620002, 'LOT_NUM1' => 620002, 'PC_DTL_ID' => 9302]),
+    ]);
+    $import = $this->preview->preview(new ExcelUploadSource($path), $this->user);
+
+    $import = $this->preview->resolveParty($import, 200, ['mode' => 'create', 'type' => 'brand']);
+    expect($import->error_count)->toBe(0);
+
+    $this->commit->commit($import, $this->user);
+
+    $newParty = Party::where('oracle_code', 200)->first();
+    $lot100 = Lot::where('oracle_line_id', 9301)->first();
+    $lot200 = Lot::where('oracle_line_id', 9302)->first();
+
+    expect($party->fresh()->oracle_code)->toBe(100)
+        ->and($newParty)->not->toBeNull()
+        ->and($newParty->id)->not->toBe($party->id)
+        ->and($lot100->contract->party_id)->toBe($party->id)
+        ->and($lot200->contract->party_id)->toBe($newParty->id);
+});

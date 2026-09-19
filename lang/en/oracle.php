@@ -30,6 +30,7 @@ return [
         'not_previewed' => 'This import is not in preview state.',
         'stale' => 'Another import was committed after this preview. Upload the file again.',
         'code_conflict' => 'This party is already linked to Oracle code :code.',
+        'party_claimed' => 'This party is already matched to Oracle code :code in this file. Create a new party for this code instead.',
     ],
     'committed' => 'Import committed: :new new, :changed changed, :missing missing.',
 ];

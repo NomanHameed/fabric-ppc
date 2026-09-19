@@ -88,9 +88,13 @@ final class ImportPreviewService
             }
 
             $name = $rows->first()?->payload['party_name'] ?? '';
-            $resolution['mode'] === 'link'
-                ? $this->parties->link($code, $name, Party::query()->findOrFail($resolution['party_id']))
-                : $this->parties->create($code, $name, $resolution['type'] ?? 'brand');
+            if ($resolution['mode'] === 'link') {
+                $target = Party::query()->findOrFail($resolution['party_id']);
+                $this->assertPartyNotClaimedByAnotherCode($import, $code, $target);
+                $this->parties->link($code, $name, $target);
+            } else {
+                $this->parties->create($code, $name, $resolution['type'] ?? 'brand');
+            }
 
             $existing = Lot::query()->with(['contract.party', 'quality'])
                 ->whereIn('oracle_line_id', $rows->pluck('oracle_line_id'))->get()->keyBy('oracle_line_id');
@@ -110,6 +114,30 @@ final class ImportPreviewService
     {
         if ($import->status === 'previewed') {
             $import->update(['status' => 'discarded']);
+        }
+    }
+
+    /**
+     * A party can hold only one Oracle code. Refuse linking $code to $target when some other,
+     * distinct code among this import's resolved rows already resolves to the same uncoded party
+     * by name/alias — that other code implicitly claimed it first (see PartyResolver::resolve()).
+     * A target that already carries a different explicit oracle_code is refused by link() itself.
+     */
+    private function assertPartyNotClaimedByAnotherCode(OracleImport $import, int $code, Party $target): void
+    {
+        if ($target->oracle_code !== null) {
+            return;
+        }
+
+        $otherCodes = $import->rows()->whereIn('action', ['new', 'changed', 'unchanged'])
+            ->whereNotNull('party_code')->where('party_code', '!=', $code)
+            ->distinct()->pluck('party_code');
+
+        foreach ($otherCodes as $otherCode) {
+            $otherName = $import->rows()->where('party_code', $otherCode)->value('payload')['party_name'] ?? '';
+            if ($this->parties->resolve($otherCode, $otherName)?->id === $target->id) {
+                throw ValidationException::withMessages(['party_id' => __('oracle.errors.party_claimed', ['code' => $otherCode])]);
+            }
         }
     }
 
