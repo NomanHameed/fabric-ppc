@@ -4,13 +4,13 @@ namespace App\Modules\Foundation\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
-use OwenIt\Auditing\Auditable as AuditableTrait;
-use OwenIt\Auditing\Contracts\Auditable;
 
-class Setting extends Model implements Auditable
+/**
+ * Not Auditable: the primary key is the string `key`, but `audits.auditable_id` is a BIGINT,
+ * so MySQL strict mode would reject every audit row (final review C-1).
+ */
+class Setting extends Model
 {
-    use AuditableTrait;
-
     protected $primaryKey = 'key';
 
     public $incrementing = false;

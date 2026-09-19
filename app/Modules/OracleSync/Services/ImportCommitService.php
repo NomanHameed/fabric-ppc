@@ -11,12 +11,46 @@ use App\Modules\OracleSync\Models\OracleImport;
 use App\Modules\Production\Models\Contract;
 use App\Modules\Production\Models\Lot;
 use DomainException;
+use Closure;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 final class ImportCommitService
 {
     public function __construct(private readonly PartyResolver $parties) {}
+
+    /**
+     * Run $callback with model auditing switched on and $user as the audit user, then restore both.
+     *
+     * Queue workers and artisan commands count as the console, where `audit.console` is false and nobody is
+     * logged in, so without this an import commit would leave no audit trail (final review I-6). Lots and
+     * contracts get per-model audits; the bulk `oracle_missing_at` flag changes are traced by the
+     * `oracle_import_rows` rows with action `missing` instead.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public static function asAuditUser(User $user, Closure $callback): mixed
+    {
+        $console = config('audit.console');
+        $previous = Auth::user();
+        config(['audit.console' => true]);
+        Auth::setUser($user);
+
+        try {
+            return $callback();
+        } finally {
+            config(['audit.console' => $console]);
+            if ($previous !== null) {
+                Auth::setUser($previous);
+            } else {
+                Auth::forgetUser();
+            }
+        }
+    }
 
     public function commit(OracleImport $import, User $user): void
     {

@@ -120,3 +120,17 @@ it('does not treat an unrelated query exception as "in use"', function () {
     $this->actingAs($this->ppc)->delete("/masters/zzfake/{$dept->id}")->assertStatus(500);
     expect(Department::whereKey($dept->id)->exists())->toBeTrue();
 });
+
+it('edits a shift whose times come back from the database with seconds', function () {
+    $shift = App\Modules\Foundation\Models\Shift::where('code', 'A')->firstOrFail();
+    $shift->forceFill(['starts_at' => '08:00:00', 'ends_at' => '20:00:00'])->save();
+
+    $this->actingAs($this->ppc)->get('/masters/shifts')
+        ->assertInertia(fn ($page) => $page->where('rows.0.starts_at', '08:00')->where('rows.0.ends_at', '20:00'));
+
+    $this->actingAs($this->ppc)->put("/masters/shifts/{$shift->id}", ['code' => 'A', 'name' => 'Day', 'starts_at' => '08:00:00', 'ends_at' => '20:00:00'])
+        ->assertSessionHasNoErrors()->assertRedirect();
+    $this->actingAs($this->ppc)->put("/masters/shifts/{$shift->id}", ['code' => 'A', 'name' => 'Day', 'starts_at' => '07:30', 'ends_at' => '19:30'])
+        ->assertSessionHasNoErrors()->assertRedirect();
+    expect(substr((string) $shift->fresh()->starts_at, 0, 5))->toBe('07:30');
+});

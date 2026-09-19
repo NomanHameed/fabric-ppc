@@ -23,6 +23,10 @@ class CommitOracleImport implements ShouldQueue
 
     public function handle(ImportCommitService $service): void
     {
-        $service->commit(OracleImport::query()->findOrFail($this->importId), User::query()->findOrFail($this->userId));
+        $import = OracleImport::query()->findOrFail($this->importId);
+        $user = User::query()->findOrFail($this->userId);
+
+        // The worker is the console: switch auditing on and act as the committing user so lot/contract audits get user_id.
+        ImportCommitService::asAuditUser($user, fn () => $service->commit($import, $user));
     }
 }

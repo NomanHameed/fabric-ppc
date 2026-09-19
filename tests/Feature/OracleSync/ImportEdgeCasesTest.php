@@ -7,42 +7,6 @@ use App\Modules\OracleSync\Services\ImportPreviewService;
 use App\Modules\OracleSync\Sources\ExcelUploadSource;
 use App\Modules\Production\Models\Lot;
 use Illuminate\Validation\ValidationException;
-use OpenSpout\Common\Entity\Row;
-use OpenSpout\Writer\XLSX\Writer;
-
-const ORACLE_HEADERS = [
-    'PARTY', 'PARTY_CODE', 'CONTRACT_NUM', 'REF_NUM', 'DATED', 'QUALITY', 'Q_CODE', 'LOT_NUM1', 'GSM', 'DESIGN_CODE',
-    'DESIGN', 'COLOUR_NAME', 'COLOUR_CODE', 'G_WIDTH', 'F_WIDTH', 'PROCESS_TYPE', 'PC_DTL_ID', 'QNTY', 'QNTY_CONT',
-];
-
-/** @param list<array> $dataRows each row values in ORACLE_HEADERS order */
-function buildOracleXlsx(array $dataRows): string
-{
-    $path = tempnam(sys_get_temp_dir(), 'orc').'.xlsx';
-    $writer = new Writer;
-    $writer->openToFile($path);
-    $writer->addRow(Row::fromValues(ORACLE_HEADERS));
-    foreach ($dataRows as $row) {
-        $writer->addRow(Row::fromValues($row));
-    }
-    $writer->close();
-
-    return $path;
-}
-
-/** A minimal, valid data row for the 19 required headers, keyed by the fields callers usually vary. */
-function oracleRow(array $overrides = []): array
-{
-    $defaults = [
-        'PARTY' => 'NORMAL PARTY', 'PARTY_CODE' => 1, 'CONTRACT_NUM' => 700001, 'REF_NUM' => 'R', 'DATED' => '01-SEP-26',
-        'QUALITY' => 'Q', 'Q_CODE' => 10, 'LOT_NUM1' => 700001, 'GSM' => '', 'DESIGN_CODE' => '', 'DESIGN' => '',
-        'COLOUR_NAME' => '', 'COLOUR_CODE' => '', 'G_WIDTH' => 60, 'F_WIDTH' => 55, 'PROCESS_TYPE' => 'DYED',
-        'PC_DTL_ID' => 9000, 'QNTY' => 100, 'QNTY_CONT' => 100,
-    ];
-    $row = array_merge($defaults, $overrides);
-
-    return array_map(fn ($h) => $row[$h], ORACLE_HEADERS);
-}
 
 beforeEach(function () {
     $this->user = User::factory()->create();

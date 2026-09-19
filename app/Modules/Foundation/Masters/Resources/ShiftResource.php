@@ -26,13 +26,24 @@ class ShiftResource extends MasterResource
         ];
     }
 
+    /** MySQL `time` columns come back as HH:MM:SS; the form edits HH:MM. */
+    public function toRow(Model $m): array
+    {
+        $row = parent::toRow($m);
+        foreach (['starts_at', 'ends_at'] as $col) {
+            $row[$col] = $row[$col] === null ? null : substr((string) $row[$col], 0, 5);
+        }
+
+        return $row;
+    }
+
     public function rules(?Model $record): array
     {
         return [
             'code' => ['required', 'string', 'max:5', Rule::unique('shifts', 'code')->ignore($record?->getKey())],
             'name' => ['required', 'string', 'max:50'],
-            'starts_at' => ['required', 'date_format:H:i'],
-            'ends_at' => ['required', 'date_format:H:i'],
+            'starts_at' => ['required', 'date_format:H:i,H:i:s'],
+            'ends_at' => ['required', 'date_format:H:i,H:i:s'],
         ];
     }
 }

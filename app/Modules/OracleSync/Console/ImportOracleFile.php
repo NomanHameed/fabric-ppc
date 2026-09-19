@@ -57,7 +57,7 @@ class ImportOracleFile extends Command
             return self::FAILURE;
         }
         try {
-            $commit->commit($import, $user);
+            ImportCommitService::asAuditUser($user, fn () => $commit->commit($import, $user));
         } catch (DomainException $e) {
             $this->error($e->getMessage());
 
