@@ -18,9 +18,14 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::findOrCreate($name, 'web');
         }
 
+        // Model events are disabled during db:seed (WithoutModelEvents), so Spatie's automatic cache refresh doesn't run.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach (Permissions::ROLES as $roleName => $perms) {
             $role = Role::findOrCreate($roleName, 'web');
             $role->syncPermissions($perms === '*' ? Permissions::ALL : $perms);
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }
