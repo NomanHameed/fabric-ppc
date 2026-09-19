@@ -1,5 +1,8 @@
 <?php
 
+use App\Modules\Foundation\Http\Controllers\Admin\RoleController;
+use App\Modules\Foundation\Http\Controllers\Admin\SettingsController;
+use App\Modules\Foundation\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('i18n/{locale}.json', [\App\Modules\Foundation\Http\Controllers\TranslationController::class, 'show'])
@@ -26,5 +29,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('{resource}', 'store')->name('store');
         Route::put('{resource}/{id}', 'update')->whereNumber('id')->name('update');
         Route::delete('{resource}/{id}', 'destroy')->whereNumber('id')->name('destroy');
+    });
+
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::middleware('permission:admin.users.manage')->group(function () {
+            Route::get('users', [UserController::class, 'index'])->name('users.index');
+            Route::post('users', [UserController::class, 'store'])->name('users.store');
+            Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+        });
+        Route::middleware('permission:admin.roles.manage')->group(function () {
+            Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+            Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        });
+        Route::middleware('permission:admin.settings.manage')->group(function () {
+            Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+            Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+        });
     });
 });

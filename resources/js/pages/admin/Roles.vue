@@ -1,0 +1,137 @@
+<script setup lang="ts">
+import { Head, router } from '@inertiajs/vue3';
+import { computed, reactive } from 'vue';
+import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
+import { t } from '@/lib/i18n';
+import { statusLine } from '@/lib/statusLine';
+
+type RoleData = { name: string; permissions: string[] };
+
+const props = defineProps<{ roles: RoleData[]; permissions: string[] }>();
+
+const GROUP_ORDER = ['admin', 'masters', 'oracle', 'production', 'colour', 'dispatch', 'inquiry', 'reports', 'audit'];
+
+const groups = computed(() => {
+    const byPrefix = new Map<string, string[]>();
+    for (const perm of props.permissions) {
+        const prefix = perm.split('.')[0];
+        if (!byPrefix.has(prefix)) {
+            byPrefix.set(prefix, []);
+        }
+        byPrefix.get(prefix)?.push(perm);
+    }
+    const ordered = [...GROUP_ORDER, ...[...byPrefix.keys()].filter((k) => !GROUP_ORDER.includes(k))];
+    return ordered.filter((k) => byPrefix.has(k)).map((k) => ({ key: k, permissions: byPrefix.get(k) ?? [] }));
+});
+
+function checkedSet(role: RoleData): Record<string, boolean> {
+    return Object.fromEntries(props.permissions.map((p) => [p, role.name === 'admin' || role.permissions.includes(p)]));
+}
+
+const state = reactive<Record<string, Record<string, boolean>>>(
+    Object.fromEntries(props.roles.map((r) => [r.name, checkedSet(r)])),
+);
+
+function signature(role: string): string {
+    return JSON.stringify(props.permissions.filter((p) => state[role][p]));
+}
+
+const baseline = reactive<Record<string, string>>(
+    Object.fromEntries(props.roles.map((r) => [r.name, signature(r.name)])),
+);
+
+function isRoleDirty(role: string): boolean {
+    return signature(role) !== baseline[role];
+}
+
+function isDirty(): boolean {
+    return props.roles.some((r) => r.name !== 'admin' && isRoleDirty(r.name));
+}
+
+function toggle(role: string, permission: string, checked: boolean): void {
+    if (role === 'admin') {
+        return;
+    }
+    state[role][permission] = checked;
+}
+
+function saveRole(role: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        const permissions = props.permissions.filter((p) => state[role][p]);
+        router.put(`/admin/roles/${role}`, { permissions }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => { baseline[role] = signature(role); statusLine.setMessage(t('forms.saved'), 'success'); resolve(true); },
+            onError: (errors) => { statusLine.setMessage(Object.values(errors)[0] ?? '', 'error'); resolve(false); },
+        });
+    });
+}
+
+async function save(): Promise<boolean> {
+    let ok = true;
+    for (const r of props.roles) {
+        if (r.name !== 'admin' && isRoleDirty(r.name)) {
+            ok = (await saveRole(r.name)) && ok;
+        }
+    }
+    return ok;
+}
+
+const guard = useUnsavedGuard(isDirty, save);
+</script>
+
+<template>
+    <Head :title="t('admin.roles')" />
+    <div class="flex flex-col gap-3 p-4">
+        <h1 class="text-lg font-semibold">{{ t('admin.roles') }}</h1>
+        <div class="overflow-x-auto rounded-md border bg-card">
+            <table class="w-full border-collapse text-sm">
+                <thead>
+                    <tr class="border-b bg-muted/40">
+                        <th class="p-2 text-start font-medium">{{ t('admin.permission') }}</th>
+                        <th v-for="role in roles" :key="role.name" class="p-2 text-center font-medium">
+                            {{ t(`admin.role_names.${role.name}`) }}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template v-for="group in groups" :key="group.key">
+                        <tr class="border-b bg-muted/20">
+                            <td :colspan="roles.length + 1" class="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                {{ group.key }}
+                            </td>
+                        </tr>
+                        <tr v-for="perm in group.permissions" :key="perm" class="border-b last:border-b-0">
+                            <td class="p-2">{{ perm }}</td>
+                            <td v-for="role in roles" :key="role.name" class="p-2 text-center">
+                                <Checkbox
+                                    :model-value="state[role.name][perm]"
+                                    :disabled="role.name === 'admin'"
+                                    @update:model-value="(v) => toggle(role.name, perm, v === true)"
+                                />
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="p-2"></td>
+                        <td v-for="role in roles" :key="role.name" class="p-2 text-center">
+                            <Button
+                                size="sm"
+                                :disabled="role.name === 'admin' || !isRoleDirty(role.name)"
+                                @click="saveRole(role.name)"
+                            >
+                                {{ t('forms.actions.save') }}
+                            </Button>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <ConfirmSaveDialog :open="guard.dialogOpen.value" @choose="guard.choose" />
+    </div>
+</template>
