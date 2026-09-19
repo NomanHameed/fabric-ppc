@@ -170,3 +170,8 @@
         @apply bg-background text-foreground;
     }
 }
+
+.ag-theme-app .ag-cell,
+.ag-theme-app .ag-header-cell-text {
+    font-variant-numeric: tabular-nums;
+}

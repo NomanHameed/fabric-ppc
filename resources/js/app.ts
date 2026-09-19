@@ -3,6 +3,7 @@ import { initializeTheme } from '@/composables/useAppearance';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { registerAgGrid } from '@/lib/agGrid';
 import { initializeFlashToast } from '@/lib/flashToast';
 import { i18n } from '@/lib/i18n';
 
@@ -27,6 +28,7 @@ void createInertiaApp({
     },
     withApp: (app) => {
         app.use(i18n);
+        registerAgGrid();
     },
 });
 
