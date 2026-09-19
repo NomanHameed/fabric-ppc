@@ -17,6 +17,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(\App\Modules\Foundation\Lov\LovRegistry::class);
+        $this->app->singleton(\App\Modules\Foundation\Masters\MasterRegistry::class);
     }
 
     /**
@@ -40,6 +41,18 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\Foundation\Lov\Definitions\ShiftLov::class,
         ] as $class) {
             $lovs->register(new $class);
+        }
+
+        $masters = $this->app->make(\App\Modules\Foundation\Masters\MasterRegistry::class);
+        foreach ([
+            \App\Modules\Foundation\Masters\Resources\DepartmentResource::class,
+            \App\Modules\Foundation\Masters\Resources\MachineResource::class,
+            \App\Modules\Foundation\Masters\Resources\OperationResource::class,
+            \App\Modules\Foundation\Masters\Resources\ShiftResource::class,
+            \App\Modules\Foundation\Masters\Resources\QualityResource::class,
+            \App\Modules\Foundation\Masters\Resources\LookupValueResource::class,
+        ] as $class) {
+            $masters->register(new $class);
         }
 
         $this->configureDefaults();

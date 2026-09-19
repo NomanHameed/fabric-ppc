@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'titles' => [
+        'departments' => 'Departments', 'machines' => 'Machines', 'operations' => 'Operations', 'shifts' => 'Shifts',
+        'qualities' => 'Qualities', 'lookups' => 'Lookup Lists', 'parties' => 'Parties', 'route_templates' => 'Route Templates',
+    ],
+    'fields' => [
+        'code' => 'Code', 'name' => 'Name', 'name_en' => 'Name (English)', 'name_ur' => 'Name (Urdu)', 'sort' => 'Sort',
+        'is_active' => 'Active', 'department' => 'Department', 'departments' => 'Departments', 'kind' => 'Kind',
+        'stage_label' => 'Status label', 'counts_as_finish_production' => 'Counts as finish production',
+        'finish_type' => 'Finish type', 'is_stretch' => 'Stretch', 'starts_at' => 'Starts', 'ends_at' => 'Ends',
+        'oracle_code' => 'Oracle code', 'description' => 'Description', 'ends' => 'Ends/inch', 'picks' => 'Picks/inch',
+        'warp_count' => 'Warp count', 'weft_count' => 'Weft count', 'composition' => 'Composition', 'loom' => 'Loom',
+        'notes' => 'Notes', 'list_key' => 'List', 'label' => 'Label', 'label_en' => 'Label (English)', 'label_ur' => 'Label (Urdu)',
+        'approved' => 'Counts as approved', 'type' => 'Type', 'email' => 'Email', 'alias' => 'Alias', 'aliases' => 'Aliases',
+        'po_type' => 'PO type', 'quality_pattern' => 'Quality pattern', 'priority' => 'Priority', 'seq' => 'Seq',
+        'operation' => 'Operation', 'steps' => 'Steps',
+    ],
+    'options' => [
+        'normal' => 'Normal', 'reprocess' => 'Reprocess', 'dyed' => 'Dyed', 'print' => 'Print', 'brand' => 'Brand', 'local' => 'Local',
+        'colour_status' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
+        'hold_reason' => 'Hold reason', 'reprocess_reason' => 'Reprocess reason',
+    ],
+];

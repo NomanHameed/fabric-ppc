@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Modules\Foundation\Masters;
+
+use Illuminate\Database\Eloquent\Model;
+
+abstract class MasterResource
+{
+    abstract public function key(): string;
+
+    /** @return class-string<Model> */
+    abstract public function model(): string;
+
+    /** @return list<Field> */
+    abstract public function fields(): array;
+
+    abstract public function rules(?Model $record): array;
+
+    public function titleKey(): string { return 'masters.titles.'.$this->key(); }
+
+    /** @return list<string> */
+    public function with(): array { return []; }
+
+    public function defaultSort(): string { return 'id'; }
+
+    public function rowLimit(): int { return 2000; }
+
+    public function viewPermission(): string { return 'masters.view'; }
+
+    public function editPermission(): string { return 'masters.manage'; }
+
+    public function toRow(Model $m): array
+    {
+        return ['id' => $m->getKey()] + collect($this->fields())
+            ->reject(fn (Field $f) => $f->type === 'multiselect')
+            ->mapWithKeys(fn (Field $f) => [$f->name => $m->getAttribute($f->name)])
+            ->all();
+    }
+
+    /** Persist scalar attributes; override for mapped/virtual fields. */
+    public function fill(Model $m, array $data): void
+    {
+        $scalar = collect($this->fields())->reject(fn (Field $f) => $f->type === 'multiselect')->map->name->all();
+        $m->fill(array_intersect_key($data, array_flip($scalar)));
+    }
+
+    /** Relations (pivots) after save. */
+    public function afterSave(Model $m, array $data): void {}
+
+    /** @return array<string, array{column: string, type: string}> */
+    public function queryFields(): array
+    {
+        return collect($this->fields())->filter(fn (Field $f) => $f->queryable() !== null)
+            ->mapWithKeys(fn (Field $f) => [$f->name => ['column' => $f->name, 'type' => $f->queryable()]])
+            ->all();
+    }
+
+    public function meta(bool $canEdit): array
+    {
+        return [
+            'key' => $this->key(), 'title' => __($this->titleKey()), 'canEdit' => $canEdit,
+            'fields' => array_map(fn (Field $f) => $f->toArray(), $this->fields()),
+        ];
+    }
+}
