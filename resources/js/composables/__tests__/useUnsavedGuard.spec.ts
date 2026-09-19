@@ -68,7 +68,11 @@ describe('replayOptions', () => {
     });
 
     it('reflects a differently configured visit (partial reload, no scroll preservation)', () => {
-        const visit = makeVisit({ preserveScroll: false, only: ['stats'], except: ['heavyBlock'] });
+        const visit = makeVisit({
+            preserveScroll: false,
+            only: ['stats'],
+            except: ['heavyBlock'],
+        });
 
         const options = replayOptions(visit);
 
@@ -80,19 +84,24 @@ describe('replayOptions', () => {
 
 function mountGuard(isDirty: () => boolean, save: () => Promise<boolean>) {
     let api!: ReturnType<typeof useUnsavedGuard>;
-    const wrapper = mount(defineComponent({
-        setup() {
-            api = useUnsavedGuard(isDirty, save);
-            return () => null;
-        },
-    }));
+    const wrapper = mount(
+        defineComponent({
+            setup() {
+                api = useUnsavedGuard(isDirty, save);
+                return () => null;
+            },
+        }),
+    );
     return { wrapper, guard: api };
 }
 
 describe('useUnsavedGuard: guard()', () => {
     it('runs the action immediately when the form is clean', () => {
         const fn = vi.fn();
-        const { guard } = mountGuard(() => false, async () => true);
+        const { guard } = mountGuard(
+            () => false,
+            async () => true,
+        );
 
         guard.guard(fn);
 
@@ -102,7 +111,10 @@ describe('useUnsavedGuard: guard()', () => {
 
     it('opens the dialog when dirty, and runs the action only after choosing discard', async () => {
         const fn = vi.fn();
-        const { guard } = mountGuard(() => true, async () => true);
+        const { guard } = mountGuard(
+            () => true,
+            async () => true,
+        );
 
         guard.guard(fn);
         expect(fn).not.toHaveBeenCalled();
@@ -115,7 +127,10 @@ describe('useUnsavedGuard: guard()', () => {
 
     it('runs the action after choosing save when save resolves true', async () => {
         const fn = vi.fn();
-        const { guard } = mountGuard(() => true, async () => true);
+        const { guard } = mountGuard(
+            () => true,
+            async () => true,
+        );
 
         guard.guard(fn);
         await guard.choose('save');
@@ -125,7 +140,10 @@ describe('useUnsavedGuard: guard()', () => {
 
     it('does not run the action after choosing save when save resolves false', async () => {
         const fn = vi.fn();
-        const { guard } = mountGuard(() => true, async () => false);
+        const { guard } = mountGuard(
+            () => true,
+            async () => false,
+        );
 
         guard.guard(fn);
         await guard.choose('save');
@@ -135,7 +153,10 @@ describe('useUnsavedGuard: guard()', () => {
 
     it('never runs the action when choosing cancel', async () => {
         const fn = vi.fn();
-        const { guard } = mountGuard(() => true, async () => true);
+        const { guard } = mountGuard(
+            () => true,
+            async () => true,
+        );
 
         guard.guard(fn);
         await guard.choose('cancel');

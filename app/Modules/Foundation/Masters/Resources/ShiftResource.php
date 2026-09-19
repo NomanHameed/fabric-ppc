@@ -10,11 +10,20 @@ use Illuminate\Validation\Rule;
 
 class ShiftResource extends MasterResource
 {
-    public function key(): string { return 'shifts'; }
+    public function key(): string
+    {
+        return 'shifts';
+    }
 
-    public function model(): string { return Shift::class; }
+    public function model(): string
+    {
+        return Shift::class;
+    }
 
-    public function defaultSort(): string { return 'code'; }
+    public function defaultSort(): string
+    {
+        return 'code';
+    }
 
     public function fields(): array
     {

@@ -12,7 +12,17 @@ type RoleData = { name: string; permissions: string[] };
 
 const props = defineProps<{ roles: RoleData[]; permissions: string[] }>();
 
-const GROUP_ORDER = ['admin', 'masters', 'oracle', 'production', 'colour', 'dispatch', 'inquiry', 'reports', 'audit'];
+const GROUP_ORDER = [
+    'admin',
+    'masters',
+    'oracle',
+    'production',
+    'colour',
+    'dispatch',
+    'inquiry',
+    'reports',
+    'audit',
+];
 
 const groups = computed(() => {
     const byPrefix = new Map<string, string[]>();
@@ -23,12 +33,22 @@ const groups = computed(() => {
         }
         byPrefix.get(prefix)?.push(perm);
     }
-    const ordered = [...GROUP_ORDER, ...[...byPrefix.keys()].filter((k) => !GROUP_ORDER.includes(k))];
-    return ordered.filter((k) => byPrefix.has(k)).map((k) => ({ key: k, permissions: byPrefix.get(k) ?? [] }));
+    const ordered = [
+        ...GROUP_ORDER,
+        ...[...byPrefix.keys()].filter((k) => !GROUP_ORDER.includes(k)),
+    ];
+    return ordered
+        .filter((k) => byPrefix.has(k))
+        .map((k) => ({ key: k, permissions: byPrefix.get(k) ?? [] }));
 });
 
 function checkedSet(role: RoleData): Record<string, boolean> {
-    return Object.fromEntries(props.permissions.map((p) => [p, role.name === 'admin' || role.permissions.includes(p)]));
+    return Object.fromEntries(
+        props.permissions.map((p) => [
+            p,
+            role.name === 'admin' || role.permissions.includes(p),
+        ]),
+    );
 }
 
 const state = reactive<Record<string, Record<string, boolean>>>(
@@ -61,12 +81,26 @@ function toggle(role: string, permission: string, checked: boolean): void {
 function saveRole(role: string): Promise<boolean> {
     return new Promise((resolve) => {
         const permissions = props.permissions.filter((p) => state[role][p]);
-        router.put(`/admin/roles/${role}`, { permissions }, {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => { baseline[role] = signature(role); statusLine.setMessage(t('forms.saved'), 'success'); resolve(true); },
-            onError: (errors) => { statusLine.setMessage(Object.values(errors)[0] ?? '', 'error'); resolve(false); },
-        });
+        router.put(
+            `/admin/roles/${role}`,
+            { permissions },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    baseline[role] = signature(role);
+                    statusLine.setMessage(t('forms.saved'), 'success');
+                    resolve(true);
+                },
+                onError: (errors) => {
+                    statusLine.setMessage(
+                        Object.values(errors)[0] ?? '',
+                        'error',
+                    );
+                    resolve(false);
+                },
+            },
+        );
     });
 }
 
@@ -87,30 +121,50 @@ const guard = useUnsavedGuard(isDirty, save);
     <Head :title="t('admin.roles')" />
     <div class="flex flex-col gap-3 p-4">
         <h1 class="text-lg font-semibold">{{ t('admin.roles') }}</h1>
-        <div class="overflow-x-auto rounded-md border bg-card">
+        <div class="bg-card overflow-x-auto rounded-md border">
             <table class="w-full border-collapse text-sm">
                 <thead>
-                    <tr class="border-b bg-muted/40">
-                        <th class="p-2 text-start font-medium">{{ t('admin.permission') }}</th>
-                        <th v-for="role in roles" :key="role.name" class="p-2 text-center font-medium">
+                    <tr class="bg-muted/40 border-b">
+                        <th class="p-2 text-start font-medium">
+                            {{ t('admin.permission') }}
+                        </th>
+                        <th
+                            v-for="role in roles"
+                            :key="role.name"
+                            class="p-2 text-center font-medium"
+                        >
                             {{ t(`admin.role_names.${role.name}`) }}
                         </th>
                     </tr>
                 </thead>
                 <tbody>
                     <template v-for="group in groups" :key="group.key">
-                        <tr class="border-b bg-muted/20">
-                            <td :colspan="roles.length + 1" class="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                        <tr class="bg-muted/20 border-b">
+                            <td
+                                :colspan="roles.length + 1"
+                                class="text-muted-foreground px-2 py-1 text-xs font-semibold tracking-wide uppercase"
+                            >
                                 {{ t(`admin.permission_groups.${group.key}`) }}
                             </td>
                         </tr>
-                        <tr v-for="perm in group.permissions" :key="perm" class="border-b last:border-b-0">
+                        <tr
+                            v-for="perm in group.permissions"
+                            :key="perm"
+                            class="border-b last:border-b-0"
+                        >
                             <td class="p-2">{{ perm }}</td>
-                            <td v-for="role in roles" :key="role.name" class="p-2 text-center">
+                            <td
+                                v-for="role in roles"
+                                :key="role.name"
+                                class="p-2 text-center"
+                            >
                                 <Checkbox
                                     :model-value="state[role.name][perm]"
                                     :disabled="role.name === 'admin'"
-                                    @update:model-value="(v) => toggle(role.name, perm, v === true)"
+                                    @update:model-value="
+                                        (v) =>
+                                            toggle(role.name, perm, v === true)
+                                    "
                                 />
                             </td>
                         </tr>
@@ -119,10 +173,17 @@ const guard = useUnsavedGuard(isDirty, save);
                 <tfoot>
                     <tr>
                         <td class="p-2"></td>
-                        <td v-for="role in roles" :key="role.name" class="p-2 text-center">
+                        <td
+                            v-for="role in roles"
+                            :key="role.name"
+                            class="p-2 text-center"
+                        >
                             <Button
                                 size="sm"
-                                :disabled="role.name === 'admin' || !isRoleDirty(role.name)"
+                                :disabled="
+                                    role.name === 'admin' ||
+                                    !isRoleDirty(role.name)
+                                "
                                 @click="saveRole(role.name)"
                             >
                                 {{ t('forms.actions.save') }}
@@ -132,6 +193,9 @@ const guard = useUnsavedGuard(isDirty, save);
                 </tfoot>
             </table>
         </div>
-        <ConfirmSaveDialog :open="guard.dialogOpen.value" @choose="guard.choose" />
+        <ConfirmSaveDialog
+            :open="guard.dialogOpen.value"
+            @choose="guard.choose"
+        />
     </div>
 </template>

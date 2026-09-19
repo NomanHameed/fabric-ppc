@@ -5,11 +5,17 @@ namespace App\Modules\Foundation\Access;
 final class Permissions
 {
     public const ROLE_ADMIN = 'admin';
+
     public const ROLE_PPC = 'ppc';
+
     public const ROLE_MANAGER = 'manager';
+
     public const ROLE_DEPT_INCHARGE = 'dept_incharge';
+
     public const ROLE_COLOUR_LAB = 'colour_lab';
+
     public const ROLE_DISPATCH = 'dispatch';
+
     public const ROLE_VIEWER = 'viewer';
 
     /** @var list<string> */

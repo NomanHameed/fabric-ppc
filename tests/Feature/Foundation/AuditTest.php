@@ -2,6 +2,8 @@
 
 use App\Models\User;
 use App\Modules\Foundation\Models\Department;
+use App\Modules\Foundation\Models\Setting;
+use OwenIt\Auditing\Models\Audit;
 
 it('records who changed a master and the old and new values', function () {
     config(['audit.console' => true]);
@@ -22,8 +24,8 @@ it('saves a setting with auditing on and writes no audit row for it', function (
     config(['audit.console' => true]);
     $this->actingAs(User::factory()->create());
 
-    App\Modules\Foundation\Models\Setting::put('company_name', 'X');
+    Setting::put('company_name', 'X');
 
-    expect(App\Modules\Foundation\Models\Setting::get('company_name'))->toBe('X')
-        ->and(OwenIt\Auditing\Models\Audit::query()->where('auditable_type', App\Modules\Foundation\Models\Setting::class)->count())->toBe(0);
+    expect(Setting::get('company_name'))->toBe('X')
+        ->and(Audit::query()->where('auditable_type', Setting::class)->count())->toBe(0);
 });

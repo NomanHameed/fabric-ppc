@@ -11,13 +11,25 @@ use Illuminate\Validation\Rule;
 
 class MachineResource extends MasterResource
 {
-    public function key(): string { return 'machines'; }
+    public function key(): string
+    {
+        return 'machines';
+    }
 
-    public function model(): string { return Machine::class; }
+    public function model(): string
+    {
+        return Machine::class;
+    }
 
-    public function with(): array { return ['departments']; }
+    public function with(): array
+    {
+        return ['departments'];
+    }
 
-    public function defaultSort(): string { return 'code'; }
+    public function defaultSort(): string
+    {
+        return 'code';
+    }
 
     public function fields(): array
     {

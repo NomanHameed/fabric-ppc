@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Modules\Foundation\Models\Party;
+use App\Modules\Production\Models\Contract;
 use Database\Seeders\PartySeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 
@@ -50,7 +51,7 @@ it('rejects duplicate aliases within the same request', function () {
 
 it('refuses to delete a party that has contracts, reporting it as in use', function () {
     $party = Party::create(['name' => 'Busy Party', 'type' => 'brand']);
-    App\Modules\Production\Models\Contract::factory()->create(['party_id' => $party->id]);
+    Contract::factory()->create(['party_id' => $party->id]);
 
     $this->actingAs($this->ppc)->delete("/masters/parties/{$party->id}")->assertSessionHasErrors(['record' => __('forms.in_use')]);
 

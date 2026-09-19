@@ -2,7 +2,11 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import {
-    SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { NAVIGATION, visibleNavigation } from '@/config/navigation';
@@ -18,7 +22,11 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
         <SidebarGroupLabel>{{ t(group.titleKey) }}</SidebarGroupLabel>
         <SidebarMenu>
             <SidebarMenuItem v-for="item in group.items" :key="item.key">
-                <SidebarMenuButton as-child :is-active="isCurrentOrParentUrl(item.href)" :tooltip="t(item.titleKey)">
+                <SidebarMenuButton
+                    as-child
+                    :is-active="isCurrentOrParentUrl(item.href)"
+                    :tooltip="t(item.titleKey)"
+                >
                     <Link :href="item.href" prefetch>
                         <component :is="item.icon" />
                         <span>{{ t(item.titleKey) }}</span>

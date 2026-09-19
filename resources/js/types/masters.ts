@@ -1,4 +1,12 @@
-export type FieldType = 'text' | 'number' | 'select' | 'multiselect' | 'bool' | 'time' | 'textarea' | 'lov';
+export type FieldType =
+    | 'text'
+    | 'number'
+    | 'select'
+    | 'multiselect'
+    | 'bool'
+    | 'time'
+    | 'textarea'
+    | 'lov';
 
 export type MasterField = {
     name: string;
@@ -14,6 +22,11 @@ export type MasterField = {
     readonly: boolean;
 };
 
-export type MasterMeta = { key: string; title: string; canEdit: boolean; fields: MasterField[] };
+export type MasterMeta = {
+    key: string;
+    title: string;
+    canEdit: boolean;
+    fields: MasterField[];
+};
 
 export type MasterRow = { id: number; [field: string]: unknown };

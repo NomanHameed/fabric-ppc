@@ -16,19 +16,33 @@ import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 import type { MasterField, MasterMeta, MasterRow } from '@/types/masters';
 
-const props = defineProps<{ resource: MasterMeta; rows: MasterRow[]; criteria: Record<string, string> }>();
+const props = defineProps<{
+    resource: MasterMeta;
+    rows: MasterRow[];
+    criteria: Record<string, string>;
+}>();
 
-const blank = (): Record<string, unknown> => Object.fromEntries(props.resource.fields.map((f) => [
-    f.name, f.type === 'bool' ? true : f.type === 'multiselect' ? [] : null,
-]));
+const blank = (): Record<string, unknown> =>
+    Object.fromEntries(
+        props.resource.fields.map((f) => [
+            f.name,
+            f.type === 'bool' ? true : f.type === 'multiselect' ? [] : null,
+        ]),
+    );
 
 const currentId = ref<number | null>(props.rows[0]?.id ?? null);
 const form = useForm<Record<string, any>>(currentRow() ?? blank());
-const query = useQueryMode<Record<string, string | null>>(props.resource.fields.filter((f) => f.queryable).map((f) => f.name));
+const query = useQueryMode<Record<string, string | null>>(
+    props.resource.fields.filter((f) => f.queryable).map((f) => f.name),
+);
 
 function currentRow(): Record<string, unknown> | null {
     const row = props.rows.find((r) => r.id === currentId.value);
-    return row ? Object.fromEntries(props.resource.fields.map((f) => [f.name, row[f.name] ?? null])) : null;
+    return row
+        ? Object.fromEntries(
+              props.resource.fields.map((f) => [f.name, row[f.name] ?? null]),
+          )
+        : null;
 }
 
 function load(id: number | null): void {
@@ -38,26 +52,62 @@ function load(id: number | null): void {
     form.clearErrors();
 }
 
-const index = computed(() => props.rows.findIndex((r) => r.id === currentId.value));
-watch([index, () => props.rows.length], ([i, n]) => statusLine.setRecord(i + 1, n), { immediate: true });
-watch(() => form.isDirty, (d) => statusLine.setDirty(d), { immediate: true });
-watch(() => props.rows, () => load(props.rows.find((r) => r.id === currentId.value)?.id ?? props.rows[0]?.id ?? null));
+const index = computed(() =>
+    props.rows.findIndex((r) => r.id === currentId.value),
+);
+watch(
+    [index, () => props.rows.length],
+    ([i, n]) => statusLine.setRecord(i + 1, n),
+    { immediate: true },
+);
+watch(
+    () => form.isDirty,
+    (d) => statusLine.setDirty(d),
+    { immediate: true },
+);
+watch(
+    () => props.rows,
+    () =>
+        load(
+            props.rows.find((r) => r.id === currentId.value)?.id ??
+                props.rows[0]?.id ??
+                null,
+        ),
+);
 
-const columns = computed<ColumnDef<MasterRow>[]>(() => props.resource.fields.filter((f) => f.grid).map((f) => ({
-    field: f.type === 'multiselect' ? `${f.name}_label` : f.name,
-    headerName: f.label,
-    flex: f.span,
-    valueFormatter: f.type === 'select'
-        ? (p) => f.options.find((o) => o.value === p.value)?.label ?? String(p.value ?? '')
-        : f.type === 'bool' ? (p) => (p.value ? '✓' : '') : undefined,
-})));
+const columns = computed<ColumnDef<MasterRow>[]>(() =>
+    props.resource.fields
+        .filter((f) => f.grid)
+        .map((f) => ({
+            field: f.type === 'multiselect' ? `${f.name}_label` : f.name,
+            headerName: f.label,
+            flex: f.span,
+            valueFormatter:
+                f.type === 'select'
+                    ? (p) =>
+                          f.options.find((o) => o.value === p.value)?.label ??
+                          String(p.value ?? '')
+                    : f.type === 'bool'
+                      ? (p) => (p.value ? '✓' : '')
+                      : undefined,
+        })),
+);
 
 function save(): Promise<boolean> {
     return new Promise((resolve) => {
         const opts = {
             preserveScroll: true,
-            onSuccess: () => { statusLine.setMessage(t('forms.saved'), 'success'); resolve(true); },
-            onError: () => { statusLine.setMessage(Object.values(form.errors)[0] ?? '', 'error'); resolve(false); },
+            onSuccess: () => {
+                statusLine.setMessage(t('forms.saved'), 'success');
+                resolve(true);
+            },
+            onError: () => {
+                statusLine.setMessage(
+                    Object.values(form.errors)[0] ?? '',
+                    'error',
+                );
+                resolve(false);
+            },
         };
         if (currentId.value === null) {
             form.post(`/masters/${props.resource.key}`, opts);
@@ -71,36 +121,81 @@ const guard = useUnsavedGuard(() => form.isDirty, save);
 
 function onAction(action: FormsAction): void {
     switch (action) {
-        case 'save': void save(); break;
-        case 'newRecord': guard.guard(() => load(null)); break;
+        case 'save':
+            void save();
+            break;
+        case 'newRecord':
+            guard.guard(() => load(null));
+            break;
         case 'deleteRecord':
-            if (currentId.value !== null && window.confirm(t('forms.confirm_delete'))) {
-                router.delete(`/masters/${props.resource.key}/${currentId.value}`, {
-                    preserveScroll: true,
-                    onSuccess: () => statusLine.setMessage(t('forms.deleted'), 'success'),
-                    onError: (errors) => {
-                        form.setError(errors);
-                        statusLine.setMessage(Object.values(errors)[0] ?? '', 'error');
+            if (
+                currentId.value !== null &&
+                window.confirm(t('forms.confirm_delete'))
+            ) {
+                router.delete(
+                    `/masters/${props.resource.key}/${currentId.value}`,
+                    {
+                        preserveScroll: true,
+                        onSuccess: () =>
+                            statusLine.setMessage(
+                                t('forms.deleted'),
+                                'success',
+                            ),
+                        onError: (errors) => {
+                            form.setError(errors);
+                            statusLine.setMessage(
+                                Object.values(errors)[0] ?? '',
+                                'error',
+                            );
+                        },
                     },
-                });
+                );
             }
             break;
-        case 'enterQuery': query.enterQuery(); break;
+        case 'enterQuery':
+            query.enterQuery();
+            break;
         case 'executeQuery': {
-            const q = query.mode.value === 'enterQuery' ? query.takeCriteria() : {};
-            router.get(`/masters/${props.resource.key}`, { q }, { preserveState: true, preserveScroll: true, only: ['rows', 'criteria'] });
+            const q =
+                query.mode.value === 'enterQuery' ? query.takeCriteria() : {};
+            router.get(
+                `/masters/${props.resource.key}`,
+                { q },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: ['rows', 'criteria'],
+                },
+            );
             break;
         }
-        case 'previousRecord': if (index.value > 0) guard.guard(() => load(props.rows[index.value - 1].id)); break;
-        case 'nextRecord': if (index.value < props.rows.length - 1) guard.guard(() => load(props.rows[index.value + 1].id)); break;
-        case 'clear': query.mode.value === 'enterQuery' ? query.cancelQuery() : load(currentId.value); break;
-        case 'print': window.print(); break;
-        case 'exit': router.visit('/dashboard'); break;
+        case 'previousRecord':
+            if (index.value > 0)
+                guard.guard(() => load(props.rows[index.value - 1].id));
+            break;
+        case 'nextRecord':
+            if (index.value < props.rows.length - 1)
+                guard.guard(() => load(props.rows[index.value + 1].id));
+            break;
+        case 'clear':
+            if (query.mode.value === 'enterQuery') {
+                query.cancelQuery();
+            } else {
+                load(currentId.value);
+            }
+            break;
+        case 'print':
+            window.print();
+            break;
+        case 'exit':
+            router.visit('/dashboard');
+            break;
     }
 }
 
 const inQuery = computed(() => query.mode.value === 'enterQuery');
-const editable = (f: MasterField) => props.resource.canEdit && !f.readonly && !inQuery.value;
+const editable = (f: MasterField) =>
+    props.resource.canEdit && !f.readonly && !inQuery.value;
 const criteria = reactive(query.criteria);
 </script>
 
@@ -110,7 +205,11 @@ const criteria = reactive(query.criteria);
         <h1 class="text-lg font-semibold">{{ resource.title }}</h1>
         <FormsToolbar
             :mode="query.mode.value"
-            :disabled="{ save: !resource.canEdit || inQuery, newRecord: !resource.canEdit, deleteRecord: !resource.canEdit || currentId === null }"
+            :disabled="{
+                save: !resource.canEdit || inQuery,
+                newRecord: !resource.canEdit,
+                deleteRecord: !resource.canEdit || currentId === null,
+            }"
             @action="onAction"
         />
         <FormBlock>
@@ -123,34 +222,83 @@ const criteria = reactive(query.criteria);
                 :error="form.errors[f.name]"
             >
                 <template v-if="inQuery">
-                    <Input v-if="f.queryable" :id="`f-${f.name}`" v-model="criteria[f.name] as string" class="border-amber-500/60" />
+                    <Input
+                        v-if="f.queryable"
+                        :id="`f-${f.name}`"
+                        v-model="criteria[f.name] as string"
+                        class="border-amber-500/60"
+                    />
                     <Input v-else :id="`f-${f.name}`" disabled />
                 </template>
                 <template v-else-if="f.type === 'bool'">
-                    <Checkbox :id="`f-${f.name}`" :model-value="Boolean(form[f.name])" :disabled="!editable(f)" @update:model-value="(v) => (form[f.name] = v === true)" />
+                    <Checkbox
+                        :id="`f-${f.name}`"
+                        :model-value="Boolean(form[f.name])"
+                        :disabled="!editable(f)"
+                        @update:model-value="(v) => (form[f.name] = v === true)"
+                    />
                 </template>
                 <template v-else-if="f.type === 'select'">
-                    <select :id="`f-${f.name}`" v-model="form[f.name]" :disabled="!editable(f)" class="h-9 rounded-md border bg-background px-2 text-sm">
-                        <option v-for="o in f.options" :key="String(o.value)" :value="o.value">{{ o.label }}</option>
+                    <select
+                        :id="`f-${f.name}`"
+                        v-model="form[f.name]"
+                        :disabled="!editable(f)"
+                        class="bg-background h-9 rounded-md border px-2 text-sm"
+                    >
+                        <option
+                            v-for="o in f.options"
+                            :key="String(o.value)"
+                            :value="o.value"
+                        >
+                            {{ o.label }}
+                        </option>
                     </select>
                 </template>
                 <template v-else-if="f.type === 'multiselect'">
-                    <select :id="`f-${f.name}`" v-model="form[f.name]" multiple :disabled="!editable(f)" class="min-h-20 rounded-md border bg-background px-2 text-sm">
-                        <option v-for="o in f.options" :key="String(o.value)" :value="o.value">{{ o.label }}</option>
+                    <select
+                        :id="`f-${f.name}`"
+                        v-model="form[f.name]"
+                        multiple
+                        :disabled="!editable(f)"
+                        class="bg-background min-h-20 rounded-md border px-2 text-sm"
+                    >
+                        <option
+                            v-for="o in f.options"
+                            :key="String(o.value)"
+                            :value="o.value"
+                        >
+                            {{ o.label }}
+                        </option>
                     </select>
                 </template>
                 <template v-else>
                     <Input
                         :id="`f-${f.name}`"
                         v-model="form[f.name] as string"
-                        :type="f.type === 'number' ? 'number' : f.type === 'time' ? 'time' : 'text'"
+                        :type="
+                            f.type === 'number'
+                                ? 'number'
+                                : f.type === 'time'
+                                  ? 'time'
+                                  : 'text'
+                        "
                         :disabled="!editable(f)"
                     />
                 </template>
             </FormField>
         </FormBlock>
-        <p v-if="form.errors['record']" class="text-sm text-destructive">{{ form.errors['record'] }}</p>
-        <DataGrid :rows="rows" :columns="columns" :selected-id="currentId" @row-selected="(r) => guard.guard(() => load(r.id))" />
-        <ConfirmSaveDialog :open="guard.dialogOpen.value" @choose="guard.choose" />
+        <p v-if="form.errors['record']" class="text-destructive text-sm">
+            {{ form.errors['record'] }}
+        </p>
+        <DataGrid
+            :rows="rows"
+            :columns="columns"
+            :selected-id="currentId"
+            @row-selected="(r) => guard.guard(() => load(r.id))"
+        />
+        <ConfirmSaveDialog
+            :open="guard.dialogOpen.value"
+            @choose="guard.choose"
+        />
     </div>
 </template>

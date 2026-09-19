@@ -19,7 +19,11 @@ const { dir } = useI18n();
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="inset" :side="dir === 'rtl' ? 'right' : 'left'">
+    <Sidebar
+        collapsible="icon"
+        variant="inset"
+        :side="dir === 'rtl' ? 'right' : 'left'"
+    >
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>

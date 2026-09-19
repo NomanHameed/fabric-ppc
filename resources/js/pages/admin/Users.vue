@@ -16,14 +16,25 @@ import { statusLine } from '@/lib/statusLine';
 
 type DeptOption = { value: number; label: string };
 type UserRow = {
-    id: number; name: string; email: string; is_active: boolean; locale: string;
-    roles: string[]; department_ids: number[];
+    id: number;
+    name: string;
+    email: string;
+    is_active: boolean;
+    locale: string;
+    roles: string[];
+    department_ids: number[];
 };
 
-const props = defineProps<{ users: UserRow[]; roles: string[]; departments: DeptOption[] }>();
+const props = defineProps<{
+    users: UserRow[];
+    roles: string[];
+    departments: DeptOption[];
+}>();
 
 const page = usePage();
-const locales = computed(() => page.props.locales as Record<string, { name: string; dir: string }>);
+const locales = computed(
+    () => page.props.locales as Record<string, { name: string; dir: string }>,
+);
 
 function currentUser(): UserRow | null {
     return props.users.find((u) => u.id === currentId.value) ?? null;
@@ -31,9 +42,13 @@ function currentUser(): UserRow | null {
 
 function headerFrom(u: UserRow | null): Record<string, unknown> {
     return {
-        name: u?.name ?? '', email: u?.email ?? '', password: '',
-        is_active: u ? u.is_active : true, locale: u?.locale ?? 'en',
-        roles: u ? [...u.roles] : [], department_ids: u ? [...u.department_ids] : [],
+        name: u?.name ?? '',
+        email: u?.email ?? '',
+        password: '',
+        is_active: u ? u.is_active : true,
+        locale: u?.locale ?? 'en',
+        roles: u ? [...u.roles] : [],
+        department_ids: u ? [...u.department_ids] : [],
     };
 }
 
@@ -47,12 +62,32 @@ function load(id: number | null): void {
     form.clearErrors();
 }
 
-const index = computed(() => props.users.findIndex((u) => u.id === currentId.value));
-watch([index, () => props.users.length], ([i, n]) => statusLine.setRecord(i + 1, n), { immediate: true });
-watch(() => form.isDirty, (d) => statusLine.setDirty(d), { immediate: true });
-watch(() => props.users, () => load(props.users.find((u) => u.id === currentId.value)?.id ?? props.users[0]?.id ?? null));
+const index = computed(() =>
+    props.users.findIndex((u) => u.id === currentId.value),
+);
+watch(
+    [index, () => props.users.length],
+    ([i, n]) => statusLine.setRecord(i + 1, n),
+    { immediate: true },
+);
+watch(
+    () => form.isDirty,
+    (d) => statusLine.setDirty(d),
+    { immediate: true },
+);
+watch(
+    () => props.users,
+    () =>
+        load(
+            props.users.find((u) => u.id === currentId.value)?.id ??
+                props.users[0]?.id ??
+                null,
+        ),
+);
 
-const showDepartments = computed(() => (form.roles as string[]).includes('dept_incharge'));
+const showDepartments = computed(() =>
+    (form.roles as string[]).includes('dept_incharge'),
+);
 
 function toggleRole(role: string, checked: boolean): void {
     const roles = new Set(form.roles as string[]);
@@ -74,17 +109,34 @@ const columns = computed<ColumnDef<UserRow>[]>(() => [
         field: 'roles',
         headerName: t('admin.role_list'),
         flex: 2,
-        valueGetter: (p) => (p.data?.roles ?? []).map((r) => t(`admin.role_names.${r}`)).join(', '),
+        valueGetter: (p) =>
+            (p.data?.roles ?? [])
+                .map((r) => t(`admin.role_names.${r}`))
+                .join(', '),
     },
-    { field: 'is_active', headerName: t('admin.active'), flex: 1, valueFormatter: (p) => (p.value ? '✓' : '') },
+    {
+        field: 'is_active',
+        headerName: t('admin.active'),
+        flex: 1,
+        valueFormatter: (p) => (p.value ? '✓' : ''),
+    },
 ]);
 
 function save(): Promise<boolean> {
     return new Promise((resolve) => {
         const opts = {
             preserveScroll: true,
-            onSuccess: () => { statusLine.setMessage(t('forms.saved'), 'success'); resolve(true); },
-            onError: () => { statusLine.setMessage(Object.values(form.errors)[0] ?? '', 'error'); resolve(false); },
+            onSuccess: () => {
+                statusLine.setMessage(t('forms.saved'), 'success');
+                resolve(true);
+            },
+            onError: () => {
+                statusLine.setMessage(
+                    Object.values(form.errors)[0] ?? '',
+                    'error',
+                );
+                resolve(false);
+            },
         };
         if (currentId.value === null) {
             form.post('/admin/users', opts);
@@ -98,13 +150,29 @@ const guard = useUnsavedGuard(() => form.isDirty, save);
 
 function onAction(action: FormsAction): void {
     switch (action) {
-        case 'save': void save(); break;
-        case 'newRecord': guard.guard(() => load(null)); break;
-        case 'previousRecord': if (index.value > 0) guard.guard(() => load(props.users[index.value - 1].id)); break;
-        case 'nextRecord': if (index.value < props.users.length - 1) guard.guard(() => load(props.users[index.value + 1].id)); break;
-        case 'clear': load(currentId.value); break;
-        case 'print': window.print(); break;
-        case 'exit': router.visit('/dashboard'); break;
+        case 'save':
+            void save();
+            break;
+        case 'newRecord':
+            guard.guard(() => load(null));
+            break;
+        case 'previousRecord':
+            if (index.value > 0)
+                guard.guard(() => load(props.users[index.value - 1].id));
+            break;
+        case 'nextRecord':
+            if (index.value < props.users.length - 1)
+                guard.guard(() => load(props.users[index.value + 1].id));
+            break;
+        case 'clear':
+            load(currentId.value);
+            break;
+        case 'print':
+            window.print();
+            break;
+        case 'exit':
+            router.visit('/dashboard');
+            break;
     }
 }
 </script>
@@ -114,38 +182,102 @@ function onAction(action: FormsAction): void {
     <div class="flex flex-col gap-3 p-4">
         <h1 class="text-lg font-semibold">{{ t('admin.users') }}</h1>
         <FormsToolbar
-            :disabled="{ save: false, newRecord: false, deleteRecord: true, enterQuery: true, executeQuery: true }"
+            :disabled="{
+                save: false,
+                newRecord: false,
+                deleteRecord: true,
+                enterQuery: true,
+                executeQuery: true,
+            }"
             @action="onAction"
         />
         <FormBlock>
-            <FormField :label="`${t('admin.name')} *`" for="f-name" :span="4" :error="form.errors.name">
+            <FormField
+                :label="`${t('admin.name')} *`"
+                for="f-name"
+                :span="4"
+                :error="form.errors.name"
+            >
                 <Input id="f-name" v-model="form.name as string" />
             </FormField>
-            <FormField :label="`${t('admin.email')} *`" for="f-email" :span="4" :error="form.errors.email">
-                <Input id="f-email" v-model="form.email as string" type="email" />
+            <FormField
+                :label="`${t('admin.email')} *`"
+                for="f-email"
+                :span="4"
+                :error="form.errors.email"
+            >
+                <Input
+                    id="f-email"
+                    v-model="form.email as string"
+                    type="email"
+                />
             </FormField>
-            <FormField :label="t('admin.locale')" for="f-locale" :span="2" :error="form.errors.locale">
-                <select id="f-locale" v-model="form.locale" class="h-9 rounded-md border bg-background px-2 text-sm">
-                    <option v-for="(meta, code) in locales" :key="code" :value="code">{{ meta.name }}</option>
+            <FormField
+                :label="t('admin.locale')"
+                for="f-locale"
+                :span="2"
+                :error="form.errors.locale"
+            >
+                <select
+                    id="f-locale"
+                    v-model="form.locale"
+                    class="bg-background h-9 rounded-md border px-2 text-sm"
+                >
+                    <option
+                        v-for="(meta, code) in locales"
+                        :key="code"
+                        :value="code"
+                    >
+                        {{ meta.name }}
+                    </option>
                 </select>
             </FormField>
-            <FormField :label="t('admin.active')" for="f-active" :span="2" :error="form.errors.is_active">
+            <FormField
+                :label="t('admin.active')"
+                for="f-active"
+                :span="2"
+                :error="form.errors.is_active"
+            >
                 <Checkbox
                     id="f-active"
                     :model-value="Boolean(form.is_active)"
                     @update:model-value="(v) => (form.is_active = v === true)"
                 />
             </FormField>
-            <FormField :label="t('admin.password')" for="f-password" :hint="t('admin.password_hint')" :span="4" :error="form.errors.password">
-                <Input id="f-password" v-model="form.password as string" type="password" autocomplete="new-password" />
+            <FormField
+                :label="t('admin.password')"
+                for="f-password"
+                :hint="t('admin.password_hint')"
+                :span="4"
+                :error="form.errors.password"
+            >
+                <Input
+                    id="f-password"
+                    v-model="form.password as string"
+                    type="password"
+                    autocomplete="new-password"
+                />
             </FormField>
 
-            <FormField :label="t('admin.role_list')" for="f-roles" :span="6" :error="form.errors.roles">
+            <FormField
+                :label="t('admin.role_list')"
+                for="f-roles"
+                :span="6"
+                :error="form.errors.roles"
+            >
                 <div id="f-roles" class="flex flex-wrap gap-x-4 gap-y-1">
-                    <label v-for="role in roles" :key="role" class="flex items-center gap-1.5 text-sm">
+                    <label
+                        v-for="role in roles"
+                        :key="role"
+                        class="flex items-center gap-1.5 text-sm"
+                    >
                         <Checkbox
-                            :model-value="(form.roles as string[]).includes(role)"
-                            @update:model-value="(v) => toggleRole(role, v === true)"
+                            :model-value="
+                                (form.roles as string[]).includes(role)
+                            "
+                            @update:model-value="
+                                (v) => toggleRole(role, v === true)
+                            "
                         />
                         {{ t(`admin.role_names.${role}`) }}
                     </label>
@@ -162,15 +294,31 @@ function onAction(action: FormsAction): void {
                     id="f-departments"
                     v-model="form.department_ids"
                     multiple
-                    class="min-h-20 rounded-md border bg-background px-2 text-sm"
+                    class="bg-background min-h-20 rounded-md border px-2 text-sm"
                 >
-                    <option v-for="o in departments" :key="o.value" :value="o.value">{{ o.label }}</option>
+                    <option
+                        v-for="o in departments"
+                        :key="o.value"
+                        :value="o.value"
+                    >
+                        {{ o.label }}
+                    </option>
                 </select>
             </FormField>
         </FormBlock>
-        <p v-if="form.errors['record']" class="text-sm text-destructive">{{ form.errors['record'] }}</p>
+        <p v-if="form.errors['record']" class="text-destructive text-sm">
+            {{ form.errors['record'] }}
+        </p>
 
-        <DataGrid :rows="users" :columns="columns" :selected-id="currentId" @row-selected="(r) => guard.guard(() => load(r.id))" />
-        <ConfirmSaveDialog :open="guard.dialogOpen.value" @choose="guard.choose" />
+        <DataGrid
+            :rows="users"
+            :columns="columns"
+            :selected-id="currentId"
+            @row-selected="(r) => guard.guard(() => load(r.id))"
+        />
+        <ConfirmSaveDialog
+            :open="guard.dialogOpen.value"
+            @choose="guard.choose"
+        />
     </div>
 </template>

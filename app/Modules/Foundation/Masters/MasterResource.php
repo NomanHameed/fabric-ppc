@@ -16,18 +16,36 @@ abstract class MasterResource
 
     abstract public function rules(?Model $record): array;
 
-    public function titleKey(): string { return 'masters.titles.'.$this->key(); }
+    public function titleKey(): string
+    {
+        return 'masters.titles.'.$this->key();
+    }
 
     /** @return list<string> */
-    public function with(): array { return []; }
+    public function with(): array
+    {
+        return [];
+    }
 
-    public function defaultSort(): string { return 'id'; }
+    public function defaultSort(): string
+    {
+        return 'id';
+    }
 
-    public function rowLimit(): int { return 2000; }
+    public function rowLimit(): int
+    {
+        return 2000;
+    }
 
-    public function viewPermission(): string { return 'masters.view'; }
+    public function viewPermission(): string
+    {
+        return 'masters.view';
+    }
 
-    public function editPermission(): string { return 'masters.manage'; }
+    public function editPermission(): string
+    {
+        return 'masters.manage';
+    }
 
     public function toRow(Model $m): array
     {

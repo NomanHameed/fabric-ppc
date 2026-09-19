@@ -1,11 +1,16 @@
 <?php
 
 use App\Models\User;
+use App\Modules\Foundation\Masters\MasterRegistry;
+use App\Modules\Foundation\Masters\MasterResource;
 use App\Modules\Foundation\Models\Department;
 use App\Modules\Foundation\Models\LookupValue;
 use App\Modules\Foundation\Models\Machine;
+use App\Modules\Foundation\Models\Shift;
 use Database\Seeders\FoundationSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 
 beforeEach(function () {
     $this->seed([RolesAndPermissionsSeeder::class, FoundationSeeder::class]);
@@ -76,7 +81,7 @@ it('returns 404 for an unknown master', function () {
 });
 
 it('does not treat an unrelated query exception as "in use"', function () {
-    $fakeModel = new class extends \Illuminate\Database\Eloquent\Model
+    $fakeModel = new class extends Model
     {
         protected $table = 'departments';
 
@@ -84,11 +89,11 @@ it('does not treat an unrelated query exception as "in use"', function () {
 
         public function delete()
         {
-            throw new \Illuminate\Database\QueryException('sqlite', 'boom', [], new \PDOException('boom'));
+            throw new QueryException('sqlite', 'boom', [], new PDOException('boom'));
         }
     };
 
-    $resource = new class($fakeModel::class) extends \App\Modules\Foundation\Masters\MasterResource
+    $resource = new class($fakeModel::class) extends MasterResource
     {
         public function __construct(private readonly string $modelClass) {}
 
@@ -107,13 +112,13 @@ it('does not treat an unrelated query exception as "in use"', function () {
             return [];
         }
 
-        public function rules(?\Illuminate\Database\Eloquent\Model $record): array
+        public function rules(?Model $record): array
         {
             return [];
         }
     };
 
-    app(\App\Modules\Foundation\Masters\MasterRegistry::class)->register($resource);
+    app(MasterRegistry::class)->register($resource);
 
     $dept = Department::where('code', 'DRYING')->first();
 
@@ -122,7 +127,7 @@ it('does not treat an unrelated query exception as "in use"', function () {
 });
 
 it('edits a shift whose times come back from the database with seconds', function () {
-    $shift = App\Modules\Foundation\Models\Shift::where('code', 'A')->firstOrFail();
+    $shift = Shift::where('code', 'A')->firstOrFail();
     $shift->forceFill(['starts_at' => '08:00:00', 'ends_at' => '20:00:00'])->save();
 
     $this->actingAs($this->ppc)->get('/masters/shifts')

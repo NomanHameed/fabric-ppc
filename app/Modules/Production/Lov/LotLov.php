@@ -9,9 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class LotLov implements LovDefinition
 {
-    public function name(): string { return 'lots'; }
+    public function name(): string
+    {
+        return 'lots';
+    }
 
-    public function permission(): ?string { return null; }
+    public function permission(): ?string
+    {
+        return null;
+    }
 
     public function columns(): array
     {
@@ -31,9 +37,15 @@ class LotLov implements LovDefinition
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')->select('lots.*');
     }
 
-    public function searchColumns(): array { return ['lots.lot_no', 'contracts.po_no', 'lots.design', 'lots.colour']; }
+    public function searchColumns(): array
+    {
+        return ['lots.lot_no', 'contracts.po_no', 'lots.design', 'lots.colour'];
+    }
 
-    public function exactColumn(): string { return 'lots.lot_no'; }
+    public function exactColumn(): string
+    {
+        return 'lots.lot_no';
+    }
 
     /** Exact: full lot no., or the last 4 digits as written on floor sheets. */
     public function applyExact(Builder $query, string $value): void

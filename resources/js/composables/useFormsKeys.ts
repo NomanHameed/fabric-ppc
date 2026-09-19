@@ -9,7 +9,12 @@ const stack: Entry[] = [];
 let listening = false;
 
 /** Record navigation/editing keys an AG Grid handles itself (Ctrl+Delete, Ctrl+Down, Page Up/Down). */
-const GRID_OWNED: ReadonlySet<FormsAction> = new Set<FormsAction>(['newRecord', 'deleteRecord', 'previousRecord', 'nextRecord']);
+const GRID_OWNED: ReadonlySet<FormsAction> = new Set<FormsAction>([
+    'newRecord',
+    'deleteRecord',
+    'previousRecord',
+    'nextRecord',
+]);
 
 function onKeydown(e: KeyboardEvent): void {
     const action = matchAction(e);
@@ -18,7 +23,10 @@ function onKeydown(e: KeyboardEvent): void {
     }
     // Inside a grid these keys belong to the grid's rows, not the form's record (e.g. Ctrl+Delete in a
     // detail grid must not delete the master record). Save, query and exit keys still apply.
-    if (GRID_OWNED.has(action) && (e.target as Element | null)?.closest?.('.ag-root-wrapper')) {
+    if (
+        GRID_OWNED.has(action) &&
+        (e.target as Element | null)?.closest?.('.ag-root-wrapper')
+    ) {
         return;
     }
     for (let i = stack.length - 1; i >= 0; i -= 1) {
@@ -43,7 +51,10 @@ function onKeydown(e: KeyboardEvent): void {
  * always-mounted-but-conditionally-active entry (e.g. a dialog that toggles
  * `open`) only shadows the entries below it while it is actually active.
  */
-export function useFormsKeys(handlers: Handlers, active: () => boolean = () => true): void {
+export function useFormsKeys(
+    handlers: Handlers,
+    active: () => boolean = () => true,
+): void {
     const entry: Entry = { handlers, active };
     onMounted(() => {
         stack.push(entry);

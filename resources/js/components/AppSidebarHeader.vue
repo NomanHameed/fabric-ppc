@@ -31,8 +31,15 @@ const auth = computed(() => usePage().props.auth);
             </template>
         </div>
         <div class="ms-auto flex items-center gap-1">
-            <span class="hidden text-sm text-muted-foreground md:inline">{{ auth.user?.name }}</span>
-            <Badge v-for="dept in auth.departments" :key="dept.id" variant="secondary">{{ dept.name }}</Badge>
+            <span class="text-muted-foreground hidden text-sm md:inline">{{
+                auth.user?.name
+            }}</span>
+            <Badge
+                v-for="dept in auth.departments"
+                :key="dept.id"
+                variant="secondary"
+                >{{ dept.name }}</Badge
+            >
             <ThemeToggle />
             <LanguageSwitch />
         </div>

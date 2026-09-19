@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { keyLabel, matchAction } from '@/forms/keymap';
 
-const key = (k: string, mods: Partial<KeyboardEventInit> = {}) => new KeyboardEvent('keydown', { key: k, ...mods });
+const key = (k: string, mods: Partial<KeyboardEventInit> = {}) =>
+    new KeyboardEvent('keydown', { key: k, ...mods });
 
 describe('keymap', () => {
     it('maps Oracle Forms function keys', () => {
@@ -15,8 +16,12 @@ describe('keymap', () => {
         expect(matchAction(key('s', { ctrlKey: true }))).toBe('save');
         expect(matchAction(key('S', { ctrlKey: true }))).toBe('save');
         expect(matchAction(key('q', { ctrlKey: true }))).toBe('exit');
-        expect(matchAction(key('ArrowDown', { ctrlKey: true }))).toBe('newRecord');
-        expect(matchAction(key('Delete', { ctrlKey: true }))).toBe('deleteRecord');
+        expect(matchAction(key('ArrowDown', { ctrlKey: true }))).toBe(
+            'newRecord',
+        );
+        expect(matchAction(key('Delete', { ctrlKey: true }))).toBe(
+            'deleteRecord',
+        );
         expect(matchAction(key('PageDown'))).toBe('nextRecord');
     });
 

@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { useFormsKeys } from '@/composables/useFormsKeys';
 
 function pressF10(): void {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', bubbles: true, cancelable: true }));
+    window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+            key: 'F10',
+            bubbles: true,
+            cancelable: true,
+        }),
+    );
 }
 
 describe('useFormsKeys', () => {
@@ -59,17 +65,31 @@ describe('useFormsKeys', () => {
         const field = document.createElement('input');
         document.body.append(grid, field);
 
-        const inGrid = new KeyboardEvent('keydown', { key: 'Delete', ctrlKey: true, bubbles: true, cancelable: true });
+        const inGrid = new KeyboardEvent('keydown', {
+            key: 'Delete',
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
         cell.dispatchEvent(inGrid);
         expect(deleteRecord).not.toHaveBeenCalled();
         expect(inGrid.defaultPrevented).toBe(false);
 
-        const saveInGrid = new KeyboardEvent('keydown', { key: 'F10', bubbles: true, cancelable: true });
+        const saveInGrid = new KeyboardEvent('keydown', {
+            key: 'F10',
+            bubbles: true,
+            cancelable: true,
+        });
         cell.dispatchEvent(saveInGrid);
         expect(save).toHaveBeenCalledTimes(1);
         expect(saveInGrid.defaultPrevented).toBe(true);
 
-        const outside = new KeyboardEvent('keydown', { key: 'Delete', ctrlKey: true, bubbles: true, cancelable: true });
+        const outside = new KeyboardEvent('keydown', {
+            key: 'Delete',
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
         field.dispatchEvent(outside);
         expect(deleteRecord).toHaveBeenCalledTimes(1);
         expect(outside.defaultPrevented).toBe(true);

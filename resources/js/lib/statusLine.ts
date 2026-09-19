@@ -2,7 +2,14 @@ import { reactive } from 'vue';
 
 type Kind = 'info' | 'success' | 'error';
 
-const initial = () => ({ message: '', kind: 'info' as Kind, recordIndex: 0, recordCount: 0, hint: '', dirty: false });
+const initial = () => ({
+    message: '',
+    kind: 'info' as Kind,
+    recordIndex: 0,
+    recordCount: 0,
+    hint: '',
+    dirty: false,
+});
 
 const state = reactive(initial());
 

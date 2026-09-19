@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core';
 import { nextTick, ref, watch } from 'vue';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useFormsKeys } from '@/composables/useFormsKeys';
 import { t } from '@/lib/i18n';
@@ -9,7 +14,12 @@ import { fetchLov } from '@/lib/lov';
 import type { LovResponse, LovRow } from '@/lib/lov';
 import { statusLine } from '@/lib/statusLine';
 
-const props = defineProps<{ name: string; filters?: Record<string, string | number | null>; initialQuery?: string; title?: string }>();
+const props = defineProps<{
+    name: string;
+    filters?: Record<string, string | number | null>;
+    initialQuery?: string;
+    title?: string;
+}>();
 const open = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ select: [row: LovRow] }>();
 
@@ -22,7 +32,10 @@ const input = ref<InstanceType<typeof Input> | null>(null);
 const load = useDebounceFn(async () => {
     loading.value = true;
     try {
-        result.value = await fetchLov(props.name, { q: query.value, filters: props.filters });
+        result.value = await fetchLov(props.name, {
+            q: query.value,
+            filters: props.filters,
+        });
         active.value = 0;
     } catch {
         result.value = { columns: [], data: [] };
@@ -32,14 +45,18 @@ const load = useDebounceFn(async () => {
     }
 }, 200);
 
-watch(open, async (isOpen) => {
-    if (isOpen) {
-        query.value = props.initialQuery ?? '';
-        await load();
-        await nextTick();
-        (input.value?.$el as HTMLInputElement | undefined)?.focus();
-    }
-}, { immediate: true });
+watch(
+    open,
+    async (isOpen) => {
+        if (isOpen) {
+            query.value = props.initialQuery ?? '';
+            await load();
+            await nextTick();
+            (input.value?.$el as HTMLInputElement | undefined)?.focus();
+        }
+    },
+    { immediate: true },
+);
 
 watch(query, () => load());
 
@@ -87,9 +104,17 @@ function choose(row: LovRow): void {
             />
             <div class="max-h-80 overflow-auto rounded border">
                 <table class="w-full text-sm tabular-nums">
-                    <thead class="sticky top-0 bg-muted text-xs text-muted-foreground">
+                    <thead
+                        class="bg-muted text-muted-foreground sticky top-0 text-xs"
+                    >
                         <tr>
-                            <th v-for="c in result.columns" :key="c.key" class="px-2 py-1 text-start font-medium">{{ c.label }}</th>
+                            <th
+                                v-for="c in result.columns"
+                                :key="c.key"
+                                class="px-2 py-1 text-start font-medium"
+                            >
+                                {{ c.label }}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,14 +123,27 @@ function choose(row: LovRow): void {
                             :key="row.id"
                             :aria-selected="i === active"
                             class="cursor-pointer border-t"
-                            :class="i === active ? 'bg-primary/10' : 'hover:bg-muted/60'"
+                            :class="
+                                i === active
+                                    ? 'bg-primary/10'
+                                    : 'hover:bg-muted/60'
+                            "
                             @mouseenter="active = i"
                             @click="choose(row)"
                         >
-                            <td v-for="c in result.columns" :key="c.key" class="px-2 py-1">{{ row[c.key] }}</td>
+                            <td
+                                v-for="c in result.columns"
+                                :key="c.key"
+                                class="px-2 py-1"
+                            >
+                                {{ row[c.key] }}
+                            </td>
                         </tr>
                         <tr v-if="!loading && result.data.length === 0">
-                            <td :colspan="result.columns.length || 1" class="px-2 py-3 text-center text-muted-foreground">
+                            <td
+                                :colspan="result.columns.length || 1"
+                                class="text-muted-foreground px-2 py-3 text-center"
+                            >
                                 {{ t('forms.no_records') }}
                             </td>
                         </tr>

@@ -9,7 +9,13 @@ import { fetchLov } from '@/lib/lov';
 import type { LovRow } from '@/lib/lov';
 import { statusLine } from '@/lib/statusLine';
 
-const props = defineProps<{ name: string; filters?: Record<string, string | number | null>; placeholder?: string; disabled?: boolean; id?: string }>();
+const props = defineProps<{
+    name: string;
+    filters?: Record<string, string | number | null>;
+    placeholder?: string;
+    disabled?: boolean;
+    id?: string;
+}>();
 const model = defineModel<number | null>({ default: null });
 const display = defineModel<string>('display', { default: '' });
 const emit = defineEmits<{ selected: [row: LovRow] }>();
@@ -19,7 +25,8 @@ const initialQuery = ref('');
 
 function select(row: LovRow): void {
     model.value = row.id;
-    display.value = row.code === row.label ? row.code : `${row.code} — ${row.label}`;
+    display.value =
+        row.code === row.label ? row.code : `${row.code} — ${row.label}`;
     emit('selected', row);
 }
 
@@ -33,7 +40,10 @@ async function onBlur(): Promise<void> {
         return;
     }
     try {
-        const res = await fetchLov(props.name, { exact: display.value.trim(), filters: props.filters });
+        const res = await fetchLov(props.name, {
+            exact: display.value.trim(),
+            filters: props.filters,
+        });
         if (res.data.length === 1) {
             select(res.data[0]);
         } else {
@@ -67,9 +77,23 @@ function onKeydown(e: KeyboardEvent): void {
             @blur="onBlur"
             @keydown="onKeydown"
         />
-        <Button type="button" variant="outline" size="icon" class="size-9 shrink-0" :disabled="disabled" :aria-label="t('forms.actions.lov')" @click="open = true">
+        <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            class="size-9 shrink-0"
+            :disabled="disabled"
+            :aria-label="t('forms.actions.lov')"
+            @click="open = true"
+        >
             <List class="size-4" />
         </Button>
-        <LovDialog v-model:open="open" :name="name" :filters="filters" :initial-query="initialQuery" @select="select" />
+        <LovDialog
+            v-model:open="open"
+            :name="name"
+            :filters="filters"
+            :initial-query="initialQuery"
+            @select="select"
+        />
     </div>
 </template>

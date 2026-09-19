@@ -14,6 +14,8 @@ describe('visibleNavigation', () => {
 
     it('shows everything for a full permission set', () => {
         const groups = visibleNavigation(NAVIGATION, () => true);
-        expect(groups.find((g) => g.key === 'admin')?.items.map((i) => i.key)).toEqual(['users', 'roles', 'settings']);
+        expect(
+            groups.find((g) => g.key === 'admin')?.items.map((i) => i.key),
+        ).toEqual(['users', 'roles', 'settings']);
     });
 });

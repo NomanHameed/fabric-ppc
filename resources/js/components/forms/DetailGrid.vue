@@ -1,5 +1,9 @@
 <script setup lang="ts" generic="T extends Record<string, unknown>">
-import type { CellKeyDownEvent, GridApi, GridReadyEvent } from 'ag-grid-community';
+import type {
+    CellKeyDownEvent,
+    GridApi,
+    GridReadyEvent,
+} from 'ag-grid-community';
 import { AgGridVue } from 'ag-grid-vue3';
 import { shallowRef } from 'vue';
 import { gridTheme } from '@/lib/agGrid';

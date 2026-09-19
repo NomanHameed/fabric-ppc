@@ -31,17 +31,17 @@
 
 Tasks within one wave touch disjoint files and can run in parallel in separate git worktrees. Merge each wave into `main` before starting the next.
 
-| Wave | Tasks |
-|---|---|
-| 1 | T1 |
-| 2 | T2, T7, T16 |
-| 3 | T3, T6 |
-| 4 | T4, T5, T8 |
-| 5 | T9, T10, T11 |
-| 6 | T12, T15 |
-| 7 | T13, T14, T17 |
-| 8 | T18 |
-| 9 | T19 |
+| Wave | Tasks         |
+| ---- | ------------- |
+| 1    | T1            |
+| 2    | T2, T7, T16   |
+| 3    | T3, T6        |
+| 4    | T4, T5, T8    |
+| 5    | T9, T10, T11  |
+| 6    | T12, T15      |
+| 7    | T13, T14, T17 |
+| 8    | T18           |
+| 9    | T19           |
 
 Shared files touched by more than one task (resolve merge conflicts by keeping both sides): `database/seeders/DatabaseSeeder.php`, `app/Providers/AppServiceProvider.php`, `resources/js/config/navigation.ts`, `composer.json`/`composer.lock` (only T1 adds packages; later tasks must not add packages unless the task says so).
 
@@ -94,12 +94,14 @@ resources/js/pages/oracle/{Imports,ImportPreview}.vue T18
 Reserved migration range: none.
 
 **Files:**
+
 - Create (from the starter kit): the whole Laravel skeleton in the repo root
 - Create: `docker-compose.yml`, `routes/modules/.gitkeep`, `tests/Pest.php`, `tests/Feature/Foundation/RegistrationDisabledTest.php`, `vitest.config.ts`
 - Modify: `.env.example`, `config/fortify.php`, `config/app.php`, `routes/web.php`, `composer.json` (scripts), `package.json` (scripts), `tests/Feature/ExampleTest.php`
 - Delete: `tests/Feature/Auth/RegistrationTest.php`, `resources/js/pages/auth/Register.vue`, `resources/js/pages/Welcome.vue`
 
 **Interfaces:**
+
 - Produces: a running app. `routes/web.php` requires every `routes/modules/*.php`. Pest is configured with `RefreshDatabase` for `tests/Feature`. `npm run test:js` runs Vitest. Packages installed: spatie/laravel-permission, owen-it/laravel-auditing, openspout/openspout, predis/predis, ag-grid-community, ag-grid-vue3, vitest, @vue/test-utils, jsdom.
 
 - [ ] **Step 1: Scaffold the starter kit into the existing repo** (the repo already contains `docs/`, `database/seeders/data/*.json` and `tests/Fixtures/oracle-wip-2026-09.xlsx`, and these must be kept)
@@ -112,6 +114,7 @@ rsync -a --exclude .git --exclude database/database.sqlite "$TMP/kit/" ./
 rm -rf "$TMP"
 git status --short | head
 ```
+
 Expected: the skeleton files appear. `docs/`, `database/seeders/data/` and `tests/Fixtures/` are unchanged.
 
 - [ ] **Step 2: Install the packages**
@@ -122,33 +125,34 @@ composer require --dev pestphp/pest:^4.7 pestphp/pest-plugin-laravel:^4.0 -W --n
 npm install ag-grid-community@^36 ag-grid-vue3@^36
 npm install -D vitest @vue/test-utils jsdom
 ```
+
 Expected: all resolve (verified during planning: Pest 4.7.8, permission 8.3.0, auditing 14.0.6, openspout 5.11.3).
 
 - [ ] **Step 3: Add the Docker dev services.** Create `docker-compose.yml`:
 
 ```yaml
 services:
-  mysql:
-    image: mysql:8.4
-    environment:
-      MYSQL_DATABASE: fabric_ppc
-      MYSQL_USER: fabric
-      MYSQL_PASSWORD: secret
-      MYSQL_ROOT_PASSWORD: root
-    ports:
-      - "33306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
-      interval: 5s
-      retries: 20
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "63790:6379"
+    mysql:
+        image: mysql:8.4
+        environment:
+            MYSQL_DATABASE: fabric_ppc
+            MYSQL_USER: fabric
+            MYSQL_PASSWORD: secret
+            MYSQL_ROOT_PASSWORD: root
+        ports:
+            - '33306:3306'
+        volumes:
+            - mysql-data:/var/lib/mysql
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-proot']
+            interval: 5s
+            retries: 20
+    redis:
+        image: redis:7-alpine
+        ports:
+            - '63790:6379'
 volumes:
-  mysql-data:
+    mysql-data:
 ```
 
 - [ ] **Step 4: Configure the environment.** In `.env.example` (then `cp .env.example .env && php artisan key:generate`) set:
@@ -171,19 +175,21 @@ SESSION_DRIVER=redis
 ADMIN_EMAIL=admin@fabric.local
 ADMIN_PASSWORD=password
 ```
+
 In `config/app.php` set `'timezone' => 'Asia/Karachi',`.
 
 - [ ] **Step 5: Disable registration.** In `config/fortify.php`, comment out `Features::registration(),` inside the `features` array. Delete `tests/Feature/Auth/RegistrationTest.php`, `resources/js/pages/auth/Register.vue` and `resources/js/pages/Welcome.vue`. Then:
-  - In `routes/web.php`, replace `Route::inertia('/', 'Welcome')->name('home');` with `Route::redirect('/', '/dashboard')->name('home');`, and append the module loader at the end of the file:
+    - In `routes/web.php`, replace `Route::inertia('/', 'Welcome')->name('home');` with `Route::redirect('/', '/dashboard')->name('home');`, and append the module loader at the end of the file:
 
 ```php
 foreach (glob(__DIR__.'/modules/*.php') as $moduleRoutes) {
     require $moduleRoutes;
 }
 ```
-  - Create `routes/modules/.gitkeep`.
-  - Run `grep -rn "register" resources/js --include=*.vue | grep -v "components/ui"` and delete every link to the register route that it finds. The kit's `Login.vue` guards it with `canRegister`; leave those guards in place.
-  - Replace `tests/Feature/ExampleTest.php` so it asserts `$this->get('/')->assertRedirect('/dashboard');`.
+
+- Create `routes/modules/.gitkeep`.
+- Run `grep -rn "register" resources/js --include=*.vue | grep -v "components/ui"` and delete every link to the register route that it finds. The kit's `Login.vue` guards it with `canRegister`; leave those guards in place.
+- Replace `tests/Feature/ExampleTest.php` so it asserts `$this->get('/')->assertRedirect('/dashboard');`.
 
 - [ ] **Step 6: Configure Pest.** Create `tests/Pest.php`:
 
@@ -195,6 +201,7 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature');
 ```
+
 In `composer.json` `scripts`, set `"test": ["@php artisan config:clear --ansi", "./vendor/bin/pest"]`.
 
 - [ ] **Step 7: Write the failing test** `tests/Feature/Foundation/RegistrationDisabledTest.php`:
@@ -208,6 +215,7 @@ it('does not expose public registration', function () {
         ->assertNotFound();
 });
 ```
+
 Run `./vendor/bin/pest tests/Feature/Foundation/RegistrationDisabledTest.php`. It should PASS if Step 5 is done. To prove the test is real, temporarily re-enable `Features::registration()` and confirm it FAILS, then disable it again.
 
 - [ ] **Step 8: Set up Vitest.** Create `vitest.config.ts`:
@@ -220,7 +228,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     plugins: [vue()],
     resolve: {
-        alias: { '@': fileURLToPath(new URL('./resources/js', import.meta.url)) },
+        alias: {
+            '@': fileURLToPath(new URL('./resources/js', import.meta.url)),
+        },
     },
     test: {
         environment: 'jsdom',
@@ -229,6 +239,7 @@ export default defineConfig({
     },
 });
 ```
+
 In `package.json` `scripts`, add `"test:js": "vitest run"`.
 
 - [ ] **Step 9: Verify everything**
@@ -238,7 +249,9 @@ docker compose up -d && sleep 20 && php artisan migrate --force
 ./vendor/bin/pest
 npm run build && npm run types:check && npm run test:js
 ```
+
 Expected:
+
 - `docker compose` output: MySQL is healthy.
 - Migrations run on MySQL.
 - Pest: all tests pass (the kit's tests minus registration, plus the new test).
@@ -261,18 +274,20 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: `000100`–`000199`.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Access/Permissions.php`, `app/Modules/Foundation/Http/Middleware/EnsureUserIsActive.php`, `database/migrations/2026_09_19_000100_add_access_columns_to_users_table.php`, `database/seeders/RolesAndPermissionsSeeder.php`, `database/seeders/AdminUserSeeder.php`, `routes/modules/foundation.php`, `tests/Feature/Foundation/RolesAndPermissionsTest.php`
 - Modify: `app/Models/User.php`, `bootstrap/app.php`, `app/Providers/AppServiceProvider.php`, `app/Http/Middleware/HandleInertiaRequests.php`, `database/seeders/DatabaseSeeder.php`, `database/factories/UserFactory.php`, `resources/js/types/auth.ts`
 - Publish: `config/permission.php` and the permission migration
 
 **Interfaces:**
+
 - Produces:
-  - `App\Modules\Foundation\Access\Permissions::ALL` (`list<string>`).
-  - `Permissions::ROLES` (`array<string, list<string>|'*'>`).
-  - Role name constants `Permissions::ROLE_ADMIN|ROLE_PPC|ROLE_MANAGER|ROLE_DEPT_INCHARGE|ROLE_COLOUR_LAB|ROLE_DISPATCH|ROLE_VIEWER`.
-  - `User` has `HasRoles`, plus `is_active` (bool) and `locale` (string).
-  - Inertia shared props `auth.permissions: string[]` and `auth.roles: string[]`.
-  - `routes/modules/foundation.php` exists (an empty `auth` group that later tasks append to).
+    - `App\Modules\Foundation\Access\Permissions::ALL` (`list<string>`).
+    - `Permissions::ROLES` (`array<string, list<string>|'*'>`).
+    - Role name constants `Permissions::ROLE_ADMIN|ROLE_PPC|ROLE_MANAGER|ROLE_DEPT_INCHARGE|ROLE_COLOUR_LAB|ROLE_DISPATCH|ROLE_VIEWER`.
+    - `User` has `HasRoles`, plus `is_active` (bool) and `locale` (string).
+    - Inertia shared props `auth.permissions: string[]` and `auth.roles: string[]`.
+    - `routes/modules/foundation.php` exists (an empty `auth` group that later tasks append to).
 
 - [ ] **Step 1: Publish the permission config and migration**
 
@@ -280,6 +295,7 @@ Reserved migration range: `000100`–`000199`.
 php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
 ls database/migrations | grep permission
 ```
+
 Expected: `config/permission.php` and one `*_create_permission_tables.php` migration. Rename the migration file to `2026_09_19_000101_create_permission_tables.php`.
 
 - [ ] **Step 2: Write the failing tests** `tests/Feature/Foundation/RolesAndPermissionsTest.php`:
@@ -509,6 +525,7 @@ return new class extends Migration
 ```
 
 In `app/Models/User.php`:
+
 - add `use Spatie\Permission\Traits\HasRoles;` and add `HasRoles` to the trait list;
 - extend `#[Fillable([...])]` with `'is_active', 'locale'`;
 - add `'is_active' => 'boolean'` to `casts()`;
@@ -611,11 +628,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 3: Auditing and core masters (departments, machines, operations, shifts, lookups, settings)
 
 Reserved migration range: `000200`–`000299`.
 
 **Files:**
+
 - Publish: `config/audit.php` and the audits migration (rename it to `2026_09_19_000200_create_audits_table.php`)
 - Create: `database/migrations/2026_09_19_000210_create_foundation_master_tables.php`
 - Create: `app/Modules/Foundation/Models/{Department,Machine,Operation,Shift,LookupValue,Setting}.php`
@@ -626,16 +645,17 @@ Reserved migration range: `000200`–`000299`.
 - Uses: `database/seeders/data/operations.json` (already in the repo: 112 rows of `{department, kind, name}`)
 
 **Interfaces:**
+
 - Consumes: `User` from T2.
 - Produces:
-  - `Department(id, code, name_en, name_ur, sort, is_active)` with `machines()` (belongsToMany), `operations()` (hasMany) and a `name` accessor (returns `name_ur` when the locale is `ur` and it's set, otherwise `name_en`).
-  - `Machine(id, code, name, is_active)` with `departments()` (belongsToMany via `department_machine`).
-  - `Operation(id, department_id, name, kind, stage_label, counts_as_finish_production, finish_type, is_stretch, is_active)` with `department()`.
-  - `Shift(id, code, name, starts_at, ends_at)`.
-  - `LookupValue(id, list_key, code, label_en, label_ur, sort, meta: array, is_active)` with `scopeList(Builder, string $key)` and `label` accessor.
-  - `Setting::get(string $key, mixed $default = null): mixed` and `Setting::put(string $key, mixed $value): void`.
-  - `User::departments()` (belongsToMany via `department_user`).
-  - Department codes (use these exact strings): `BATCH_STENTER, CURING, DRYING, FINISH_STENTER, JIGGER_DYEING, KIER_BLEACHING, MERCERIZING, PRINTING, ROLLING, SANFO_CALENDER, SINGEING, STITCHING`.
+    - `Department(id, code, name_en, name_ur, sort, is_active)` with `machines()` (belongsToMany), `operations()` (hasMany) and a `name` accessor (returns `name_ur` when the locale is `ur` and it's set, otherwise `name_en`).
+    - `Machine(id, code, name, is_active)` with `departments()` (belongsToMany via `department_machine`).
+    - `Operation(id, department_id, name, kind, stage_label, counts_as_finish_production, finish_type, is_stretch, is_active)` with `department()`.
+    - `Shift(id, code, name, starts_at, ends_at)`.
+    - `LookupValue(id, list_key, code, label_en, label_ur, sort, meta: array, is_active)` with `scopeList(Builder, string $key)` and `label` accessor.
+    - `Setting::get(string $key, mixed $default = null): mixed` and `Setting::put(string $key, mixed $value): void`.
+    - `User::departments()` (belongsToMany via `department_user`).
+    - Department codes (use these exact strings): `BATCH_STENTER, CURING, DRYING, FINISH_STENTER, JIGGER_DYEING, KIER_BLEACHING, MERCERIZING, PRINTING, ROLLING, SANFO_CALENDER, SINGEING, STITCHING`.
 
 - [ ] **Step 1: Publish the auditing package**
 
@@ -643,6 +663,7 @@ Reserved migration range: `000200`–`000299`.
 php artisan vendor:publish --provider="OwenIt\Auditing\AuditingServiceProvider" --tag=config
 php artisan vendor:publish --provider="OwenIt\Auditing\AuditingServiceProvider" --tag=migrations
 ```
+
 Rename the created migration to `2026_09_19_000200_create_audits_table.php`. In `config/audit.php`, keep `'console' => false` so seeders don't write audits.
 
 - [ ] **Step 2: Write the failing tests**
@@ -1288,11 +1309,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 4: Parties, aliases, qualities and the quality parser
 
 Reserved migration range: `000300`–`000349`.
 
 **Files:**
+
 - Create: `database/migrations/2026_09_19_000300_create_party_and_quality_tables.php`
 - Create: `app/Modules/Foundation/Models/{Party,PartyAlias,Quality}.php`
 - Create: `app/Modules/Foundation/Support/{PartyName,QualityParser,ParsedQuality}.php`
@@ -1302,13 +1325,14 @@ Reserved migration range: `000300`–`000349`.
 - Uses: `database/seeders/data/parties.json` (126 rows of `{name, type}`; normalised names repeat twice: ALBEEN, VANGUARD)
 
 **Interfaces:**
+
 - Consumes: the audit setup from T3.
 - Produces:
-  - `PartyName::normalize(string $name): string`: uppercase, trims, collapses whitespace, and removes spaces around `.` `&` `'` `-`. So `"N . N .  EXPORT INT ' L (PVT)  LTD"` becomes `"N.N.EXPORT INT'L (PVT) LTD"` and `"AL HAMD TEXTILE  "` becomes `"AL HAMD TEXTILE"`.
-  - `Party(id, oracle_code ?int unique, name, name_normalized unique, type 'brand'|'local', is_active)` with `aliases()` hasMany. `Party::findByName(string $name): ?Party` matches `name_normalized`, then an alias's `alias_normalized`.
-  - `PartyAlias(id, party_id, alias, alias_normalized unique)`.
-  - `Quality(id, oracle_code ?int unique, description, ends ?int, picks ?int, warp_count ?string, weft_count ?string, composition ?string, loom ?string, notes ?string, is_active)` and `Quality::fromOracle(int $code, string $description): Quality` (upsert by code, refreshes the parsed columns).
-  - `QualityParser::parse(string $description): ParsedQuality` (readonly: `ends, picks, warpCount, weftCount, composition, loom, notes`). A `0X0/0X0` construction gives null counts.
+    - `PartyName::normalize(string $name): string`: uppercase, trims, collapses whitespace, and removes spaces around `.` `&` `'` `-`. So `"N . N .  EXPORT INT ' L (PVT)  LTD"` becomes `"N.N.EXPORT INT'L (PVT) LTD"` and `"AL HAMD TEXTILE  "` becomes `"AL HAMD TEXTILE"`.
+    - `Party(id, oracle_code ?int unique, name, name_normalized unique, type 'brand'|'local', is_active)` with `aliases()` hasMany. `Party::findByName(string $name): ?Party` matches `name_normalized`, then an alias's `alias_normalized`.
+    - `PartyAlias(id, party_id, alias, alias_normalized unique)`.
+    - `Quality(id, oracle_code ?int unique, description, ends ?int, picks ?int, warp_count ?string, weft_count ?string, composition ?string, loom ?string, notes ?string, is_active)` and `Quality::fromOracle(int $code, string $description): Quality` (upsert by code, refreshes the parsed columns).
+    - `QualityParser::parse(string $description): ParsedQuality` (readonly: `ends, picks, warpCount, weftCount, composition, loom, notes`). A `0X0/0X0` construction gives null counts.
 
 - [ ] **Step 1: Write the failing unit tests**
 
@@ -1725,6 +1749,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: `000350`–`000399`.
 
 **Files:**
+
 - Create: `database/migrations/2026_09_19_000350_create_route_template_tables.php`
 - Create: `app/Modules/Foundation/Models/{RouteTemplate,RouteTemplateStep}.php`
 - Create: `app/Modules/Foundation/Routing/RouteTemplateMatcher.php`
@@ -1733,13 +1758,14 @@ Reserved migration range: `000350`–`000399`.
 - Modify: `database/seeders/DatabaseSeeder.php`
 
 **Interfaces:**
+
 - Consumes: `Operation` and `Department` (T3).
 - Produces:
-  - `RouteTemplate(id, name, po_type ?string, quality_pattern ?string, priority int, is_active)` with `steps()` hasMany, ordered by `seq`.
-  - `RouteTemplateStep(id, route_template_id, seq, operation_id)` with `operation()`.
-  - `RouteTemplateMatcher::match(?string $poType, ?string $qualityDescription): ?RouteTemplate`.
-    - A template is eligible when it is active, its `po_type` is null or equals the PO type (case-insensitive), and its `quality_pattern` is null or matches the description as an SQL-LIKE pattern (`%` means any run of characters, `_` means one character; case-insensitive).
-    - The winner is the eligible template with the highest `priority`. On a tie, the one with more non-null conditions wins, then the lowest id.
+    - `RouteTemplate(id, name, po_type ?string, quality_pattern ?string, priority int, is_active)` with `steps()` hasMany, ordered by `seq`.
+    - `RouteTemplateStep(id, route_template_id, seq, operation_id)` with `operation()`.
+    - `RouteTemplateMatcher::match(?string $poType, ?string $qualityDescription): ?RouteTemplate`.
+        - A template is eligible when it is active, its `po_type` is null or equals the PO type (case-insensitive), and its `quality_pattern` is null or matches the description as an SQL-LIKE pattern (`%` means any run of characters, `_` means one character; case-insensitive).
+        - The winner is the eligible template with the highest `priority`. On a tie, the one with more non-null conditions wins, then the lowest id.
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/Foundation/RouteTemplateMatcherTest.php`:
 
@@ -2003,11 +2029,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 6: Languages (English / Urdu) and RTL
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/I18n/TranslationRepository.php`
 - Create: `app/Modules/Foundation/Http/Middleware/SetLocale.php`
 - Create: `app/Modules/Foundation/Http/Controllers/{LocaleController,TranslationController}.php`
@@ -2018,16 +2046,17 @@ Reserved migration range: none.
 - Modify: `config/app.php`, `bootstrap/app.php`, `app/Http/Middleware/HandleInertiaRequests.php`, `resources/views/app.blade.php`, `resources/js/app.ts`, `routes/modules/foundation.php`
 
 **Interfaces:**
+
 - Consumes: `User.locale` from T2.
 - Produces:
-  - `config('app.available_locales')`: `['en' => ['name' => 'English', 'dir' => 'ltr'], 'ur' => ['name' => 'اردو', 'dir' => 'rtl']]`.
-  - `TranslationRepository::all(string $locale): array`: every `lang/{locale}/*.php` group nested as `[group => [...]]`, with keys missing from `ur` filled from `en`.
-  - `TranslationRepository::version(string $locale): string`: an 8-character hash of the group files' mtimes and sizes.
-  - Routes: `GET /i18n/{locale}.json` (named `i18n.show`, no auth) and `POST /locale` (named `locale.update`, auth).
-  - Inertia shared props: `locale: string`, `dir: 'ltr'|'rtl'`, `locales: Record<string,{name,dir}>`, `i18nVersion: string`.
-  - Frontend `@/lib/i18n`: `t(key, replace?)`, `useI18n()` returning `{ t, locale, dir }`, `setTranslations(locale, dir, dict)`, `switchLocale(locale): Promise<void>`, and the Vue plugin `i18n` (adds `$t`).
-  - Initial translations are embedded in the first HTML response as `window.__I18N__ = {locale, dir, dict}`, so the page never shows raw keys.
-  - Translation convention for later tasks: group files are named after the area (`masters`, `forms`, `oracle`, `admin`). Keys are snake_case and nested.
+    - `config('app.available_locales')`: `['en' => ['name' => 'English', 'dir' => 'ltr'], 'ur' => ['name' => 'اردو', 'dir' => 'rtl']]`.
+    - `TranslationRepository::all(string $locale): array`: every `lang/{locale}/*.php` group nested as `[group => [...]]`, with keys missing from `ur` filled from `en`.
+    - `TranslationRepository::version(string $locale): string`: an 8-character hash of the group files' mtimes and sizes.
+    - Routes: `GET /i18n/{locale}.json` (named `i18n.show`, no auth) and `POST /locale` (named `locale.update`, auth).
+    - Inertia shared props: `locale: string`, `dir: 'ltr'|'rtl'`, `locales: Record<string,{name,dir}>`, `i18nVersion: string`.
+    - Frontend `@/lib/i18n`: `t(key, replace?)`, `useI18n()` returning `{ t, locale, dir }`, `setTranslations(locale, dir, dict)`, `switchLocale(locale): Promise<void>`, and the Vue plugin `i18n` (adds `$t`).
+    - Initial translations are embedded in the first HTML response as `window.__I18N__ = {locale, dir, dict}`, so the page never shows raw keys.
+    - Translation convention for later tasks: group files are named after the area (`masters`, `forms`, `oracle`, `admin`). Keys are snake_case and nested.
 
 - [ ] **Step 1: Write the failing feature test** `tests/Feature/Foundation/LocaleTest.php`:
 
@@ -2275,6 +2304,7 @@ Add to `routes/modules/foundation.php`, outside the auth group:
 Route::get('i18n/{locale}.json', [\App\Modules\Foundation\Http\Controllers\TranslationController::class, 'show'])
     ->where('locale', '[a-z]{2}')->name('i18n.show');
 ```
+
 and inside the auth group:
 
 ```php
@@ -2293,11 +2323,13 @@ In `HandleInertiaRequests::share()`, add:
 ```
 
 In `resources/views/app.blade.php`:
+
 - Change the `<html ...>` opening tag to:
 
 ```blade
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ config('app.available_locales.'.app()->getLocale().'.dir', 'ltr') }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
 ```
+
 - Add before `@fonts`:
 
 ```blade
@@ -2312,7 +2344,10 @@ import { setTranslations, t, useI18n } from '@/lib/i18n';
 
 describe('i18n', () => {
     it('resolves nested keys and replacements', () => {
-        setTranslations('en', 'ltr', { forms: { record: 'Record :n of :m' }, app: { name: 'Fabric PPC' } });
+        setTranslations('en', 'ltr', {
+            forms: { record: 'Record :n of :m' },
+            app: { name: 'Fabric PPC' },
+        });
         expect(t('app.name')).toBe('Fabric PPC');
         expect(t('forms.record', { n: 3, m: 18 })).toBe('Record 3 of 18');
     });
@@ -2344,7 +2379,11 @@ import { computed, reactive } from 'vue';
 type Dict = { [key: string]: string | Dict };
 type Dir = 'ltr' | 'rtl';
 
-const state = reactive<{ locale: string; dir: Dir; dict: Dict }>({ locale: 'en', dir: 'ltr', dict: {} });
+const state = reactive<{ locale: string; dir: Dir; dict: Dict }>({
+    locale: 'en',
+    dir: 'ltr',
+    dict: {},
+});
 
 export function setTranslations(locale: string, dir: Dir, dict: Dict): void {
     state.locale = locale;
@@ -2356,11 +2395,19 @@ export function setTranslations(locale: string, dir: Dir, dict: Dict): void {
     }
 }
 
-export function t(key: string, replace: Record<string, string | number> = {}): string {
-    const value = key.split('.').reduce<string | Dict | undefined>(
-        (acc, part) => (acc !== undefined && typeof acc === 'object' ? acc[part] : undefined),
-        state.dict,
-    );
+export function t(
+    key: string,
+    replace: Record<string, string | number> = {},
+): string {
+    const value = key
+        .split('.')
+        .reduce<string | Dict | undefined>(
+            (acc, part) =>
+                acc !== undefined && typeof acc === 'object'
+                    ? acc[part]
+                    : undefined,
+            state.dict,
+        );
     let text = typeof value === 'string' ? value : key;
     for (const [name, v] of Object.entries(replace)) {
         text = text.replaceAll(`:${name}`, String(v));
@@ -2369,31 +2416,57 @@ export function t(key: string, replace: Record<string, string | number> = {}): s
 }
 
 export function useI18n() {
-    return { t, locale: computed(() => state.locale), dir: computed(() => state.dir) };
+    return {
+        t,
+        locale: computed(() => state.locale),
+        dir: computed(() => state.dir),
+    };
 }
 
-export async function loadLocale(locale: string, dir: Dir, version: string): Promise<void> {
-    const res = await fetch(`/i18n/${locale}.json?v=${version}`, { headers: { Accept: 'application/json' } });
+export async function loadLocale(
+    locale: string,
+    dir: Dir,
+    version: string,
+): Promise<void> {
+    const res = await fetch(`/i18n/${locale}.json?v=${version}`, {
+        headers: { Accept: 'application/json' },
+    });
     setTranslations(locale, dir, (await res.json()) as Dict);
 }
 
 export function switchLocale(locale: string): Promise<void> {
     return new Promise((resolve) => {
-        router.post('/locale', { locale }, {
-            preserveScroll: true,
-            onSuccess: async (page) => {
-                const props = page.props as unknown as { locale: string; dir: Dir; i18nVersion: string };
-                await loadLocale(props.locale, props.dir, props.i18nVersion);
-                resolve();
+        router.post(
+            '/locale',
+            { locale },
+            {
+                preserveScroll: true,
+                onSuccess: async (page) => {
+                    const props = page.props as unknown as {
+                        locale: string;
+                        dir: Dir;
+                        i18nVersion: string;
+                    };
+                    await loadLocale(
+                        props.locale,
+                        props.dir,
+                        props.i18nVersion,
+                    );
+                    resolve();
+                },
+                onFinish: () => resolve(),
             },
-            onFinish: () => resolve(),
-        });
+        );
     });
 }
 
 export const i18n = {
     install(app: App): void {
-        const boot = (window as unknown as { __I18N__?: { locale: string; dir: Dir; dict: Dict } }).__I18N__;
+        const boot = (
+            window as unknown as {
+                __I18N__?: { locale: string; dir: Dir; dict: Dict };
+            }
+        ).__I18N__;
         if (boot) {
             setTranslations(boot.locale, boot.dir, boot.dict);
         }
@@ -2435,7 +2508,9 @@ import {
 import { switchLocale, t } from '@/lib/i18n';
 
 const page = usePage();
-const locales = computed(() => page.props.locales as Record<string, { name: string; dir: string }>);
+const locales = computed(
+    () => page.props.locales as Record<string, { name: string; dir: string }>,
+);
 const current = computed(() => page.props.locale as string);
 </script>
 
@@ -2484,19 +2559,21 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Query/QueryCriteria.php`
 - Create: `tests/Feature/Foundation/QueryCriteriaTest.php`
 
 **Interfaces:**
+
 - Produces: `QueryCriteria::apply(Builder $query, array $criteria, array $fields): Builder`.
-  - `$criteria` is `array<string, string|null>`, as typed by the user in Enter Query mode.
-  - `$fields` is `array<string, array{column: string, type: 'text'|'number'|'date'|'bool'}>`. Unknown criteria keys are ignored.
-  - Rules (Oracle Forms semantics):
-    - Blank values are ignored.
-    - **text:** a value containing `%` or `_` becomes a case-insensitive `LIKE`. Otherwise it's a case-insensitive exact match. `#NULL` means `IS NULL`.
-    - **number/date:** operators `>=`, `<=`, `!=`, `>`, `<`, `=` as a prefix. `a..b` is an inclusive range. `#NULL` means `IS NULL`. Dates accept `d-m-Y`, `d/m/Y` and `Y-m-d`.
-    - **bool:** `Y`, `1`, `true` are true. `N`, `0`, `false` are false.
-    - An unparseable number or date throws `Illuminate\Validation\ValidationException` keyed by the field name, with message `__('forms.invalid_criteria')`.
+    - `$criteria` is `array<string, string|null>`, as typed by the user in Enter Query mode.
+    - `$fields` is `array<string, array{column: string, type: 'text'|'number'|'date'|'bool'}>`. Unknown criteria keys are ignored.
+    - Rules (Oracle Forms semantics):
+        - Blank values are ignored.
+        - **text:** a value containing `%` or `_` becomes a case-insensitive `LIKE`. Otherwise it's a case-insensitive exact match. `#NULL` means `IS NULL`.
+        - **number/date:** operators `>=`, `<=`, `!=`, `>`, `<`, `=` as a prefix. `a..b` is an inclusive range. `#NULL` means `IS NULL`. Dates accept `d-m-Y`, `d/m/Y` and `Y-m-d`.
+        - **bool:** `Y`, `1`, `true` are true. `N`, `0`, `false` are false.
+        - An unparseable number or date throws `Illuminate\Validation\ValidationException` keyed by the field name, with message `__('forms.invalid_criteria')`.
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/Foundation/QueryCriteriaTest.php`:
 
@@ -2683,11 +2760,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 8: Forms UI kit A — key map, toolbar, status line, query mode, unsaved guard
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `resources/js/forms/keymap.ts`, `resources/js/forms/__tests__/keymap.spec.ts`
 - Create: `resources/js/composables/useFormsKeys.ts`, `resources/js/composables/useQueryMode.ts`, `resources/js/composables/useUnsavedGuard.ts`
 - Create: `resources/js/composables/__tests__/useQueryMode.spec.ts`
@@ -2696,20 +2775,21 @@ Reserved migration range: none.
 - Create: `lang/en/forms.php`, `lang/ur/forms.php`
 
 **Interfaces:**
+
 - Consumes: `t` from `@/lib/i18n` (T6).
 - Produces:
-  - `type FormsAction = 'save'|'newRecord'|'deleteRecord'|'enterQuery'|'executeQuery'|'previousRecord'|'nextRecord'|'clear'|'print'|'exit'|'lov'`.
-  - `FORMS_KEYMAP: Record<FormsAction, string[]>` and `matchAction(e: KeyboardEvent): FormsAction | null`.
-  - `useFormsKeys(handlers: Partial<Record<FormsAction, () => void>>)`. Only the most recently mounted form handles keys, as a stack, so an open LOV dialog captures keys and the form underneath doesn't.
-  - `statusLine` store: `setMessage(text, kind?: 'info'|'success'|'error')`, `setRecord(index: number, count: number)`, `setHint(text)`, `setDirty(bool)`, `reset()`, and the reactive `statusLine.state`.
-  - `useQueryMode<T extends Record<string, string|null>>(fields: (keyof T)[])` returns `{ mode: Ref<'normal'|'enterQuery'>, criteria: T (reactive), enterQuery(), cancelQuery(), takeCriteria(): Partial<T> }`.
-    - `enterQuery()` clears the criteria and sets the mode.
-    - `takeCriteria()` returns the non-blank criteria and sets the mode back to normal.
-  - `useUnsavedGuard(isDirty: () => boolean, save: () => Promise<boolean>)`: intercepts Inertia navigation and `beforeunload`, and shows `ConfirmSaveDialog` (Save / Discard / Cancel).
-  - `<FormsToolbar :disabled="Partial<Record<FormsAction, boolean>>" :mode @action="(a: FormsAction) => …">`: icon buttons with tooltips that show the key. It binds `useFormsKeys` itself, so pages only listen to `@action`.
-  - `<StatusLine/>`: fixed bar at the bottom of the viewport. T11 mounts it.
-  - `<FormBlock :title>`: a titled bordered block with a `default` slot laid out as a responsive 12-column grid.
-  - `<FormField :label :error :span="1..12" :hint>`: label + slot + error. Focusing it calls `statusLine.setHint(hint)`.
+    - `type FormsAction = 'save'|'newRecord'|'deleteRecord'|'enterQuery'|'executeQuery'|'previousRecord'|'nextRecord'|'clear'|'print'|'exit'|'lov'`.
+    - `FORMS_KEYMAP: Record<FormsAction, string[]>` and `matchAction(e: KeyboardEvent): FormsAction | null`.
+    - `useFormsKeys(handlers: Partial<Record<FormsAction, () => void>>)`. Only the most recently mounted form handles keys, as a stack, so an open LOV dialog captures keys and the form underneath doesn't.
+    - `statusLine` store: `setMessage(text, kind?: 'info'|'success'|'error')`, `setRecord(index: number, count: number)`, `setHint(text)`, `setDirty(bool)`, `reset()`, and the reactive `statusLine.state`.
+    - `useQueryMode<T extends Record<string, string|null>>(fields: (keyof T)[])` returns `{ mode: Ref<'normal'|'enterQuery'>, criteria: T (reactive), enterQuery(), cancelQuery(), takeCriteria(): Partial<T> }`.
+        - `enterQuery()` clears the criteria and sets the mode.
+        - `takeCriteria()` returns the non-blank criteria and sets the mode back to normal.
+    - `useUnsavedGuard(isDirty: () => boolean, save: () => Promise<boolean>)`: intercepts Inertia navigation and `beforeunload`, and shows `ConfirmSaveDialog` (Save / Discard / Cancel).
+    - `<FormsToolbar :disabled="Partial<Record<FormsAction, boolean>>" :mode @action="(a: FormsAction) => …">`: icon buttons with tooltips that show the key. It binds `useFormsKeys` itself, so pages only listen to `@action`.
+    - `<StatusLine/>`: fixed bar at the bottom of the viewport. T11 mounts it.
+    - `<FormBlock :title>`: a titled bordered block with a `default` slot laid out as a responsive 12-column grid.
+    - `<FormField :label :error :span="1..12" :hint>`: label + slot + error. Focusing it calls `statusLine.setHint(hint)`.
 
 - [ ] **Step 1: Add the translations**
 
@@ -2779,7 +2859,8 @@ return [
 import { describe, expect, it } from 'vitest';
 import { keyLabel, matchAction } from '@/forms/keymap';
 
-const key = (k: string, mods: Partial<KeyboardEventInit> = {}) => new KeyboardEvent('keydown', { key: k, ...mods });
+const key = (k: string, mods: Partial<KeyboardEventInit> = {}) =>
+    new KeyboardEvent('keydown', { key: k, ...mods });
 
 describe('keymap', () => {
     it('maps Oracle Forms function keys', () => {
@@ -2793,8 +2874,12 @@ describe('keymap', () => {
         expect(matchAction(key('s', { ctrlKey: true }))).toBe('save');
         expect(matchAction(key('S', { ctrlKey: true }))).toBe('save');
         expect(matchAction(key('q', { ctrlKey: true }))).toBe('exit');
-        expect(matchAction(key('ArrowDown', { ctrlKey: true }))).toBe('newRecord');
-        expect(matchAction(key('Delete', { ctrlKey: true }))).toBe('deleteRecord');
+        expect(matchAction(key('ArrowDown', { ctrlKey: true }))).toBe(
+            'newRecord',
+        );
+        expect(matchAction(key('Delete', { ctrlKey: true }))).toBe(
+            'deleteRecord',
+        );
         expect(matchAction(key('PageDown'))).toBe('nextRecord');
     });
 
@@ -2823,7 +2908,13 @@ describe('statusLine', () => {
         statusLine.setRecord(3, 18);
         statusLine.setMessage('Saved', 'success');
         statusLine.setDirty(true);
-        expect(statusLine.state).toMatchObject({ recordIndex: 3, recordCount: 18, message: 'Saved', kind: 'success', dirty: true });
+        expect(statusLine.state).toMatchObject({
+            recordIndex: 3,
+            recordCount: 18,
+            message: 'Saved',
+            kind: 'success',
+            dirty: true,
+        });
     });
 
     it('resets', () => {
@@ -2842,7 +2933,10 @@ import { useQueryMode } from '@/composables/useQueryMode';
 
 describe('useQueryMode', () => {
     it('enters query mode with cleared criteria and returns non-blank criteria', () => {
-        const q = useQueryMode<{ code: string | null; name: string | null }>(['code', 'name']);
+        const q = useQueryMode<{ code: string | null; name: string | null }>([
+            'code',
+            'name',
+        ]);
         q.criteria.code = 'old';
         q.enterQuery();
         expect(q.mode.value).toBe('enterQuery');
@@ -2868,8 +2962,17 @@ Run: `npm run test:js`. Expected: FAIL (modules not found).
 
 ```ts
 export type FormsAction =
-    | 'save' | 'newRecord' | 'deleteRecord' | 'enterQuery' | 'executeQuery'
-    | 'previousRecord' | 'nextRecord' | 'clear' | 'print' | 'exit' | 'lov';
+    | 'save'
+    | 'newRecord'
+    | 'deleteRecord'
+    | 'enterQuery'
+    | 'executeQuery'
+    | 'previousRecord'
+    | 'nextRecord'
+    | 'clear'
+    | 'print'
+    | 'exit'
+    | 'lov';
 
 /** Single place to change shortcuts. Combos: Ctrl+, Shift+, Alt+ then KeyboardEvent.key. */
 export const FORMS_KEYMAP: Record<FormsAction, string[]> = {
@@ -2888,14 +2991,22 @@ export const FORMS_KEYMAP: Record<FormsAction, string[]> = {
 
 function combo(e: KeyboardEvent): string {
     const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-    return [e.ctrlKey || e.metaKey ? 'Ctrl' : '', e.shiftKey && e.key.length > 1 ? 'Shift' : '', e.altKey ? 'Alt' : '', k]
+    return [
+        e.ctrlKey || e.metaKey ? 'Ctrl' : '',
+        e.shiftKey && e.key.length > 1 ? 'Shift' : '',
+        e.altKey ? 'Alt' : '',
+        k,
+    ]
         .filter(Boolean)
         .join('+');
 }
 
 export function matchAction(e: KeyboardEvent): FormsAction | null {
     const c = combo(e);
-    for (const [action, keys] of Object.entries(FORMS_KEYMAP) as [FormsAction, string[]][]) {
+    for (const [action, keys] of Object.entries(FORMS_KEYMAP) as [
+        FormsAction,
+        string[],
+    ][]) {
         if (keys.includes(c)) {
             return action;
         }
@@ -2915,7 +3026,14 @@ import { reactive } from 'vue';
 
 type Kind = 'info' | 'success' | 'error';
 
-const initial = () => ({ message: '', kind: 'info' as Kind, recordIndex: 0, recordCount: 0, hint: '', dirty: false });
+const initial = () => ({
+    message: '',
+    kind: 'info' as Kind,
+    recordIndex: 0,
+    recordCount: 0,
+    hint: '',
+    dirty: false,
+});
 
 const state = reactive(initial());
 
@@ -2946,9 +3064,13 @@ export const statusLine = {
 ```ts
 import { reactive, ref } from 'vue';
 
-export function useQueryMode<T extends Record<string, string | null>>(fields: (keyof T)[]) {
+export function useQueryMode<T extends Record<string, string | null>>(
+    fields: (keyof T)[],
+) {
     const mode = ref<'normal' | 'enterQuery'>('normal');
-    const criteria = reactive(Object.fromEntries(fields.map((f) => [f, null]))) as T;
+    const criteria = reactive(
+        Object.fromEntries(fields.map((f) => [f, null])),
+    ) as T;
 
     function enterQuery(): void {
         for (const f of fields) {
@@ -3027,28 +3149,59 @@ export function useFormsKeys(handlers: Handlers): void {
 ```vue
 <script setup lang="ts">
 import {
-    ChevronLeft, ChevronRight, Eraser, FilePlus2, LogOut, Play, Printer, Save, Search, Trash2,
+    ChevronLeft,
+    ChevronRight,
+    Eraser,
+    FilePlus2,
+    LogOut,
+    Play,
+    Printer,
+    Save,
+    Search,
+    Trash2,
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useFormsKeys } from '@/composables/useFormsKeys';
 import { keyLabel } from '@/forms/keymap';
 import type { FormsAction } from '@/forms/keymap';
 import { t } from '@/lib/i18n';
 
-const props = withDefaults(defineProps<{
-    disabled?: Partial<Record<FormsAction, boolean>>;
-    mode?: 'normal' | 'enterQuery';
-}>(), { disabled: () => ({}), mode: 'normal' });
+const props = withDefaults(
+    defineProps<{
+        disabled?: Partial<Record<FormsAction, boolean>>;
+        mode?: 'normal' | 'enterQuery';
+    }>(),
+    { disabled: () => ({}), mode: 'normal' },
+);
 
 const emit = defineEmits<{ action: [action: FormsAction] }>();
 
 const groups: { action: FormsAction; icon: Component }[][] = [
-    [{ action: 'save', icon: Save }, { action: 'newRecord', icon: FilePlus2 }, { action: 'deleteRecord', icon: Trash2 }],
-    [{ action: 'enterQuery', icon: Search }, { action: 'executeQuery', icon: Play }],
-    [{ action: 'previousRecord', icon: ChevronLeft }, { action: 'nextRecord', icon: ChevronRight }],
-    [{ action: 'clear', icon: Eraser }, { action: 'print', icon: Printer }, { action: 'exit', icon: LogOut }],
+    [
+        { action: 'save', icon: Save },
+        { action: 'newRecord', icon: FilePlus2 },
+        { action: 'deleteRecord', icon: Trash2 },
+    ],
+    [
+        { action: 'enterQuery', icon: Search },
+        { action: 'executeQuery', icon: Play },
+    ],
+    [
+        { action: 'previousRecord', icon: ChevronLeft },
+        { action: 'nextRecord', icon: ChevronRight },
+    ],
+    [
+        { action: 'clear', icon: Eraser },
+        { action: 'print', icon: Printer },
+        { action: 'exit', icon: LogOut },
+    ],
 ];
 
 function fire(action: FormsAction): void {
@@ -3057,10 +3210,24 @@ function fire(action: FormsAction): void {
     }
 }
 
-useFormsKeys(Object.fromEntries(
-    (['save', 'newRecord', 'deleteRecord', 'enterQuery', 'executeQuery', 'previousRecord', 'nextRecord', 'clear', 'print', 'exit'] as FormsAction[])
-        .map((a) => [a, () => fire(a)]),
-));
+useFormsKeys(
+    Object.fromEntries(
+        (
+            [
+                'save',
+                'newRecord',
+                'deleteRecord',
+                'enterQuery',
+                'executeQuery',
+                'previousRecord',
+                'nextRecord',
+                'clear',
+                'print',
+                'exit',
+            ] as FormsAction[]
+        ).map((a) => [a, () => fire(a)]),
+    ),
+);
 </script>
 
 <template>
@@ -3068,10 +3235,18 @@ useFormsKeys(Object.fromEntries(
         <div
             role="toolbar"
             class="flex flex-wrap items-center gap-1 rounded-md border bg-muted/40 px-2 py-1"
-            :class="mode === 'enterQuery' ? 'border-amber-500/60 bg-amber-50 dark:bg-amber-950/30' : ''"
+            :class="
+                mode === 'enterQuery'
+                    ? 'border-amber-500/60 bg-amber-50 dark:bg-amber-950/30'
+                    : ''
+            "
         >
             <template v-for="(group, gi) in groups" :key="gi">
-                <span v-if="gi > 0" class="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+                <span
+                    v-if="gi > 0"
+                    class="mx-1 h-5 w-px bg-border"
+                    aria-hidden="true"
+                />
                 <Tooltip v-for="item in group" :key="item.action">
                     <TooltipTrigger as-child>
                         <Button
@@ -3088,11 +3263,18 @@ useFormsKeys(Object.fromEntries(
                     </TooltipTrigger>
                     <TooltipContent>
                         {{ t(`forms.actions.${item.action}`) }}
-                        <span v-if="keyLabel(item.action)" class="ms-2 text-muted-foreground">{{ keyLabel(item.action) }}</span>
+                        <span
+                            v-if="keyLabel(item.action)"
+                            class="ms-2 text-muted-foreground"
+                            >{{ keyLabel(item.action) }}</span
+                        >
                     </TooltipContent>
                 </Tooltip>
             </template>
-            <span v-if="mode === 'enterQuery'" class="ms-auto text-xs font-medium text-amber-700 dark:text-amber-400">
+            <span
+                v-if="mode === 'enterQuery'"
+                class="ms-auto text-xs font-medium text-amber-700 dark:text-amber-400"
+            >
                 {{ t('forms.query_mode') }}
             </span>
         </div>
@@ -3109,7 +3291,11 @@ import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 
 const s = statusLine.state;
-const record = computed(() => (s.recordCount > 0 ? t('forms.record', { n: s.recordIndex, m: s.recordCount }) : t('forms.no_records')));
+const record = computed(() =>
+    s.recordCount > 0
+        ? t('forms.record', { n: s.recordIndex, m: s.recordCount })
+        : t('forms.no_records'),
+);
 </script>
 
 <template>
@@ -3120,10 +3306,18 @@ const record = computed(() => (s.recordCount > 0 ? t('forms.record', { n: s.reco
         <span class="min-w-28 text-muted-foreground">{{ record }}</span>
         <span
             class="truncate"
-            :class="{ 'text-destructive': s.kind === 'error', 'text-emerald-700 dark:text-emerald-400': s.kind === 'success' }"
-        >{{ s.message }}</span>
+            :class="{
+                'text-destructive': s.kind === 'error',
+                'text-emerald-700 dark:text-emerald-400': s.kind === 'success',
+            }"
+            >{{ s.message }}</span
+        >
         <span class="ms-auto truncate text-muted-foreground">{{ s.hint }}</span>
-        <span v-if="s.dirty" class="rounded bg-amber-500/15 px-1.5 text-amber-700 dark:text-amber-400">{{ t('forms.unsaved') }}</span>
+        <span
+            v-if="s.dirty"
+            class="rounded bg-amber-500/15 px-1.5 text-amber-700 dark:text-amber-400"
+            >{{ t('forms.unsaved') }}</span
+        >
     </footer>
 </template>
 ```
@@ -3137,7 +3331,10 @@ defineProps<{ title?: string }>();
 
 <template>
     <section class="rounded-md border bg-card">
-        <header v-if="title" class="border-b px-3 py-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        <header
+            v-if="title"
+            class="border-b px-3 py-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
             {{ title }}
         </header>
         <div class="grid grid-cols-12 gap-x-3 gap-y-2 p-3">
@@ -3155,20 +3352,45 @@ import { computed } from 'vue';
 import { Label } from '@/components/ui/label';
 import { statusLine } from '@/lib/statusLine';
 
-const props = withDefaults(defineProps<{ label: string; for?: string; error?: string; hint?: string; span?: number }>(), { span: 3 });
+const props = withDefaults(
+    defineProps<{
+        label: string;
+        for?: string;
+        error?: string;
+        hint?: string;
+        span?: number;
+    }>(),
+    { span: 3 },
+);
 
 const spanClass = computed(() => {
     const map: Record<number, string> = {
-        1: 'md:col-span-1', 2: 'md:col-span-2', 3: 'md:col-span-3', 4: 'md:col-span-4', 5: 'md:col-span-5', 6: 'md:col-span-6',
-        7: 'md:col-span-7', 8: 'md:col-span-8', 9: 'md:col-span-9', 10: 'md:col-span-10', 11: 'md:col-span-11', 12: 'md:col-span-12',
+        1: 'md:col-span-1',
+        2: 'md:col-span-2',
+        3: 'md:col-span-3',
+        4: 'md:col-span-4',
+        5: 'md:col-span-5',
+        6: 'md:col-span-6',
+        7: 'md:col-span-7',
+        8: 'md:col-span-8',
+        9: 'md:col-span-9',
+        10: 'md:col-span-10',
+        11: 'md:col-span-11',
+        12: 'md:col-span-12',
     };
     return `col-span-12 ${map[props.span] ?? 'md:col-span-3'}`;
 });
 </script>
 
 <template>
-    <div :class="spanClass" class="flex flex-col gap-1" @focusin="statusLine.setHint(hint ?? '')">
-        <Label :for="props.for" class="text-xs text-muted-foreground">{{ label }}</Label>
+    <div
+        :class="spanClass"
+        class="flex flex-col gap-1"
+        @focusin="statusLine.setHint(hint ?? '')"
+    >
+        <Label :for="props.for" class="text-xs text-muted-foreground">{{
+            label
+        }}</Label>
         <slot />
         <p v-if="error" class="text-xs text-destructive">{{ error }}</p>
     </div>
@@ -3180,7 +3402,14 @@ const spanClass = computed(() => {
 ```vue
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { t } from '@/lib/i18n';
 
 defineProps<{ open: boolean }>();
@@ -3192,12 +3421,20 @@ const emit = defineEmits<{ choose: [choice: 'save' | 'discard' | 'cancel'] }>();
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>{{ t('forms.unsaved_title') }}</DialogTitle>
-                <DialogDescription>{{ t('forms.unsaved_body') }}</DialogDescription>
+                <DialogDescription>{{
+                    t('forms.unsaved_body')
+                }}</DialogDescription>
             </DialogHeader>
             <DialogFooter class="gap-2">
-                <Button variant="ghost" @click="emit('choose', 'cancel')">{{ t('forms.cancel') }}</Button>
-                <Button variant="outline" @click="emit('choose', 'discard')">{{ t('forms.discard') }}</Button>
-                <Button @click="emit('choose', 'save')">{{ t('forms.actions.save') }}</Button>
+                <Button variant="ghost" @click="emit('choose', 'cancel')">{{
+                    t('forms.cancel')
+                }}</Button>
+                <Button variant="outline" @click="emit('choose', 'discard')">{{
+                    t('forms.discard')
+                }}</Button>
+                <Button @click="emit('choose', 'save')">{{
+                    t('forms.actions.save')
+                }}</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -3214,7 +3451,10 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
  * Oracle-Forms style "Save changes?" guard.
  * Render <ConfirmSaveDialog :open="dialogOpen" @choose="choose" /> in the page.
  */
-export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<boolean>) {
+export function useUnsavedGuard(
+    isDirty: () => boolean,
+    save: () => Promise<boolean>,
+) {
     const dialogOpen = ref(false);
     let pendingVisit: (() => void) | null = null;
     let bypass = false;
@@ -3234,7 +3474,8 @@ export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<bool
             if (bypass || !isDirty() || visit.method !== 'get') {
                 return;
             }
-            pendingVisit = () => router.visit(visit.url, { ...visit, method: 'get' });
+            pendingVisit = () =>
+                router.visit(visit.url, { ...visit, method: 'get' });
             dialogOpen.value = true;
             return false;
         });
@@ -3245,7 +3486,9 @@ export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<bool
         removeRouterListener?.();
     });
 
-    async function choose(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
+    async function choose(
+        choice: 'save' | 'discard' | 'cancel',
+    ): Promise<void> {
         dialogOpen.value = false;
         if (choice === 'cancel') {
             pendingVisit = null;
@@ -3281,37 +3524,44 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 9: Forms UI kit B — LOV field and grids (AG Grid)
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `resources/js/lib/agGrid.ts`, `resources/js/lib/lov.ts`
 - Create: `resources/js/components/forms/{LovField,LovDialog,DataGrid,DetailGrid}.vue`
 - Create: `resources/js/components/forms/__tests__/LovDialog.spec.ts`, `resources/js/lib/__tests__/lov.spec.ts`
 - Modify: `resources/js/app.ts` (register the AG Grid modules), `resources/css/app.css` (grid theme tokens)
 
 **Interfaces:**
+
 - Consumes: `useFormsKeys` and `statusLine` (T8), `t` (T6). The backend contract of `GET /lov/{name}` is defined in T10; this task only consumes it through `fetchLov`, which the tests mock.
 - Produces:
-  - `type LovRow = { id: number; code: string; label: string; [col: string]: unknown }` and `type LovResponse = { columns: { key: string; label: string }[]; data: LovRow[] }`.
-  - `fetchLov(name: string, params: { q?: string; exact?: string; filters?: Record<string, string | number | null> }): Promise<LovResponse>`: GETs `/lov/{name}?q=…&exact=…&filters[key]=…`.
-  - `<LovDialog :name :filters :initial-query v-model:open @select="(row: LovRow) => …">`: search box plus a result table. ↑/↓ moves, Enter selects, Esc closes, typing is debounced 200 ms.
-  - `<LovField :name :filters v-model="id" v-model:display="text" :placeholder :disabled @selected="(row) => …">`: shows the code/label.
-    - F9 or the list button opens the dialog.
-    - On blur with typed text and no id, it calls `fetchLov(name, {exact: text})`. With exactly one result it selects that row. Otherwise it opens the dialog pre-filled with the text.
-  - `<DataGrid :rows :columns :selected-id @row-selected="(row) => …">`: read-only AG Grid, single row selection, keyboard navigation, `domLayout="autoHeight"` up to 15 rows (then a fixed 480 px height).
-  - `<DetailGrid v-model:rows :columns :new-row="() => ({…})">`: editable AG Grid.
-    - Enter/Tab move between cells.
-    - ArrowDown on the last row appends `newRow()` and focuses its first editable cell.
-    - Ctrl+Delete removes the focused row.
-    - Emits `update:rows` on every change.
-  - `ColumnDef` type re-exported from `@/lib/agGrid` (AG Grid's `ColDef`).
+    - `type LovRow = { id: number; code: string; label: string; [col: string]: unknown }` and `type LovResponse = { columns: { key: string; label: string }[]; data: LovRow[] }`.
+    - `fetchLov(name: string, params: { q?: string; exact?: string; filters?: Record<string, string | number | null> }): Promise<LovResponse>`: GETs `/lov/{name}?q=…&exact=…&filters[key]=…`.
+    - `<LovDialog :name :filters :initial-query v-model:open @select="(row: LovRow) => …">`: search box plus a result table. ↑/↓ moves, Enter selects, Esc closes, typing is debounced 200 ms.
+    - `<LovField :name :filters v-model="id" v-model:display="text" :placeholder :disabled @selected="(row) => …">`: shows the code/label.
+        - F9 or the list button opens the dialog.
+        - On blur with typed text and no id, it calls `fetchLov(name, {exact: text})`. With exactly one result it selects that row. Otherwise it opens the dialog pre-filled with the text.
+    - `<DataGrid :rows :columns :selected-id @row-selected="(row) => …">`: read-only AG Grid, single row selection, keyboard navigation, `domLayout="autoHeight"` up to 15 rows (then a fixed 480 px height).
+    - `<DetailGrid v-model:rows :columns :new-row="() => ({…})">`: editable AG Grid.
+        - Enter/Tab move between cells.
+        - ArrowDown on the last row appends `newRow()` and focuses its first editable cell.
+        - Ctrl+Delete removes the focused row.
+        - Emits `update:rows` on every change.
+    - `ColumnDef` type re-exported from `@/lib/agGrid` (AG Grid's `ColDef`).
 
 - [ ] **Step 1: Register AG Grid and its theme.** Create `resources/js/lib/agGrid.ts`:
 
 ```ts
-import { AllCommunityModule, ModuleRegistry, themeQuartz } from 'ag-grid-community';
+import {
+    AllCommunityModule,
+    ModuleRegistry,
+    themeQuartz,
+} from 'ag-grid-community';
 import type { ColDef } from 'ag-grid-community';
 
 let registered = false;
@@ -3364,8 +3614,15 @@ describe('fetchLov', () => {
     afterEach(() => vi.restoreAllMocks());
 
     it('builds the query string with filters', async () => {
-        const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ columns: [], data: [] })));
-        await fetchLov('operations', { q: 'dye', filters: { department_id: 3, kind: null } });
+        const spy = vi
+            .spyOn(globalThis, 'fetch')
+            .mockResolvedValue(
+                new Response(JSON.stringify({ columns: [], data: [] })),
+            );
+        await fetchLov('operations', {
+            q: 'dye',
+            filters: { department_id: 3, kind: null },
+        });
         const url = String(spy.mock.calls[0][0]);
         expect(url).toContain('/lov/operations?');
         expect(url).toContain('q=dye');
@@ -3384,7 +3641,10 @@ import LovDialog from '@/components/forms/LovDialog.vue';
 
 vi.mock('@/lib/lov', () => ({
     fetchLov: vi.fn().mockResolvedValue({
-        columns: [{ key: 'code', label: 'Code' }, { key: 'label', label: 'Name' }],
+        columns: [
+            { key: 'code', label: 'Code' },
+            { key: 'label', label: 'Name' },
+        ],
         data: [
             { id: 1, code: 'SINGEING', label: 'Singeing' },
             { id: 2, code: 'DRYING', label: 'Drying' },
@@ -3403,12 +3663,21 @@ describe('LovDialog', () => {
         await new Promise((r) => setTimeout(r, 250));
         await flushPromises();
 
-        const input = document.body.querySelector<HTMLInputElement>('input[data-lov-search]')!;
-        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        const input = document.body.querySelector<HTMLInputElement>(
+            'input[data-lov-search]',
+        )!;
+        input.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+        );
         await flushPromises();
 
-        expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({ id: 2, code: 'DRYING' });
+        expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({
+            id: 2,
+            code: 'DRYING',
+        });
         wrapper.unmount();
     });
 });
@@ -3419,12 +3688,24 @@ Run: `npm run test:js`. Expected: FAIL (modules not found).
 - [ ] **Step 3: Write** `resources/js/lib/lov.ts`:
 
 ```ts
-export type LovRow = { id: number; code: string; label: string; [col: string]: unknown };
-export type LovResponse = { columns: { key: string; label: string }[]; data: LovRow[] };
+export type LovRow = {
+    id: number;
+    code: string;
+    label: string;
+    [col: string]: unknown;
+};
+export type LovResponse = {
+    columns: { key: string; label: string }[];
+    data: LovRow[];
+};
 
 export async function fetchLov(
     name: string,
-    params: { q?: string; exact?: string; filters?: Record<string, string | number | null | undefined> } = {},
+    params: {
+        q?: string;
+        exact?: string;
+        filters?: Record<string, string | number | null | undefined>;
+    } = {},
 ): Promise<LovResponse> {
     const qs = new URLSearchParams();
     if (params.q) {
@@ -3439,7 +3720,10 @@ export async function fetchLov(
         }
     }
     const res = await fetch(`/lov/${name}?${qs.toString()}`, {
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
         credentials: 'same-origin',
     });
     if (!res.ok) {
@@ -3455,14 +3739,24 @@ export async function fetchLov(
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core';
 import { nextTick, ref, watch } from 'vue';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useFormsKeys } from '@/composables/useFormsKeys';
 import { t } from '@/lib/i18n';
 import { fetchLov } from '@/lib/lov';
 import type { LovResponse, LovRow } from '@/lib/lov';
 
-const props = defineProps<{ name: string; filters?: Record<string, string | number | null>; initialQuery?: string; title?: string }>();
+const props = defineProps<{
+    name: string;
+    filters?: Record<string, string | number | null>;
+    initialQuery?: string;
+    title?: string;
+}>();
 const open = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ select: [row: LovRow] }>();
 
@@ -3475,21 +3769,28 @@ const input = ref<InstanceType<typeof Input> | null>(null);
 const load = useDebounceFn(async () => {
     loading.value = true;
     try {
-        result.value = await fetchLov(props.name, { q: query.value, filters: props.filters });
+        result.value = await fetchLov(props.name, {
+            q: query.value,
+            filters: props.filters,
+        });
         active.value = 0;
     } finally {
         loading.value = false;
     }
 }, 200);
 
-watch(open, async (isOpen) => {
-    if (isOpen) {
-        query.value = props.initialQuery ?? '';
-        await load();
-        await nextTick();
-        (input.value?.$el as HTMLInputElement | undefined)?.focus();
-    }
-}, { immediate: true });
+watch(
+    open,
+    async (isOpen) => {
+        if (isOpen) {
+            query.value = props.initialQuery ?? '';
+            await load();
+            await nextTick();
+            (input.value?.$el as HTMLInputElement | undefined)?.focus();
+        }
+    },
+    { immediate: true },
+);
 
 watch(query, () => load());
 
@@ -3535,9 +3836,17 @@ function choose(row: LovRow): void {
             />
             <div class="max-h-80 overflow-auto rounded border">
                 <table class="w-full text-sm tabular-nums">
-                    <thead class="sticky top-0 bg-muted text-xs text-muted-foreground">
+                    <thead
+                        class="sticky top-0 bg-muted text-xs text-muted-foreground"
+                    >
                         <tr>
-                            <th v-for="c in result.columns" :key="c.key" class="px-2 py-1 text-start font-medium">{{ c.label }}</th>
+                            <th
+                                v-for="c in result.columns"
+                                :key="c.key"
+                                class="px-2 py-1 text-start font-medium"
+                            >
+                                {{ c.label }}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -3546,14 +3855,27 @@ function choose(row: LovRow): void {
                             :key="row.id"
                             :aria-selected="i === active"
                             class="cursor-pointer border-t"
-                            :class="i === active ? 'bg-primary/10' : 'hover:bg-muted/60'"
+                            :class="
+                                i === active
+                                    ? 'bg-primary/10'
+                                    : 'hover:bg-muted/60'
+                            "
                             @mouseenter="active = i"
                             @click="choose(row)"
                         >
-                            <td v-for="c in result.columns" :key="c.key" class="px-2 py-1">{{ row[c.key] }}</td>
+                            <td
+                                v-for="c in result.columns"
+                                :key="c.key"
+                                class="px-2 py-1"
+                            >
+                                {{ row[c.key] }}
+                            </td>
                         </tr>
                         <tr v-if="!loading && result.data.length === 0">
-                            <td :colspan="result.columns.length || 1" class="px-2 py-3 text-center text-muted-foreground">
+                            <td
+                                :colspan="result.columns.length || 1"
+                                class="px-2 py-3 text-center text-muted-foreground"
+                            >
                                 {{ t('forms.no_records') }}
                             </td>
                         </tr>
@@ -3578,7 +3900,13 @@ import { t } from '@/lib/i18n';
 import { fetchLov } from '@/lib/lov';
 import type { LovRow } from '@/lib/lov';
 
-const props = defineProps<{ name: string; filters?: Record<string, string | number | null>; placeholder?: string; disabled?: boolean; id?: string }>();
+const props = defineProps<{
+    name: string;
+    filters?: Record<string, string | number | null>;
+    placeholder?: string;
+    disabled?: boolean;
+    id?: string;
+}>();
 const model = defineModel<number | null>({ default: null });
 const display = defineModel<string>('display', { default: '' });
 const emit = defineEmits<{ selected: [row: LovRow] }>();
@@ -3588,7 +3916,8 @@ const initialQuery = ref('');
 
 function select(row: LovRow): void {
     model.value = row.id;
-    display.value = row.code === row.label ? row.code : `${row.code} — ${row.label}`;
+    display.value =
+        row.code === row.label ? row.code : `${row.code} — ${row.label}`;
     emit('selected', row);
 }
 
@@ -3601,7 +3930,10 @@ async function onBlur(): Promise<void> {
     if (model.value !== null || display.value.trim() === '') {
         return;
     }
-    const res = await fetchLov(props.name, { exact: display.value.trim(), filters: props.filters });
+    const res = await fetchLov(props.name, {
+        exact: display.value.trim(),
+        filters: props.filters,
+    });
     if (res.data.length === 1) {
         select(res.data[0]);
     } else {
@@ -3632,10 +3964,24 @@ function onKeydown(e: KeyboardEvent): void {
             @blur="onBlur"
             @keydown="onKeydown"
         />
-        <Button type="button" variant="outline" size="icon" class="size-9 shrink-0" :disabled="disabled" :aria-label="t('forms.actions.lov')" @click="open = true">
+        <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            class="size-9 shrink-0"
+            :disabled="disabled"
+            :aria-label="t('forms.actions.lov')"
+            @click="open = true"
+        >
             <List class="size-4" />
         </Button>
-        <LovDialog v-model:open="open" :name="name" :filters="filters" :initial-query="initialQuery" @select="select" />
+        <LovDialog
+            v-model:open="open"
+            :name="name"
+            :filters="filters"
+            :initial-query="initialQuery"
+            @select="select"
+        />
     </div>
 </template>
 ```
@@ -3644,14 +3990,22 @@ function onKeydown(e: KeyboardEvent): void {
 
 ```vue
 <script setup lang="ts" generic="T extends { id: number | string }">
-import type { GridApi, GridReadyEvent, RowClickedEvent } from 'ag-grid-community';
+import type {
+    GridApi,
+    GridReadyEvent,
+    RowClickedEvent,
+} from 'ag-grid-community';
 import { AgGridVue } from 'ag-grid-vue3';
 import { computed, shallowRef, watch } from 'vue';
 import { gridTheme } from '@/lib/agGrid';
 import type { ColumnDef } from '@/lib/agGrid';
 import { t } from '@/lib/i18n';
 
-const props = defineProps<{ rows: T[]; columns: ColumnDef<T>[]; selectedId?: number | string | null }>();
+const props = defineProps<{
+    rows: T[];
+    columns: ColumnDef<T>[];
+    selectedId?: number | string | null;
+}>();
 const emit = defineEmits<{ rowSelected: [row: T] }>();
 const api = shallowRef<GridApi<T> | null>(null);
 const autoHeight = computed(() => props.rows.length <= 15);
@@ -3662,7 +4016,11 @@ function onReady(e: GridReadyEvent<T>): void {
 }
 
 function syncSelection(): void {
-    if (!api.value || props.selectedId === undefined || props.selectedId === null) {
+    if (
+        !api.value ||
+        props.selectedId === undefined ||
+        props.selectedId === null
+    ) {
         return;
     }
     const node = api.value.getRowNode(String(props.selectedId));
@@ -3682,13 +4040,24 @@ watch(() => props.selectedId, syncSelection);
         :theme="gridTheme"
         :row-data="rows"
         :column-defs="columns"
-        :default-col-def="{ sortable: true, resizable: true, filter: true, minWidth: 80 }"
+        :default-col-def="{
+            sortable: true,
+            resizable: true,
+            filter: true,
+            minWidth: 80,
+        }"
         :get-row-id="(p) => String(p.data.id)"
-        :row-selection="{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }"
+        :row-selection="{
+            mode: 'singleRow',
+            checkboxes: false,
+            enableClickSelection: true,
+        }"
         :dom-layout="autoHeight ? 'autoHeight' : 'normal'"
         :overlay-no-rows-template="`<span>${t('forms.no_records')}</span>`"
         @grid-ready="onReady"
-        @row-clicked="(e: RowClickedEvent<T>) => e.data && emit('rowSelected', e.data)"
+        @row-clicked="
+            (e: RowClickedEvent<T>) => e.data && emit('rowSelected', e.data)
+        "
     />
 </template>
 ```
@@ -3697,7 +4066,11 @@ watch(() => props.selectedId, syncSelection);
 
 ```vue
 <script setup lang="ts" generic="T extends Record<string, unknown>">
-import type { CellKeyDownEvent, GridApi, GridReadyEvent } from 'ag-grid-community';
+import type {
+    CellKeyDownEvent,
+    GridApi,
+    GridReadyEvent,
+} from 'ag-grid-community';
 import { AgGridVue } from 'ag-grid-vue3';
 import { shallowRef } from 'vue';
 import { gridTheme } from '@/lib/agGrid';
@@ -3792,22 +4165,24 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Lov/{LovDefinition,LovRegistry,LovController}.php`
 - Create: `app/Modules/Foundation/Lov/Definitions/{DepartmentLov,MachineLov,OperationLov,PartyLov,QualityLov,UserLov,LookupLov,ShiftLov}.php`
 - Create: `tests/Feature/Foundation/LovTest.php`
 - Modify: `app/Providers/AppServiceProvider.php`, `routes/modules/foundation.php`
 
 **Interfaces:**
+
 - Consumes: the models from T3/T4, `User`.
 - Produces:
-  - `interface LovDefinition { public function name(): string; public function permission(): ?string; public function columns(): array; public function query(array $filters): Builder; public function searchColumns(): array; public function exactColumn(): string; public function row(Model $m): array; }`.
-    - `row()` must return `id`, `code`, `label` plus every key named in `columns()`.
-  - `LovRegistry` is a singleton with `register(LovDefinition $def): void` and `get(string $name): LovDefinition` (throws 404 for an unknown name). Other modules register their LOVs in their service provider or in `AppServiceProvider::boot()` via `app(LovRegistry::class)->register(new XLov)`.
-  - `GET /lov/{name}` (named `lov.show`, auth), query params `q`, `exact`, `filters[...]`. Returns `{columns:[{key,label}], data:[...]}` with at most 50 rows, ordered by `exactColumn()`.
-    - `q` matches case-insensitive `LIKE %q%` on any `searchColumns()`.
-    - `exact` matches case-insensitive equality on `exactColumn()`, or `id`.
-    - Inactive records are excluded.
-  - LOV names: `departments`, `machines` (filter `department_id`), `operations` (filters `department_id`, `kind`), `parties`, `qualities`, `users`, `lookup` (filter `list_key`, required), `shifts`.
+    - `interface LovDefinition { public function name(): string; public function permission(): ?string; public function columns(): array; public function query(array $filters): Builder; public function searchColumns(): array; public function exactColumn(): string; public function row(Model $m): array; }`.
+        - `row()` must return `id`, `code`, `label` plus every key named in `columns()`.
+    - `LovRegistry` is a singleton with `register(LovDefinition $def): void` and `get(string $name): LovDefinition` (throws 404 for an unknown name). Other modules register their LOVs in their service provider or in `AppServiceProvider::boot()` via `app(LovRegistry::class)->register(new XLov)`.
+    - `GET /lov/{name}` (named `lov.show`, auth), query params `q`, `exact`, `filters[...]`. Returns `{columns:[{key,label}], data:[...]}` with at most 50 rows, ordered by `exactColumn()`.
+        - `q` matches case-insensitive `LIKE %q%` on any `searchColumns()`.
+        - `exact` matches case-insensitive equality on `exactColumn()`, or `id`.
+        - Inactive records are excluded.
+    - LOV names: `departments`, `machines` (filter `department_id`), `operations` (filters `department_id`, `kind`), `parties`, `qualities`, `users`, `lookup` (filter `list_key`, required), `shifts`.
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/Foundation/LovTest.php`:
 
@@ -4355,11 +4730,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 11: App shell — permission-aware navigation, top bar, status line, RTL sidebar
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `resources/js/lib/can.ts`, `resources/js/lib/__tests__/can.spec.ts`
 - Create: `resources/js/config/navigation.ts`, `resources/js/config/__tests__/navigation.spec.ts`
 - Create: `resources/js/components/NavGroups.vue`, `resources/js/components/ThemeToggle.vue`
@@ -4367,12 +4744,13 @@ Reserved migration range: none.
 - Create: `tests/Feature/Foundation/AppShellTest.php`
 
 **Interfaces:**
+
 - Consumes: `auth.permissions`/`auth.roles` (T2), `t`/`useI18n`/`LanguageSwitch.vue` (T6), `StatusLine.vue` (T8), `useAppearance` (kit).
 - Produces:
-  - `can(permission: string): boolean` and `useCan()` (reads `usePage().props.auth.permissions`; admin already receives the full list).
-  - `type NavEntry = { key: string; titleKey: string; href: string; icon: LucideIcon; permission?: string }` and `type NavGroup = { key: string; titleKey: string; items: NavEntry[] }`.
-  - `NAVIGATION: NavGroup[]` and `visibleNavigation(groups, check: (p: string) => boolean): NavGroup[]`, which drops items without permission and then empty groups.
-  - Later phases add their groups to `NAVIGATION` in this file.
+    - `can(permission: string): boolean` and `useCan()` (reads `usePage().props.auth.permissions`; admin already receives the full list).
+    - `type NavEntry = { key: string; titleKey: string; href: string; icon: LucideIcon; permission?: string }` and `type NavGroup = { key: string; titleKey: string; items: NavEntry[] }`.
+    - `NAVIGATION: NavGroup[]` and `visibleNavigation(groups, check: (p: string) => boolean): NavGroup[]`, which drops items without permission and then empty groups.
+    - Later phases add their groups to `NAVIGATION` in this file.
 
 - [ ] **Step 1: Write the failing front-end tests**
 
@@ -4395,7 +4773,9 @@ describe('visibleNavigation', () => {
 
     it('shows everything for a full permission set', () => {
         const groups = visibleNavigation(NAVIGATION, () => true);
-        expect(groups.find((g) => g.key === 'admin')?.items.map((i) => i.key)).toEqual(['users', 'roles', 'settings']);
+        expect(
+            groups.find((g) => g.key === 'admin')?.items.map((i) => i.key),
+        ).toEqual(['users', 'roles', 'settings']);
     });
 });
 ```
@@ -4406,7 +4786,9 @@ describe('visibleNavigation', () => {
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@inertiajs/vue3', () => ({
-    usePage: () => ({ props: { auth: { permissions: ['inquiry.view'], roles: ['viewer'] } } }),
+    usePage: () => ({
+        props: { auth: { permissions: ['inquiry.view'], roles: ['viewer'] } },
+    }),
 }));
 
 describe('can', () => {
@@ -4440,51 +4822,157 @@ export function useCan() {
 ```ts
 import type { LucideIcon } from '@lucide/vue';
 import {
-    Boxes, Building2, Clock, Cog, DatabaseZap, Factory, LayoutGrid, ListTree, Route, Settings, Shield, Tags, Users, Workflow,
+    Boxes,
+    Building2,
+    Clock,
+    Cog,
+    DatabaseZap,
+    Factory,
+    LayoutGrid,
+    ListTree,
+    Route,
+    Settings,
+    Shield,
+    Tags,
+    Users,
+    Workflow,
 } from '@lucide/vue';
 
-export type NavEntry = { key: string; titleKey: string; href: string; icon: LucideIcon; permission?: string };
+export type NavEntry = {
+    key: string;
+    titleKey: string;
+    href: string;
+    icon: LucideIcon;
+    permission?: string;
+};
 export type NavGroup = { key: string; titleKey: string; items: NavEntry[] };
 
 export const NAVIGATION: NavGroup[] = [
     {
         key: 'home',
         titleKey: 'app.nav.home',
-        items: [{ key: 'dashboard', titleKey: 'app.nav.dashboard', href: '/dashboard', icon: LayoutGrid }],
+        items: [
+            {
+                key: 'dashboard',
+                titleKey: 'app.nav.dashboard',
+                href: '/dashboard',
+                icon: LayoutGrid,
+            },
+        ],
     },
     {
         key: 'oracle',
         titleKey: 'app.nav.oracle',
-        items: [{ key: 'oracle_import', titleKey: 'app.nav.oracle_import', href: '/oracle/imports', icon: DatabaseZap, permission: 'oracle.import.view' }],
+        items: [
+            {
+                key: 'oracle_import',
+                titleKey: 'app.nav.oracle_import',
+                href: '/oracle/imports',
+                icon: DatabaseZap,
+                permission: 'oracle.import.view',
+            },
+        ],
     },
     {
         key: 'masters',
         titleKey: 'app.nav.masters',
         items: [
-            { key: 'departments', titleKey: 'app.nav.departments', href: '/masters/departments', icon: Building2, permission: 'masters.view' },
-            { key: 'machines', titleKey: 'app.nav.machines', href: '/masters/machines', icon: Factory, permission: 'masters.view' },
-            { key: 'operations', titleKey: 'app.nav.operations', href: '/masters/operations', icon: Workflow, permission: 'masters.view' },
-            { key: 'shifts', titleKey: 'app.nav.shifts', href: '/masters/shifts', icon: Clock, permission: 'masters.view' },
-            { key: 'parties', titleKey: 'app.nav.parties', href: '/masters/parties', icon: Users, permission: 'masters.view' },
-            { key: 'qualities', titleKey: 'app.nav.qualities', href: '/masters/qualities', icon: Boxes, permission: 'masters.view' },
-            { key: 'route_templates', titleKey: 'app.nav.route_templates', href: '/masters/route-templates', icon: Route, permission: 'masters.view' },
-            { key: 'lookups', titleKey: 'app.nav.lookups', href: '/masters/lookups', icon: Tags, permission: 'masters.view' },
+            {
+                key: 'departments',
+                titleKey: 'app.nav.departments',
+                href: '/masters/departments',
+                icon: Building2,
+                permission: 'masters.view',
+            },
+            {
+                key: 'machines',
+                titleKey: 'app.nav.machines',
+                href: '/masters/machines',
+                icon: Factory,
+                permission: 'masters.view',
+            },
+            {
+                key: 'operations',
+                titleKey: 'app.nav.operations',
+                href: '/masters/operations',
+                icon: Workflow,
+                permission: 'masters.view',
+            },
+            {
+                key: 'shifts',
+                titleKey: 'app.nav.shifts',
+                href: '/masters/shifts',
+                icon: Clock,
+                permission: 'masters.view',
+            },
+            {
+                key: 'parties',
+                titleKey: 'app.nav.parties',
+                href: '/masters/parties',
+                icon: Users,
+                permission: 'masters.view',
+            },
+            {
+                key: 'qualities',
+                titleKey: 'app.nav.qualities',
+                href: '/masters/qualities',
+                icon: Boxes,
+                permission: 'masters.view',
+            },
+            {
+                key: 'route_templates',
+                titleKey: 'app.nav.route_templates',
+                href: '/masters/route-templates',
+                icon: Route,
+                permission: 'masters.view',
+            },
+            {
+                key: 'lookups',
+                titleKey: 'app.nav.lookups',
+                href: '/masters/lookups',
+                icon: Tags,
+                permission: 'masters.view',
+            },
         ],
     },
     {
         key: 'admin',
         titleKey: 'app.nav.admin',
         items: [
-            { key: 'users', titleKey: 'app.nav.users', href: '/admin/users', icon: Shield, permission: 'admin.users.manage' },
-            { key: 'roles', titleKey: 'app.nav.roles', href: '/admin/roles', icon: ListTree, permission: 'admin.roles.manage' },
-            { key: 'settings', titleKey: 'app.nav.settings', href: '/admin/settings', icon: Settings, permission: 'admin.settings.manage' },
+            {
+                key: 'users',
+                titleKey: 'app.nav.users',
+                href: '/admin/users',
+                icon: Shield,
+                permission: 'admin.users.manage',
+            },
+            {
+                key: 'roles',
+                titleKey: 'app.nav.roles',
+                href: '/admin/roles',
+                icon: ListTree,
+                permission: 'admin.roles.manage',
+            },
+            {
+                key: 'settings',
+                titleKey: 'app.nav.settings',
+                href: '/admin/settings',
+                icon: Settings,
+                permission: 'admin.settings.manage',
+            },
         ],
     },
 ];
 
-export function visibleNavigation(groups: NavGroup[], check: (permission: string) => boolean): NavGroup[] {
+export function visibleNavigation(
+    groups: NavGroup[],
+    check: (permission: string) => boolean,
+): NavGroup[] {
     return groups
-        .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || check(i.permission)) }))
+        .map((g) => ({
+            ...g,
+            items: g.items.filter((i) => !i.permission || check(i.permission)),
+        }))
         .filter((g) => g.items.length > 0);
 }
 
@@ -4498,7 +4986,11 @@ export const NAV_ICON_FALLBACK: LucideIcon = Cog;
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import {
-    SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { NAVIGATION, visibleNavigation } from '@/config/navigation';
@@ -4514,7 +5006,11 @@ const { isCurrentUrl } = useCurrentUrl();
         <SidebarGroupLabel>{{ t(group.titleKey) }}</SidebarGroupLabel>
         <SidebarMenu>
             <SidebarMenuItem v-for="item in group.items" :key="item.key">
-                <SidebarMenuButton as-child :is-active="isCurrentUrl(item.href)" :tooltip="t(item.titleKey)">
+                <SidebarMenuButton
+                    as-child
+                    :is-active="isCurrentUrl(item.href)"
+                    :tooltip="t(item.titleKey)"
+                >
                     <Link :href="item.href" prefetch>
                         <component :is="item.icon" />
                         <span>{{ t(item.titleKey) }}</span>
@@ -4529,13 +5025,13 @@ const { isCurrentUrl } = useCurrentUrl();
 Check the kit's `resources/js/composables/useCurrentUrl.ts` for its exact export (see `NavMain.vue` for how the kit uses it) and match that API. If it exposes a different helper name, use it; the behaviour required is "highlight the item whose href is a prefix of the current URL".
 
 - [ ] **Step 5: Wire the shell**
-  - **`AppSidebar.vue`:**
-    - Replace `<NavMain :items="mainNavItems" />` with `<NavGroups />`.
-    - Remove `mainNavItems`, `footerNavItems` and `<NavFooter …/>` (the kit's GitHub/docs links).
-    - Import `useI18n` and bind `:side="dir === 'rtl' ? 'right' : 'left'"` on `<Sidebar>`.
-  - **`AppLogo.vue`:** show `t('app.name')` as the text next to the icon.
-  - **`AppSidebarHeader.vue`:** after the breadcrumbs, add a right-aligned cluster `<div class="ms-auto flex items-center gap-1"><ThemeToggle /><LanguageSwitch /></div>`.
-  - **`AppSidebarLayout.vue`:** add `<StatusLine />` as the last child of `<AppContent>`, and reset the status line on navigation:
+    - **`AppSidebar.vue`:**
+        - Replace `<NavMain :items="mainNavItems" />` with `<NavGroups />`.
+        - Remove `mainNavItems`, `footerNavItems` and `<NavFooter …/>` (the kit's GitHub/docs links).
+        - Import `useI18n` and bind `:side="dir === 'rtl' ? 'right' : 'left'"` on `<Sidebar>`.
+    - **`AppLogo.vue`:** show `t('app.name')` as the text next to the icon.
+    - **`AppSidebarHeader.vue`:** after the breadcrumbs, add a right-aligned cluster `<div class="ms-auto flex items-center gap-1"><ThemeToggle /><LanguageSwitch /></div>`.
+    - **`AppSidebarLayout.vue`:** add `<StatusLine />` as the last child of `<AppContent>`, and reset the status line on navigation:
 
 ```ts
 import { router } from '@inertiajs/vue3';
@@ -4559,14 +5055,22 @@ import { t } from '@/lib/i18n';
 const { appearance, updateAppearance } = useAppearance();
 
 function toggle(): void {
-    const dark = appearance.value === 'dark'
-        || (appearance.value === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark =
+        appearance.value === 'dark' ||
+        (appearance.value === 'system' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
     updateAppearance(dark ? 'light' : 'dark');
 }
 </script>
 
 <template>
-    <Button variant="ghost" size="icon" class="size-8" :aria-label="t('app.theme')" @click="toggle">
+    <Button
+        variant="ghost"
+        size="icon"
+        class="size-8"
+        :aria-label="t('app.theme')"
+        @click="toggle"
+    >
         <Sun class="size-4 dark:hidden" />
         <Moon class="hidden size-4 dark:block" />
     </Button>
@@ -4596,6 +5100,7 @@ it('renders the dashboard for every role', function (string $role) {
 
 Run: `npm run test:js && npm run types:check && npm run build && ./vendor/bin/pest`
 Expected: all green. Then do a manual check: `composer run dev` (or `php artisan serve` + `npm run dev`), log in as the seeded admin, and confirm:
+
 - the sidebar groups appear;
 - switching to اردو flips the layout to RTL with the sidebar on the right;
 - the theme toggle works;
@@ -4617,6 +5122,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Masters/{Field,MasterResource,MasterRegistry,MasterController}.php`
 - Create: `app/Modules/Foundation/Masters/Resources/{DepartmentResource,MachineResource,OperationResource,ShiftResource,QualityResource,LookupValueResource}.php`
 - Create: `resources/js/pages/masters/MasterForm.vue`, `resources/js/types/masters.ts`
@@ -4625,18 +5131,19 @@ Reserved migration range: none.
 - Modify: `routes/modules/foundation.php`, `app/Providers/AppServiceProvider.php`
 
 **Interfaces:**
+
 - Consumes: `QueryCriteria` (T7), the Forms kit (T8/T9), `can` (T11), the models (T3/T4).
 - Produces:
-  - `Field::make(string $name, string $type)`, with fluent setters `->label(string $key)`, `->required()`, `->options(array $options)` (`[['value'=>…,'label'=>…]]`), `->lov(string $lovName, string $displayFrom)`, `->span(int)`, `->grid(bool = true)` (show as a list column), `->queryType(string)` (defaults from the type), `->readonly()`, `->toArray(): array`.
-  - Types: `text|number|select|multiselect|bool|time|textarea|lov`.
-  - `abstract class MasterResource` with `key(): string`, `model(): string`, `titleKey(): string`, `fields(): list<Field>`, `rules(?Model $record): array`, `with(): array`, `defaultSort(): string`, `toRow(Model $m): array`, `fill(Model $m, array $data): void` (default: `$m->fill($data)`), `afterSave(Model $m, array $data): void` (default no-op, used for pivots), `viewPermission()` (`masters.view`), `editPermission()` (`masters.manage`), `rowLimit()` (2000).
-  - `MasterRegistry::get(string $key): MasterResource` (404 when unknown). Resources are registered in `AppServiceProvider`.
-  - Routes (auth), with the resource key in the URL (`departments`, `machines`, `operations`, `shifts`, `qualities`, `lookups`):
-    - `GET /masters/{resource}` (`masters.index`): Inertia `masters/MasterForm` with props `resource` (meta: key, title, fields, canEdit), `rows`, `criteria`.
-    - `POST /masters/{resource}` (`masters.store`).
-    - `PUT /masters/{resource}/{id}` (`masters.update`).
-    - `DELETE /masters/{resource}/{id}` (`masters.destroy`). A foreign-key violation becomes a validation error `forms.in_use`.
-  - Criteria arrive as the query string `?q[field]=value`. They are applied through `QueryCriteria` with `[name => ['column' => name, 'type' => queryType]]` for every field where `queryType` isn't null.
+    - `Field::make(string $name, string $type)`, with fluent setters `->label(string $key)`, `->required()`, `->options(array $options)` (`[['value'=>…,'label'=>…]]`), `->lov(string $lovName, string $displayFrom)`, `->span(int)`, `->grid(bool = true)` (show as a list column), `->queryType(string)` (defaults from the type), `->readonly()`, `->toArray(): array`.
+    - Types: `text|number|select|multiselect|bool|time|textarea|lov`.
+    - `abstract class MasterResource` with `key(): string`, `model(): string`, `titleKey(): string`, `fields(): list<Field>`, `rules(?Model $record): array`, `with(): array`, `defaultSort(): string`, `toRow(Model $m): array`, `fill(Model $m, array $data): void` (default: `$m->fill($data)`), `afterSave(Model $m, array $data): void` (default no-op, used for pivots), `viewPermission()` (`masters.view`), `editPermission()` (`masters.manage`), `rowLimit()` (2000).
+    - `MasterRegistry::get(string $key): MasterResource` (404 when unknown). Resources are registered in `AppServiceProvider`.
+    - Routes (auth), with the resource key in the URL (`departments`, `machines`, `operations`, `shifts`, `qualities`, `lookups`):
+        - `GET /masters/{resource}` (`masters.index`): Inertia `masters/MasterForm` with props `resource` (meta: key, title, fields, canEdit), `rows`, `criteria`.
+        - `POST /masters/{resource}` (`masters.store`).
+        - `PUT /masters/{resource}/{id}` (`masters.update`).
+        - `DELETE /masters/{resource}/{id}` (`masters.destroy`). A foreign-key violation becomes a validation error `forms.in_use`.
+    - Criteria arrive as the query string `?q[field]=value`. They are applied through `QueryCriteria` with `[name => ['column' => name, 'type' => queryType]]` for every field where `queryType` isn't null.
 
 - [ ] **Step 1: Write the translations** `lang/en/masters.php`:
 
@@ -5419,7 +5926,15 @@ Route::controller(\App\Modules\Foundation\Masters\MasterController::class)->pref
 - [ ] **Step 10: Write the page types** `resources/js/types/masters.ts`:
 
 ```ts
-export type FieldType = 'text' | 'number' | 'select' | 'multiselect' | 'bool' | 'time' | 'textarea' | 'lov';
+export type FieldType =
+    | 'text'
+    | 'number'
+    | 'select'
+    | 'multiselect'
+    | 'bool'
+    | 'time'
+    | 'textarea'
+    | 'lov';
 
 export type MasterField = {
     name: string;
@@ -5435,7 +5950,12 @@ export type MasterField = {
     readonly: boolean;
 };
 
-export type MasterMeta = { key: string; title: string; canEdit: boolean; fields: MasterField[] };
+export type MasterMeta = {
+    key: string;
+    title: string;
+    canEdit: boolean;
+    fields: MasterField[];
+};
 
 export type MasterRow = { id: number; [field: string]: unknown };
 ```
@@ -5461,20 +5981,34 @@ import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 import type { MasterField, MasterMeta, MasterRow } from '@/types/masters';
 
-const props = defineProps<{ resource: MasterMeta; rows: MasterRow[]; criteria: Record<string, string> }>();
+const props = defineProps<{
+    resource: MasterMeta;
+    rows: MasterRow[];
+    criteria: Record<string, string>;
+}>();
 
-const blank = (): Record<string, unknown> => Object.fromEntries(props.resource.fields.map((f) => [
-    f.name, f.type === 'bool' ? true : f.type === 'multiselect' ? [] : null,
-]));
+const blank = (): Record<string, unknown> =>
+    Object.fromEntries(
+        props.resource.fields.map((f) => [
+            f.name,
+            f.type === 'bool' ? true : f.type === 'multiselect' ? [] : null,
+        ]),
+    );
 
 const currentId = ref<number | null>(props.rows[0]?.id ?? null);
 const form = useForm<Record<string, unknown>>(currentRow() ?? blank());
-const query = useQueryMode<Record<string, string | null>>(props.resource.fields.filter((f) => f.queryable).map((f) => f.name));
+const query = useQueryMode<Record<string, string | null>>(
+    props.resource.fields.filter((f) => f.queryable).map((f) => f.name),
+);
 const confirmDelete = ref(false);
 
 function currentRow(): Record<string, unknown> | null {
     const row = props.rows.find((r) => r.id === currentId.value);
-    return row ? Object.fromEntries(props.resource.fields.map((f) => [f.name, row[f.name] ?? null])) : null;
+    return row
+        ? Object.fromEntries(
+              props.resource.fields.map((f) => [f.name, row[f.name] ?? null]),
+          )
+        : null;
 }
 
 function load(id: number | null): void {
@@ -5484,26 +6018,62 @@ function load(id: number | null): void {
     form.clearErrors();
 }
 
-const index = computed(() => props.rows.findIndex((r) => r.id === currentId.value));
-watch([index, () => props.rows.length], ([i, n]) => statusLine.setRecord(i + 1, n), { immediate: true });
-watch(() => form.isDirty, (d) => statusLine.setDirty(d), { immediate: true });
-watch(() => props.rows, () => load(props.rows.find((r) => r.id === currentId.value)?.id ?? props.rows[0]?.id ?? null));
+const index = computed(() =>
+    props.rows.findIndex((r) => r.id === currentId.value),
+);
+watch(
+    [index, () => props.rows.length],
+    ([i, n]) => statusLine.setRecord(i + 1, n),
+    { immediate: true },
+);
+watch(
+    () => form.isDirty,
+    (d) => statusLine.setDirty(d),
+    { immediate: true },
+);
+watch(
+    () => props.rows,
+    () =>
+        load(
+            props.rows.find((r) => r.id === currentId.value)?.id ??
+                props.rows[0]?.id ??
+                null,
+        ),
+);
 
-const columns = computed<ColumnDef<MasterRow>[]>(() => props.resource.fields.filter((f) => f.grid).map((f) => ({
-    field: f.type === 'multiselect' ? `${f.name}_label` : f.name,
-    headerName: f.label,
-    flex: f.span,
-    valueFormatter: f.type === 'select'
-        ? (p) => f.options.find((o) => o.value === p.value)?.label ?? String(p.value ?? '')
-        : f.type === 'bool' ? (p) => (p.value ? '✓' : '') : undefined,
-})));
+const columns = computed<ColumnDef<MasterRow>[]>(() =>
+    props.resource.fields
+        .filter((f) => f.grid)
+        .map((f) => ({
+            field: f.type === 'multiselect' ? `${f.name}_label` : f.name,
+            headerName: f.label,
+            flex: f.span,
+            valueFormatter:
+                f.type === 'select'
+                    ? (p) =>
+                          f.options.find((o) => o.value === p.value)?.label ??
+                          String(p.value ?? '')
+                    : f.type === 'bool'
+                      ? (p) => (p.value ? '✓' : '')
+                      : undefined,
+        })),
+);
 
 function save(): Promise<boolean> {
     return new Promise((resolve) => {
         const opts = {
             preserveScroll: true,
-            onSuccess: () => { statusLine.setMessage(t('forms.saved'), 'success'); resolve(true); },
-            onError: () => { statusLine.setMessage(Object.values(form.errors)[0] ?? '', 'error'); resolve(false); },
+            onSuccess: () => {
+                statusLine.setMessage(t('forms.saved'), 'success');
+                resolve(true);
+            },
+            onError: () => {
+                statusLine.setMessage(
+                    Object.values(form.errors)[0] ?? '',
+                    'error',
+                );
+                resolve(false);
+            },
         };
         if (currentId.value === null) {
             form.post(`/masters/${props.resource.key}`, opts);
@@ -5517,33 +6087,76 @@ const guard = useUnsavedGuard(() => form.isDirty, save);
 
 function onAction(action: FormsAction): void {
     switch (action) {
-        case 'save': void save(); break;
-        case 'newRecord': load(null); break;
+        case 'save':
+            void save();
+            break;
+        case 'newRecord':
+            load(null);
+            break;
         case 'deleteRecord':
-            if (currentId.value !== null && window.confirm(t('forms.confirm_delete'))) {
-                router.delete(`/masters/${props.resource.key}/${currentId.value}`, {
-                    preserveScroll: true,
-                    onSuccess: () => statusLine.setMessage(t('forms.deleted'), 'success'),
-                    onError: (e) => statusLine.setMessage(Object.values(e)[0] ?? '', 'error'),
-                });
+            if (
+                currentId.value !== null &&
+                window.confirm(t('forms.confirm_delete'))
+            ) {
+                router.delete(
+                    `/masters/${props.resource.key}/${currentId.value}`,
+                    {
+                        preserveScroll: true,
+                        onSuccess: () =>
+                            statusLine.setMessage(
+                                t('forms.deleted'),
+                                'success',
+                            ),
+                        onError: (e) =>
+                            statusLine.setMessage(
+                                Object.values(e)[0] ?? '',
+                                'error',
+                            ),
+                    },
+                );
             }
             break;
-        case 'enterQuery': query.enterQuery(); break;
+        case 'enterQuery':
+            query.enterQuery();
+            break;
         case 'executeQuery': {
-            const q = query.mode.value === 'enterQuery' ? query.takeCriteria() : {};
-            router.get(`/masters/${props.resource.key}`, { q }, { preserveState: true, preserveScroll: true, only: ['rows', 'criteria'] });
+            const q =
+                query.mode.value === 'enterQuery' ? query.takeCriteria() : {};
+            router.get(
+                `/masters/${props.resource.key}`,
+                { q },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: ['rows', 'criteria'],
+                },
+            );
             break;
         }
-        case 'previousRecord': if (index.value > 0) load(props.rows[index.value - 1].id); break;
-        case 'nextRecord': if (index.value < props.rows.length - 1) load(props.rows[index.value + 1].id); break;
-        case 'clear': query.mode.value === 'enterQuery' ? query.cancelQuery() : load(currentId.value); break;
-        case 'print': window.print(); break;
-        case 'exit': router.visit('/dashboard'); break;
+        case 'previousRecord':
+            if (index.value > 0) load(props.rows[index.value - 1].id);
+            break;
+        case 'nextRecord':
+            if (index.value < props.rows.length - 1)
+                load(props.rows[index.value + 1].id);
+            break;
+        case 'clear':
+            query.mode.value === 'enterQuery'
+                ? query.cancelQuery()
+                : load(currentId.value);
+            break;
+        case 'print':
+            window.print();
+            break;
+        case 'exit':
+            router.visit('/dashboard');
+            break;
     }
 }
 
 const inQuery = computed(() => query.mode.value === 'enterQuery');
-const editable = (f: MasterField) => props.resource.canEdit && !f.readonly && !inQuery.value;
+const editable = (f: MasterField) =>
+    props.resource.canEdit && !f.readonly && !inQuery.value;
 const criteria = reactive(query.criteria);
 </script>
 
@@ -5553,7 +6166,11 @@ const criteria = reactive(query.criteria);
         <h1 class="text-lg font-semibold">{{ resource.title }}</h1>
         <FormsToolbar
             :mode="query.mode.value"
-            :disabled="{ save: !resource.canEdit || inQuery, newRecord: !resource.canEdit, deleteRecord: !resource.canEdit || currentId === null }"
+            :disabled="{
+                save: !resource.canEdit || inQuery,
+                newRecord: !resource.canEdit,
+                deleteRecord: !resource.canEdit || currentId === null,
+            }"
             @action="onAction"
         />
         <FormBlock>
@@ -5566,40 +6183,90 @@ const criteria = reactive(query.criteria);
                 :error="form.errors[f.name]"
             >
                 <template v-if="inQuery">
-                    <Input v-if="f.queryable" :id="`f-${f.name}`" v-model="criteria[f.name]" class="border-amber-500/60" />
+                    <Input
+                        v-if="f.queryable"
+                        :id="`f-${f.name}`"
+                        v-model="criteria[f.name]"
+                        class="border-amber-500/60"
+                    />
                     <Input v-else :id="`f-${f.name}`" disabled />
                 </template>
                 <template v-else-if="f.type === 'bool'">
-                    <Checkbox :id="`f-${f.name}`" :model-value="Boolean(form[f.name])" :disabled="!editable(f)" @update:model-value="(v) => (form[f.name] = v === true)" />
+                    <Checkbox
+                        :id="`f-${f.name}`"
+                        :model-value="Boolean(form[f.name])"
+                        :disabled="!editable(f)"
+                        @update:model-value="(v) => (form[f.name] = v === true)"
+                    />
                 </template>
                 <template v-else-if="f.type === 'select'">
-                    <select :id="`f-${f.name}`" v-model="form[f.name]" :disabled="!editable(f)" class="h-9 rounded-md border bg-background px-2 text-sm">
-                        <option v-for="o in f.options" :key="String(o.value)" :value="o.value">{{ o.label }}</option>
+                    <select
+                        :id="`f-${f.name}`"
+                        v-model="form[f.name]"
+                        :disabled="!editable(f)"
+                        class="h-9 rounded-md border bg-background px-2 text-sm"
+                    >
+                        <option
+                            v-for="o in f.options"
+                            :key="String(o.value)"
+                            :value="o.value"
+                        >
+                            {{ o.label }}
+                        </option>
                     </select>
                 </template>
                 <template v-else-if="f.type === 'multiselect'">
-                    <select :id="`f-${f.name}`" v-model="form[f.name]" multiple :disabled="!editable(f)" class="min-h-20 rounded-md border bg-background px-2 text-sm">
-                        <option v-for="o in f.options" :key="String(o.value)" :value="o.value">{{ o.label }}</option>
+                    <select
+                        :id="`f-${f.name}`"
+                        v-model="form[f.name]"
+                        multiple
+                        :disabled="!editable(f)"
+                        class="min-h-20 rounded-md border bg-background px-2 text-sm"
+                    >
+                        <option
+                            v-for="o in f.options"
+                            :key="String(o.value)"
+                            :value="o.value"
+                        >
+                            {{ o.label }}
+                        </option>
                     </select>
                 </template>
                 <template v-else>
                     <Input
                         :id="`f-${f.name}`"
                         v-model="form[f.name] as string"
-                        :type="f.type === 'number' ? 'number' : f.type === 'time' ? 'time' : 'text'"
+                        :type="
+                            f.type === 'number'
+                                ? 'number'
+                                : f.type === 'time'
+                                  ? 'time'
+                                  : 'text'
+                        "
                         :disabled="!editable(f)"
                     />
                 </template>
             </FormField>
         </FormBlock>
-        <p v-if="form.errors['record']" class="text-sm text-destructive">{{ form.errors['record'] }}</p>
-        <DataGrid :rows="rows" :columns="columns" :selected-id="currentId" @row-selected="(r) => load(r.id)" />
-        <ConfirmSaveDialog :open="guard.dialogOpen.value" @choose="guard.choose" />
+        <p v-if="form.errors['record']" class="text-sm text-destructive">
+            {{ form.errors['record'] }}
+        </p>
+        <DataGrid
+            :rows="rows"
+            :columns="columns"
+            :selected-id="currentId"
+            @row-selected="(r) => load(r.id)"
+        />
+        <ConfirmSaveDialog
+            :open="guard.dialogOpen.value"
+            @choose="guard.choose"
+        />
     </div>
 </template>
 ```
 
 Notes for the implementer:
+
 - `confirmDelete` is declared for a future custom dialog; if the linter flags it as unused, remove it.
 - Inertia's `useForm` in v3 keeps `defaults()`/`reset()`/`isDirty`. If `form[f.name]` indexing trips vue-tsc, type the form as `useForm<Record<string, any>>`.
 - Delete errors come back under the `record` key.
@@ -5608,6 +6275,7 @@ Notes for the implementer:
 
 Run: `./vendor/bin/pest && npm run types:check && npm run build && npm run test:js`
 Expected: all green. Then check manually in the browser at `/masters/operations`:
+
 - F7 → type `%DYE%` in Name → F8 filters the list.
 - PageDown/PageUp move through records, and the status line shows "Record n of m".
 - Edit a field and click a sidebar link: the "Save changes?" dialog appears.
@@ -5622,27 +6290,30 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 13: Master-detail masters — Parties (+ aliases) and Route Templates (+ steps)
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Http/Controllers/{PartyController,RouteTemplateController}.php`
 - Create: `resources/js/pages/masters/{Parties,RouteTemplates}.vue`
 - Create: `tests/Feature/Foundation/PartyScreenTest.php`, `tests/Feature/Foundation/RouteTemplateScreenTest.php`
 - Modify: `routes/modules/foundation.php` (explicit routes placed **above** the generic `masters/{resource}` group)
 
 **Interfaces:**
+
 - Consumes: `Party`/`PartyAlias` (T4), `RouteTemplate`/`RouteTemplateStep`/`Operation` (T3/T5), `QueryCriteria` (T7), the Forms kit (T8/T9).
 - Produces:
-  - **Parties** (named `masters.parties.*`):
-    - `GET /masters/parties`: Inertia `masters/Parties`, props `parties: {id, oracle_code, name, type, is_active, aliases: {id, alias}[]}[]`, `canEdit: bool`, `criteria`. Query fields: `name` (text, applied to `name_normalized` after `PartyName::normalize`), `oracle_code` (number), `type` (text).
-    - `POST /masters/parties` and `PUT /masters/parties/{party}`: body `{oracle_code?, name, type, is_active, aliases: string[]}`. The aliases are synced to exactly the submitted list, blanks dropped.
-    - `DELETE /masters/parties/{party}`: in-use protection as in T12.
-  - **Route templates** (named `masters.route-templates.*`):
-    - `GET /masters/route-templates`: Inertia `masters/RouteTemplates`, props `templates: {id, name, po_type, quality_pattern, priority, is_active, steps: {seq, operation_id, operation: string, department: string}[]}[]`, `poTypes: {value,label}[]`, `canEdit`.
-    - `POST` and `PUT` take `steps: {operation_id}[]` in order; the server renumbers `seq` as 10, 20, 30… `DELETE` as usual.
-  - Both use `masters.view` to read and `masters.manage` to write.
+    - **Parties** (named `masters.parties.*`):
+        - `GET /masters/parties`: Inertia `masters/Parties`, props `parties: {id, oracle_code, name, type, is_active, aliases: {id, alias}[]}[]`, `canEdit: bool`, `criteria`. Query fields: `name` (text, applied to `name_normalized` after `PartyName::normalize`), `oracle_code` (number), `type` (text).
+        - `POST /masters/parties` and `PUT /masters/parties/{party}`: body `{oracle_code?, name, type, is_active, aliases: string[]}`. The aliases are synced to exactly the submitted list, blanks dropped.
+        - `DELETE /masters/parties/{party}`: in-use protection as in T12.
+    - **Route templates** (named `masters.route-templates.*`):
+        - `GET /masters/route-templates`: Inertia `masters/RouteTemplates`, props `templates: {id, name, po_type, quality_pattern, priority, is_active, steps: {seq, operation_id, operation: string, department: string}[]}[]`, `poTypes: {value,label}[]`, `canEdit`.
+        - `POST` and `PUT` take `steps: {operation_id}[]` in order; the server renumbers `seq` as 10, 20, 30… `DELETE` as usual.
+    - Both use `masters.view` to read and `masters.manage` to write.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5974,15 +6645,16 @@ Route::prefix('masters')->name('masters.')->group(function () {
 ```
 
 - [ ] **Step 6: Write the pages.** Both follow the MasterForm pattern from T12:
-  - toolbar with the same `onAction` switch (`save`, `newRecord`, `deleteRecord`, `enterQuery`/`executeQuery`, `previousRecord`/`nextRecord`, `clear`, `exit`);
-  - a header `FormBlock` bound to a `useForm` built from the selected record;
-  - a detail section;
-  - a `DataGrid` list at the bottom;
-  - the status line and `useUnsavedGuard`.
+    - toolbar with the same `onAction` switch (`save`, `newRecord`, `deleteRecord`, `enterQuery`/`executeQuery`, `previousRecord`/`nextRecord`, `clear`, `exit`);
+    - a header `FormBlock` bound to a `useForm` built from the selected record;
+    - a detail section;
+    - a `DataGrid` list at the bottom;
+    - the status line and `useUnsavedGuard`.
 
 `resources/js/pages/masters/Parties.vue`: header fields `oracle_code` (number), `name` (text, span 6), `type` (select brand/local), `is_active` (checkbox). The detail section is a `DetailGrid` with a single editable column `alias` (`newRow: () => ({ alias: '' })`). On save, send `aliases: rows.map(r => r.alias).filter(Boolean)` together with the header fields to `POST /masters/parties` or `PUT /masters/parties/{id}`. Query mode offers `name`, `oracle_code` and `type`, and executes with `router.get('/masters/parties', { q }, { only: ['parties','criteria'], preserveState: true })`. List columns: Name, Oracle code, Type, Aliases (joined), Active.
 
 `resources/js/pages/masters/RouteTemplates.vue`: header fields `name` (span 4), `po_type` (select from `poTypes` plus an empty option for "any"), `quality_pattern` (span 3, hint: "SQL LIKE, e.g. %VISCOSE%"), `priority` (number), `is_active`. The detail section is a `DetailGrid` with columns:
+
 - `seq` (read-only, the row index × 10, via a `valueGetter`);
 - `operation` (editable; the cell editor is a button that opens `LovDialog` for `operations` and sets `operation_id`, `operation` and `department` on the row);
 - `department` (read-only).
@@ -5995,6 +6667,7 @@ Both pages must pass `npm run types:check` and show every label through `t('mast
 
 Run: `./vendor/bin/pest && npm run types:check && npm run build && npm run test:js`
 Expected: all green. Then check manually:
+
 - create a party with two aliases and confirm `GET /lov/parties?exact=<alias>` returns it;
 - edit "Dyed - Standard": add a step with the LOV, reorder it with Ctrl+↑, save, and confirm the order persists after a reload.
 
@@ -6008,11 +6681,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 14: Administration — users, roles, settings
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Http/Controllers/Admin/{UserController,RoleController,SettingsController}.php`
 - Create: `resources/js/pages/admin/{Users,Roles,Settings}.vue`
 - Create: `lang/en/admin.php`, `lang/ur/admin.php`
@@ -6020,19 +6695,20 @@ Reserved migration range: none.
 - Modify: `routes/modules/foundation.php`
 
 **Interfaces:**
+
 - Consumes: `Permissions` (T2), `Department` and `Setting` (T3), the Forms kit (T8/T9).
 - Produces:
-  - **Users** (`admin.users.*`, needs `admin.users.manage`):
-    - `GET /admin/users`: Inertia `admin/Users`, props `users[] {id, name, email, is_active, locale, roles: string[], department_ids: int[]}`, `roles: string[]`, `departments: {value,label}[]`.
-    - `POST /admin/users`: body `{name, email, password, is_active, locale, roles[], department_ids[]}`.
-    - `PUT /admin/users/{user}`: same body; `password` is optional (blank keeps the current password).
-    - An admin cannot deactivate themselves or remove their own admin role.
-  - **Roles** (`admin.roles.*`, needs `admin.roles.manage`):
-    - `GET /admin/roles`: Inertia `admin/Roles`, props `roles: {name, permissions: string[]}[]`, `permissions: string[]` (= `Permissions::ALL`).
-    - `PUT /admin/roles/{role}`: body `{permissions: string[]}`, each a member of `Permissions::ALL`. The `admin` role can't be edited (403).
-  - **Settings** (`admin.settings.*`, needs `admin.settings.manage`):
-    - `GET /admin/settings`: Inertia `admin/Settings`, props `settings: {company_name, idle_lot_alert_days}`.
-    - `PUT /admin/settings`: body `{company_name: string, idle_lot_alert_days: int 1..60}`.
+    - **Users** (`admin.users.*`, needs `admin.users.manage`):
+        - `GET /admin/users`: Inertia `admin/Users`, props `users[] {id, name, email, is_active, locale, roles: string[], department_ids: int[]}`, `roles: string[]`, `departments: {value,label}[]`.
+        - `POST /admin/users`: body `{name, email, password, is_active, locale, roles[], department_ids[]}`.
+        - `PUT /admin/users/{user}`: same body; `password` is optional (blank keeps the current password).
+        - An admin cannot deactivate themselves or remove their own admin role.
+    - **Roles** (`admin.roles.*`, needs `admin.roles.manage`):
+        - `GET /admin/roles`: Inertia `admin/Roles`, props `roles: {name, permissions: string[]}[]`, `permissions: string[]` (= `Permissions::ALL`).
+        - `PUT /admin/roles/{role}`: body `{permissions: string[]}`, each a member of `Permissions::ALL`. The `admin` role can't be edited (403).
+    - **Settings** (`admin.settings.*`, needs `admin.settings.manage`):
+        - `GET /admin/settings`: Inertia `admin/Settings`, props `settings: {company_name, idle_lot_alert_days}`.
+        - `PUT /admin/settings`: body `{company_name: string, idle_lot_alert_days: int 1..60}`.
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/Foundation/AdminTest.php`:
 
@@ -6348,16 +7024,16 @@ return [
 ```
 
 - [ ] **Step 8: Write the pages**
-  - **`resources/js/pages/admin/Users.vue`:** follows the MasterForm pattern (toolbar, `FormBlock`, `DataGrid`, status line, unsaved guard).
-    - Fields: name, email, password (type password, hint `admin.password_hint`), is_active, locale (select from `usePage().props.locales`), roles (checkbox list using `t('admin.role_names.<role>')`), department_ids (multi-select, shown only when `dept_incharge` is among the roles).
-    - `newRecord` → `POST /admin/users`; an existing record → `PUT /admin/users/{id}`.
-    - List columns: name, email, roles (joined labels), active.
-  - **`resources/js/pages/admin/Roles.vue`:** a permission matrix.
-    - Rows are `permissions`, columns are the roles (labels from `admin.role_names`), and each cell is a checkbox.
-    - The admin column is checked and disabled.
-    - A Save button per role column sends `PUT /admin/roles/{role}` with that column's checked permissions.
-    - Group rows by the permission prefix before the first `.` (admin, masters, oracle, production, colour, dispatch, inquiry, reports, audit) with a group header row.
-  - **`resources/js/pages/admin/Settings.vue`:** a simple `FormBlock` with `company_name` and `idle_lot_alert_days`, plus the toolbar (only Save and Exit enabled).
+    - **`resources/js/pages/admin/Users.vue`:** follows the MasterForm pattern (toolbar, `FormBlock`, `DataGrid`, status line, unsaved guard).
+        - Fields: name, email, password (type password, hint `admin.password_hint`), is_active, locale (select from `usePage().props.locales`), roles (checkbox list using `t('admin.role_names.<role>')`), department_ids (multi-select, shown only when `dept_incharge` is among the roles).
+        - `newRecord` → `POST /admin/users`; an existing record → `PUT /admin/users/{id}`.
+        - List columns: name, email, roles (joined labels), active.
+    - **`resources/js/pages/admin/Roles.vue`:** a permission matrix.
+        - Rows are `permissions`, columns are the roles (labels from `admin.role_names`), and each cell is a checkbox.
+        - The admin column is checked and disabled.
+        - A Save button per role column sends `PUT /admin/roles/{role}` with that column's checked permissions.
+        - Group rows by the permission prefix before the first `.` (admin, masters, oracle, production, colour, dispatch, inquiry, reports, audit) with a group header row.
+    - **`resources/js/pages/admin/Settings.vue`:** a simple `FormBlock` with `company_name` and `idle_lot_alert_days`, plus the toolbar (only Save and Exit enabled).
 
 - [ ] **Step 9: Verify**
 
@@ -6380,6 +7056,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: `000500`–`000549`.
 
 **Files:**
+
 - Create: `database/migrations/2026_09_19_000500_create_contracts_and_lots_tables.php`
 - Create: `app/Modules/Production/Models/{Contract,Lot}.php`
 - Create: `app/Modules/Production/Lov/{LotLov,ContractLov}.php`
@@ -6388,14 +7065,15 @@ Reserved migration range: `000500`–`000549`.
 - Modify: `app/Providers/AppServiceProvider.php` (register the two LOVs), `app/Modules/Foundation/Lov/LovController.php` (allow a definition to run custom exact matching; see Step 5)
 
 **Interfaces:**
+
 - Consumes: `Party`, `Quality` (T4), `LovRegistry`/`LovDefinition` (T10).
 - Produces:
-  - `Contract(id, po_no unique, party_id, ref_no ?string, po_date date, contract_qty decimal, oracle_missing_at ?datetime)` with `party()` and `lots()`.
-  - `Lot(id, oracle_line_id unique, lot_no string(10) indexed, contract_id, quality_id, gsm ?int, design_code ?string, design ?string, colour_code ?string, colour ?string, g_width ?decimal(6,2), f_width ?decimal(6,2), po_type string, greige_qty decimal, colour_status ?string, state enum('open','hold','closed','cancelled') default open, hold_reason ?string, closed_at ?datetime, closed_by ?fk users, loss_qty decimal default 0, loss_reason ?string, oracle_missing_at ?datetime, remarks ?text)` with `contract()`, `quality()` and `scopeOpen()`.
-  - `Lot::ORACLE_FIELDS: list<string>`, the fields that Oracle owns and the import compares: `['lot_no','contract_id','quality_id','gsm','design_code','design','colour_code','colour','g_width','f_width','po_type','greige_qty']`.
-  - LOV `lots`: search `q` over `lot_no`, PO number, design and colour. `exact` accepts the full lot no. or its last 4 digits, and matches **open** lots only. Rows carry `{id, code: lot_no, label: "lot_no · PO · design · colour", po_no, party, quality, colour, design, g_width, f_width}`. With several matches, all are returned (the LOV field then opens the dialog; spec §6.3).
-  - LOV `contracts`: search on `po_no` and `ref_no`; `exact` on `po_no`.
-  - Progress columns (`stock_qty`, `wip_qty`, …) are **not** part of this task; P2 adds them.
+    - `Contract(id, po_no unique, party_id, ref_no ?string, po_date date, contract_qty decimal, oracle_missing_at ?datetime)` with `party()` and `lots()`.
+    - `Lot(id, oracle_line_id unique, lot_no string(10) indexed, contract_id, quality_id, gsm ?int, design_code ?string, design ?string, colour_code ?string, colour ?string, g_width ?decimal(6,2), f_width ?decimal(6,2), po_type string, greige_qty decimal, colour_status ?string, state enum('open','hold','closed','cancelled') default open, hold_reason ?string, closed_at ?datetime, closed_by ?fk users, loss_qty decimal default 0, loss_reason ?string, oracle_missing_at ?datetime, remarks ?text)` with `contract()`, `quality()` and `scopeOpen()`.
+    - `Lot::ORACLE_FIELDS: list<string>`, the fields that Oracle owns and the import compares: `['lot_no','contract_id','quality_id','gsm','design_code','design','colour_code','colour','g_width','f_width','po_type','greige_qty']`.
+    - LOV `lots`: search `q` over `lot_no`, PO number, design and colour. `exact` accepts the full lot no. or its last 4 digits, and matches **open** lots only. Rows carry `{id, code: lot_no, label: "lot_no · PO · design · colour", po_no, party, quality, colour, design, g_width, f_width}`. With several matches, all are returned (the LOV field then opens the dialog; spec §6.3).
+    - LOV `contracts`: search on `po_no` and `ref_no`; `exact` on `po_no`.
+    - Progress columns (`stock_qty`, `wip_qty`, …) are **not** part of this task; P2 adds them.
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/Production/LotLovTest.php`:
 
@@ -6739,11 +7417,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 16: Oracle source interface and Excel reader
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/OracleSync/Contracts/OracleLotSource.php`
 - Create: `app/Modules/OracleSync/Data/OracleLotRow.php`
 - Create: `app/Modules/OracleSync/Sources/ExcelUploadSource.php`
@@ -6752,21 +7432,23 @@ Reserved migration range: none.
 - Uses: `tests/Fixtures/oracle-wip-2026-09.xlsx` (real Sep-26 export: 623 data rows, 38 columns)
 
 **Interfaces:**
-- Produces:
-  - `interface OracleLotSource { /** @return iterable<int, OracleLotRow> keyed by 1-based source row number */ public function rows(): iterable; public function label(): string; }`.
-  - `final readonly class OracleLotRow`, with the properties:
-    - `string partyName`, `int partyCode`, `int poNo`, `?string refNo`, `CarbonImmutable poDate`
-    - `string qualityDescription`, `int qualityCode`
-    - `string lotNo`, `int oracleLineId`, `?int gsm`
-    - `?string designCode`, `?string design`, `?string colourCode`, `?string colour`
-    - `?float gWidth`, `?float fWidth`, `string poType`, `float greigeQty`, `float contractQty`
 
-    `public function toArray(): array` returns the snake_case keys `party_name, party_code, po_no, ref_no, po_date (Y-m-d), quality_description, quality_code, lot_no, oracle_line_id, gsm, design_code, design, colour_code, colour, g_width, f_width, po_type, greige_qty, contract_qty`.
-  - `new ExcelUploadSource(string $path, string $originalName = '')`.
-    - Reads the first sheet with openspout and maps columns by header name. Required headers: `PARTY, PARTY_CODE, CONTRACT_NUM, REF_NUM, DATED, QUALITY, Q_CODE, LOT_NUM1, GSM, DESIGN_CODE, DESIGN, COLOUR_NAME, COLOUR_CODE, G_WIDTH, F_WIDTH, PROCESS_TYPE, PC_DTL_ID, QNTY, QNTY_CONT`.
-    - Skips fully blank rows.
-    - Throws `InvalidOracleFile::missingHeaders(list<string>)` when headers are missing, and `InvalidOracleFile::badRow(int $row, string $reason)` for a row whose required value is unparseable (a non-numeric `PC_DTL_ID`/`QNTY`, or a bad date).
-    - Values: `DATED` is `dd-MON-yy` text (e.g. `20-AUG-26`); an Excel date cell (`DateTimeInterface`) is also accepted. `GSM` and `F_WIDTH` can arrive as strings. Empty strings become null. Party names are kept verbatim (trimmed); normalising them is the resolver's job (T17).
+- Produces:
+    - `interface OracleLotSource { /** @return iterable<int, OracleLotRow> keyed by 1-based source row number */ public function rows(): iterable; public function label(): string; }`.
+    - `final readonly class OracleLotRow`, with the properties:
+        - `string partyName`, `int partyCode`, `int poNo`, `?string refNo`, `CarbonImmutable poDate`
+        - `string qualityDescription`, `int qualityCode`
+        - `string lotNo`, `int oracleLineId`, `?int gsm`
+        - `?string designCode`, `?string design`, `?string colourCode`, `?string colour`
+        - `?float gWidth`, `?float fWidth`, `string poType`, `float greigeQty`, `float contractQty`
+
+        `public function toArray(): array` returns the snake_case keys `party_name, party_code, po_no, ref_no, po_date (Y-m-d), quality_description, quality_code, lot_no, oracle_line_id, gsm, design_code, design, colour_code, colour, g_width, f_width, po_type, greige_qty, contract_qty`.
+
+    - `new ExcelUploadSource(string $path, string $originalName = '')`.
+        - Reads the first sheet with openspout and maps columns by header name. Required headers: `PARTY, PARTY_CODE, CONTRACT_NUM, REF_NUM, DATED, QUALITY, Q_CODE, LOT_NUM1, GSM, DESIGN_CODE, DESIGN, COLOUR_NAME, COLOUR_CODE, G_WIDTH, F_WIDTH, PROCESS_TYPE, PC_DTL_ID, QNTY, QNTY_CONT`.
+        - Skips fully blank rows.
+        - Throws `InvalidOracleFile::missingHeaders(list<string>)` when headers are missing, and `InvalidOracleFile::badRow(int $row, string $reason)` for a row whose required value is unparseable (a non-numeric `PC_DTL_ID`/`QNTY`, or a bad date).
+        - Values: `DATED` is `dd-MON-yy` text (e.g. `20-AUG-26`); an Excel date cell (`DateTimeInterface`) is also accepted. `GSM` and `F_WIDTH` can arrive as strings. Empty strings become null. Party names are kept verbatim (trimmed); normalising them is the resolver's job (T17).
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/OracleSync/ExcelUploadSourceTest.php`:
 
@@ -7132,11 +7814,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 17: Import preview, party resolution and commit
 
 Reserved migration range: `000600`–`000649`.
 
 **Files:**
+
 - Create: `database/migrations/2026_09_19_000600_create_oracle_import_tables.php`
 - Create: `app/Modules/OracleSync/Models/{OracleImport,OracleImportRow}.php`
 - Create: `app/Modules/OracleSync/Services/{PartyResolver,ImportPreviewService,ImportCommitService}.php`
@@ -7146,26 +7830,27 @@ Reserved migration range: `000600`–`000649`.
 - Create: `tests/Feature/OracleSync/ImportFlowTest.php`
 
 **Interfaces:**
+
 - Consumes: `OracleLotSource`, `OracleLotRow`, `ExcelUploadSource` (T16); `Party`, `PartyAlias`, `Quality`, `PartyName` (T4); `Contract`, `Lot`, `Lot::ORACLE_FIELDS` (T15).
 - Produces:
-  - `OracleImport(id, source 'excel'|'api', label, uploaded_by, status 'previewed'|'committing'|'committed'|'failed'|'discarded', new_count, changed_count, unchanged_count, missing_count, error_count, unresolved_parties json list<{code:int,name:string,rows:int}>, error_message ?text, committed_at ?datetime)` with `rows()` and `uploader()`.
-  - `OracleImportRow(id, oracle_import_id, row_no ?int, oracle_line_id ?int, lot_id ?int, party_code ?int, action 'new'|'changed'|'unchanged'|'missing'|'error', payload ?json (OracleLotRow::toArray), diff ?json {field:[old,new]}, message ?string)`.
-  - `PartyResolver`:
-    - `resolve(int $code, string $name): ?Party` looks up `oracle_code`, then `Party::findByName`. A name match whose party already carries a *different* `oracle_code` counts as no match. On commit, a name-matched party with no code gets `oracle_code` set, so re-imports compare `party_code` correctly.
-    - `link(int $code, string $oracleName, Party $party): Party` sets `oracle_code` when empty (a 422 if it already holds a different code) and stores `$oracleName` as an alias when its normalised form differs from the party's.
-    - `create(int $code, string $name, string $type): Party`.
-  - `ImportPreviewService`:
-    - `preview(OracleLotSource $source, User $user, string $sourceKind = 'excel'): OracleImport`.
-    - `resolveParty(OracleImport $import, int $code, array $resolution): OracleImport`, where `$resolution` is `['mode' => 'link', 'party_id' => int]` or `['mode' => 'create', 'type' => 'brand'|'local']`. It re-classifies the error rows for that party code and recounts.
-    - `discard(OracleImport $import): void`.
-  - `ImportCommitService::commit(OracleImport $import, User $user): void`. It throws `DomainException` when:
-    - the status isn't `previewed`;
-    - `error_count > 0`;
-    - another import was committed after this preview was created (a stale preview).
-  - `CommitOracleImport` (ShouldQueue): `__construct(int $importId, int $userId)` and `handle(ImportCommitService)`.
-  - Events `LotImported(Lot $lot)` and `LotChanged(Lot $lot, array $diff)`, dispatched **after** the transaction commits. P2 listens to them to create routes and ledger movements.
-  - Compared fields (the diff keys): `lot_no, po_no, ref_no, po_date, party_code, quality_code, quality_description, gsm, design_code, design, colour_code, colour, g_width, f_width, po_type, greige_qty, contract_qty`. Numbers compare at 2 decimals.
-  - "Missing" means lots in state `open` or `hold` whose `oracle_line_id` is absent from the file.
+    - `OracleImport(id, source 'excel'|'api', label, uploaded_by, status 'previewed'|'committing'|'committed'|'failed'|'discarded', new_count, changed_count, unchanged_count, missing_count, error_count, unresolved_parties json list<{code:int,name:string,rows:int}>, error_message ?text, committed_at ?datetime)` with `rows()` and `uploader()`.
+    - `OracleImportRow(id, oracle_import_id, row_no ?int, oracle_line_id ?int, lot_id ?int, party_code ?int, action 'new'|'changed'|'unchanged'|'missing'|'error', payload ?json (OracleLotRow::toArray), diff ?json {field:[old,new]}, message ?string)`.
+    - `PartyResolver`:
+        - `resolve(int $code, string $name): ?Party` looks up `oracle_code`, then `Party::findByName`. A name match whose party already carries a _different_ `oracle_code` counts as no match. On commit, a name-matched party with no code gets `oracle_code` set, so re-imports compare `party_code` correctly.
+        - `link(int $code, string $oracleName, Party $party): Party` sets `oracle_code` when empty (a 422 if it already holds a different code) and stores `$oracleName` as an alias when its normalised form differs from the party's.
+        - `create(int $code, string $name, string $type): Party`.
+    - `ImportPreviewService`:
+        - `preview(OracleLotSource $source, User $user, string $sourceKind = 'excel'): OracleImport`.
+        - `resolveParty(OracleImport $import, int $code, array $resolution): OracleImport`, where `$resolution` is `['mode' => 'link', 'party_id' => int]` or `['mode' => 'create', 'type' => 'brand'|'local']`. It re-classifies the error rows for that party code and recounts.
+        - `discard(OracleImport $import): void`.
+    - `ImportCommitService::commit(OracleImport $import, User $user): void`. It throws `DomainException` when:
+        - the status isn't `previewed`;
+        - `error_count > 0`;
+        - another import was committed after this preview was created (a stale preview).
+    - `CommitOracleImport` (ShouldQueue): `__construct(int $importId, int $userId)` and `handle(ImportCommitService)`.
+    - Events `LotImported(Lot $lot)` and `LotChanged(Lot $lot, array $diff)`, dispatched **after** the transaction commits. P2 listens to them to create routes and ledger movements.
+    - Compared fields (the diff keys): `lot_no, po_no, ref_no, po_date, party_code, quality_code, quality_description, gsm, design_code, design, colour_code, colour, g_width, f_width, po_type, greige_qty, contract_qty`. Numbers compare at 2 decimals.
+    - "Missing" means lots in state `open` or `hold` whose `oracle_line_id` is absent from the file.
 
 - [ ] **Step 1: Write the translations**
 
@@ -7877,25 +8562,28 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
 ---
+
 ### Task 18: Oracle import screens
 
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/OracleSync/Http/Controllers/OracleImportController.php`
 - Create: `routes/modules/oracle.php`
 - Create: `resources/js/pages/oracle/{Imports,ImportPreview}.vue`, `resources/js/types/oracle.ts`
 - Create: `tests/Feature/OracleSync/ImportScreensTest.php`
 
 **Interfaces:**
+
 - Consumes: `ImportPreviewService`, `ImportCommitService`, `CommitOracleImport`, `ExcelUploadSource`, `InvalidOracleFile` (T16/T17); the Forms kit (T8/T9); `can` (T11).
 - Produces (all under auth; view routes need `oracle.import.view`, write routes need `oracle.import.run`):
-  - `GET /oracle/imports` (`oracle.imports.index`): Inertia `oracle/Imports`, props `imports: {id, label, source, status, uploader, created_at, committed_at, new_count, changed_count, unchanged_count, missing_count, error_count}[]` (latest 50) and `canRun: bool`.
-  - `POST /oracle/imports` (`oracle.imports.store`): multipart `file` (xlsx, max 20 MB). Stores it under `storage/app/private/oracle-imports/`, runs the preview, and redirects to `show`. An `InvalidOracleFile` becomes a validation error on `file`.
-  - `GET /oracle/imports/{import}` (`oracle.imports.show`): Inertia `oracle/ImportPreview`, props `import` (the same shape plus `unresolved_parties`, `error_message`), `tab` (`new|changed|unchanged|missing|error`; defaults to `error` when `error_count > 0`, otherwise the first non-empty of `new, changed, missing, unchanged`), `rows` (for that tab, at most 2000: `{id, row_no, oracle_line_id, action, message, diff, lot_no, po_no, party, design, colour, quality, greige_qty}`), `canRun`.
-  - `POST /oracle/imports/{import}/parties/{code}` (`oracle.imports.resolve-party`): body `{mode: 'link'|'create', party_id?: int, type?: 'brand'|'local'}`.
-  - `POST /oracle/imports/{import}/commit` (`oracle.imports.commit`): validates `status === previewed && error_count === 0` (otherwise an `import` validation error), then dispatches `CommitOracleImport`.
-  - `POST /oracle/imports/{import}/discard` (`oracle.imports.discard`).
+    - `GET /oracle/imports` (`oracle.imports.index`): Inertia `oracle/Imports`, props `imports: {id, label, source, status, uploader, created_at, committed_at, new_count, changed_count, unchanged_count, missing_count, error_count}[]` (latest 50) and `canRun: bool`.
+    - `POST /oracle/imports` (`oracle.imports.store`): multipart `file` (xlsx, max 20 MB). Stores it under `storage/app/private/oracle-imports/`, runs the preview, and redirects to `show`. An `InvalidOracleFile` becomes a validation error on `file`.
+    - `GET /oracle/imports/{import}` (`oracle.imports.show`): Inertia `oracle/ImportPreview`, props `import` (the same shape plus `unresolved_parties`, `error_message`), `tab` (`new|changed|unchanged|missing|error`; defaults to `error` when `error_count > 0`, otherwise the first non-empty of `new, changed, missing, unchanged`), `rows` (for that tab, at most 2000: `{id, row_no, oracle_line_id, action, message, diff, lot_no, po_no, party, design, colour, quality, greige_qty}`), `canRun`.
+    - `POST /oracle/imports/{import}/parties/{code}` (`oracle.imports.resolve-party`): body `{mode: 'link'|'create', party_id?: int, type?: 'brand'|'local'}`.
+    - `POST /oracle/imports/{import}/commit` (`oracle.imports.commit`): validates `status === previewed && error_count === 0` (otherwise an `import` validation error), then dispatches `CommitOracleImport`.
+    - `POST /oracle/imports/{import}/discard` (`oracle.imports.discard`).
 
 - [ ] **Step 1: Write the failing test** `tests/Feature/OracleSync/ImportScreensTest.php`:
 
@@ -8157,13 +8845,24 @@ Route-model binding for `{import}` requires the parameter name to match the cont
 - [ ] **Step 5: Write the types** `resources/js/types/oracle.ts`:
 
 ```ts
-export type ImportAction = 'new' | 'changed' | 'unchanged' | 'missing' | 'error';
-export type ImportStatus = 'previewed' | 'committing' | 'committed' | 'failed' | 'discarded';
+export type ImportAction =
+    'new' | 'changed' | 'unchanged' | 'missing' | 'error';
+export type ImportStatus =
+    'previewed' | 'committing' | 'committed' | 'failed' | 'discarded';
 
 export type ImportSummary = {
-    id: number; label: string; source: 'excel' | 'api'; status: ImportStatus; uploader: string | null;
-    created_at: string | null; committed_at: string | null;
-    new_count: number; changed_count: number; unchanged_count: number; missing_count: number; error_count: number;
+    id: number;
+    label: string;
+    source: 'excel' | 'api';
+    status: ImportStatus;
+    uploader: string | null;
+    created_at: string | null;
+    committed_at: string | null;
+    new_count: number;
+    changed_count: number;
+    unchanged_count: number;
+    missing_count: number;
+    error_count: number;
 };
 
 export type ImportDetail = ImportSummary & {
@@ -8172,9 +8871,19 @@ export type ImportDetail = ImportSummary & {
 };
 
 export type ImportRow = {
-    id: number; row_no: number | null; oracle_line_id: number | null; action: ImportAction; message: string | null;
-    diff: Record<string, [unknown, unknown]> | null; lot_no: string | null; po_no: number | null; party: string | null;
-    design: string | null; colour: string | null; quality: string | null; greige_qty: number | null;
+    id: number;
+    row_no: number | null;
+    oracle_line_id: number | null;
+    action: ImportAction;
+    message: string | null;
+    diff: Record<string, [unknown, unknown]> | null;
+    lot_no: string | null;
+    po_no: number | null;
+    party: string | null;
+    design: string | null;
+    colour: string | null;
+    quality: string | null;
+    greige_qty: number | null;
 };
 ```
 
@@ -8203,11 +8912,36 @@ const columns = computed<ColumnDef<ImportSummary>[]>(() => [
     { field: 'created_at', headerName: t('oracle.fields.date'), width: 140 },
     { field: 'label', headerName: t('oracle.fields.file'), flex: 2 },
     { field: 'uploader', headerName: t('oracle.fields.user'), flex: 1 },
-    { field: 'status', headerName: t('oracle.fields.status_col'), valueFormatter: (p) => t(`oracle.status.${p.value}`), width: 130 },
-    { field: 'new_count', headerName: t('oracle.actions.new'), width: 90, type: 'numericColumn' },
-    { field: 'changed_count', headerName: t('oracle.actions.changed'), width: 100, type: 'numericColumn' },
-    { field: 'missing_count', headerName: t('oracle.actions.missing'), width: 120, type: 'numericColumn' },
-    { field: 'error_count', headerName: t('oracle.actions.error'), width: 90, type: 'numericColumn' },
+    {
+        field: 'status',
+        headerName: t('oracle.fields.status_col'),
+        valueFormatter: (p) => t(`oracle.status.${p.value}`),
+        width: 130,
+    },
+    {
+        field: 'new_count',
+        headerName: t('oracle.actions.new'),
+        width: 90,
+        type: 'numericColumn',
+    },
+    {
+        field: 'changed_count',
+        headerName: t('oracle.actions.changed'),
+        width: 100,
+        type: 'numericColumn',
+    },
+    {
+        field: 'missing_count',
+        headerName: t('oracle.actions.missing'),
+        width: 120,
+        type: 'numericColumn',
+    },
+    {
+        field: 'error_count',
+        headerName: t('oracle.actions.error'),
+        width: 90,
+        type: 'numericColumn',
+    },
 ]);
 </script>
 
@@ -8216,23 +8950,42 @@ const columns = computed<ColumnDef<ImportSummary>[]>(() => [
     <div class="flex flex-col gap-3 p-4">
         <h1 class="text-lg font-semibold">{{ t('oracle.title') }}</h1>
         <FormBlock v-if="canRun" :title="t('oracle.upload')">
-            <FormField :label="t('oracle.upload_hint')" for="oracle-file" :span="8" :error="form.errors.file">
+            <FormField
+                :label="t('oracle.upload_hint')"
+                for="oracle-file"
+                :span="8"
+                :error="form.errors.file"
+            >
                 <input
                     id="oracle-file"
                     type="file"
                     accept=".xlsx"
                     class="text-sm file:me-3 file:rounded-md file:border file:bg-muted file:px-3 file:py-1.5"
-                    @change="(e) => (form.file = (e.target as HTMLInputElement).files?.[0] ?? null)"
+                    @change="
+                        (e) =>
+                            (form.file =
+                                (e.target as HTMLInputElement).files?.[0] ??
+                                null)
+                    "
                 />
             </FormField>
             <div class="col-span-12 flex items-end md:col-span-4">
-                <Button :disabled="!form.file || form.processing" @click="upload">
+                <Button
+                    :disabled="!form.file || form.processing"
+                    @click="upload"
+                >
                     {{ form.processing ? '…' : t('oracle.preview') }}
                 </Button>
             </div>
         </FormBlock>
-        <h2 class="text-sm font-semibold text-muted-foreground">{{ t('oracle.history') }}</h2>
-        <DataGrid :rows="props.imports" :columns="columns" @row-selected="(r) => router.visit(`/oracle/imports/${r.id}`)" />
+        <h2 class="text-sm font-semibold text-muted-foreground">
+            {{ t('oracle.history') }}
+        </h2>
+        <DataGrid
+            :rows="props.imports"
+            :columns="columns"
+            @row-selected="(r) => router.visit(`/oracle/imports/${r.id}`)"
+        />
     </div>
 </template>
 ```
@@ -8253,50 +9006,96 @@ import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 import type { ImportAction, ImportDetail, ImportRow } from '@/types/oracle';
 
-const props = defineProps<{ import: ImportDetail; tab: ImportAction; rows: ImportRow[]; canRun: boolean }>();
+const props = defineProps<{
+    import: ImportDetail;
+    tab: ImportAction;
+    rows: ImportRow[];
+    canRun: boolean;
+}>();
 
-const tabs: ImportAction[] = ['error', 'new', 'changed', 'missing', 'unchanged'];
+const tabs: ImportAction[] = [
+    'error',
+    'new',
+    'changed',
+    'missing',
+    'unchanged',
+];
 const count = (a: ImportAction) => props.import[`${a}_count` as const];
-const resolutions = reactive<Record<number, { partyId: number | null; display: string; type: 'brand' | 'local' }>>({});
+const resolutions = reactive<
+    Record<
+        number,
+        { partyId: number | null; display: string; type: 'brand' | 'local' }
+    >
+>({});
 const busy = computed(() => props.import.status === 'committing');
 
-const { start, stop } = usePoll(2000, { only: ['import'] }, { autoStart: false });
+const { start, stop } = usePoll(
+    2000,
+    { only: ['import'] },
+    { autoStart: false },
+);
 if (busy.value) {
     start();
 }
 
 function openTab(tab: ImportAction): void {
-    router.get(`/oracle/imports/${props.import.id}`, { tab }, { only: ['rows', 'tab'], preserveState: true, preserveScroll: true });
+    router.get(
+        `/oracle/imports/${props.import.id}`,
+        { tab },
+        { only: ['rows', 'tab'], preserveState: true, preserveScroll: true },
+    );
 }
 
 function resolve(code: number, mode: 'link' | 'create'): void {
     const r = resolutions[code];
-    router.post(`/oracle/imports/${props.import.id}/parties/${code}`,
-        mode === 'link' ? { mode, party_id: r?.partyId } : { mode, type: r?.type ?? 'brand' },
-        { preserveScroll: true, onSuccess: () => statusLine.setMessage(t('forms.saved'), 'success') });
+    router.post(
+        `/oracle/imports/${props.import.id}/parties/${code}`,
+        mode === 'link'
+            ? { mode, party_id: r?.partyId }
+            : { mode, type: r?.type ?? 'brand' },
+        {
+            preserveScroll: true,
+            onSuccess: () => statusLine.setMessage(t('forms.saved'), 'success'),
+        },
+    );
 }
 
 function commit(): void {
-    router.post(`/oracle/imports/${props.import.id}/commit`, {}, {
-        preserveScroll: true,
-        onSuccess: () => start(),
-        onError: (e) => statusLine.setMessage(Object.values(e)[0] ?? '', 'error'),
-    });
+    router.post(
+        `/oracle/imports/${props.import.id}/commit`,
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => start(),
+            onError: (e) =>
+                statusLine.setMessage(Object.values(e)[0] ?? '', 'error'),
+        },
+    );
 }
 
 function onPropsUpdated(): void {
     if (!busy.value) {
         stop();
         if (props.import.status === 'committed') {
-            statusLine.setMessage(t('oracle.committed', {
-                new: props.import.new_count, changed: props.import.changed_count, missing: props.import.missing_count,
-            }), 'success');
+            statusLine.setMessage(
+                t('oracle.committed', {
+                    new: props.import.new_count,
+                    changed: props.import.changed_count,
+                    missing: props.import.missing_count,
+                }),
+                'success',
+            );
         }
     }
 }
 router.on('success', onPropsUpdated);
 
-const diffText = (d: ImportRow['diff']) => (d ? Object.entries(d).map(([k, [a, b]]) => `${t(`oracle.fields.${k}`)}: ${a} → ${b}`).join('; ') : '');
+const diffText = (d: ImportRow['diff']) =>
+    d
+        ? Object.entries(d)
+              .map(([k, [a, b]]) => `${t(`oracle.fields.${k}`)}: ${a} → ${b}`)
+              .join('; ')
+        : '';
 
 const columns = computed<ColumnDef<ImportRow>[]>(() => [
     { field: 'row_no', headerName: t('oracle.fields.row_no'), width: 70 },
@@ -8306,10 +9105,21 @@ const columns = computed<ColumnDef<ImportRow>[]>(() => [
     { field: 'design', headerName: t('oracle.fields.design'), flex: 1 },
     { field: 'colour', headerName: t('oracle.fields.colour'), flex: 1 },
     { field: 'quality', headerName: t('oracle.fields.quality'), flex: 3 },
-    { field: 'greige_qty', headerName: t('oracle.fields.greige_qty'), width: 110, type: 'numericColumn',
-        valueFormatter: (p) => (p.value == null ? '' : Number(p.value).toLocaleString('en-US')) },
+    {
+        field: 'greige_qty',
+        headerName: t('oracle.fields.greige_qty'),
+        width: 110,
+        type: 'numericColumn',
+        valueFormatter: (p) =>
+            p.value == null ? '' : Number(p.value).toLocaleString('en-US'),
+    },
     props.tab === 'changed'
-        ? { colId: 'diff', headerName: t('oracle.fields.diff'), flex: 3, valueGetter: (p) => diffText(p.data?.diff ?? null) }
+        ? {
+              colId: 'diff',
+              headerName: t('oracle.fields.diff'),
+              flex: 3,
+              valueGetter: (p) => diffText(p.data?.diff ?? null),
+          }
         : { field: 'message', headerName: t('oracle.fields.message'), flex: 2 },
 ]);
 </script>
@@ -8319,18 +9129,39 @@ const columns = computed<ColumnDef<ImportRow>[]>(() => [
     <div class="flex flex-col gap-3 p-4">
         <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-lg font-semibold">{{ import.label }}</h1>
-            <Badge variant="outline">{{ t(`oracle.status.${import.status}`) }}</Badge>
-            <span class="text-xs text-muted-foreground">{{ import.uploader }} · {{ import.created_at }}</span>
-            <div v-if="canRun && import.status === 'previewed'" class="ms-auto flex gap-2">
-                <Button variant="outline" @click="router.post(`/oracle/imports/${import.id}/discard`)">{{ t('oracle.discard') }}</Button>
-                <Button :disabled="import.error_count > 0" @click="commit">{{ t('oracle.commit') }}</Button>
+            <Badge
+                variant="outline"
+                >{{ t(`oracle.status.${import.status}`) }}</Badge
+            >
+            <span class="text-xs text-muted-foreground"
+                >{{ import.uploader }} · {{ import.created_at }}</span
+            >
+            <div
+                v-if="canRun && import.status === 'previewed'"
+                class="ms-auto flex gap-2"
+            >
+                <Button
+                    variant="outline"
+                    @click="router.post(`/oracle/imports/${import.id}/discard`)"
+                    >{{ t('oracle.discard') }}</Button
+                >
+                <Button :disabled="import.error_count > 0" @click="commit">{{
+                    t('oracle.commit')
+                }}</Button>
             </div>
         </div>
 
-        <p v-if="import.error_message" class="text-sm text-destructive">{{ import.error_message }}</p>
+        <p v-if="import.error_message" class="text-sm text-destructive">
+            {{ import.error_message }}
+        </p>
 
-        <FormBlock v-if="import.unresolved_parties.length && canRun" :title="t('oracle.unresolved')">
-            <p class="col-span-12 text-xs text-muted-foreground">{{ t('oracle.unresolved_hint') }}</p>
+        <FormBlock
+            v-if="import.unresolved_parties.length && canRun"
+            :title="t('oracle.unresolved')"
+        >
+            <p class="col-span-12 text-xs text-muted-foreground">
+                {{ t('oracle.unresolved_hint') }}
+            </p>
             <div
                 v-for="p in import.unresolved_parties"
                 :key="p.code"
@@ -8338,20 +9169,51 @@ const columns = computed<ColumnDef<ImportRow>[]>(() => [
             >
                 <div class="col-span-12 text-sm md:col-span-4">
                     <span class="font-medium">{{ p.name }}</span>
-                    <span class="ms-2 text-xs text-muted-foreground tabular-nums">#{{ p.code }} · {{ p.rows }}</span>
+                    <span
+                        class="ms-2 text-xs text-muted-foreground tabular-nums"
+                        >#{{ p.code }} · {{ p.rows }}</span
+                    >
                 </div>
                 <div class="col-span-12 md:col-span-4">
                     <LovField
                         name="parties"
                         :model-value="resolutions[p.code]?.partyId ?? null"
                         :display="resolutions[p.code]?.display ?? ''"
-                        @update:model-value="(v) => (resolutions[p.code] = { ...(resolutions[p.code] ?? { display: '', type: 'brand' }), partyId: v })"
-                        @update:display="(v) => (resolutions[p.code] = { ...(resolutions[p.code] ?? { partyId: null, type: 'brand' }), display: v })"
+                        @update:model-value="
+                            (v) =>
+                                (resolutions[p.code] = {
+                                    ...(resolutions[p.code] ?? {
+                                        display: '',
+                                        type: 'brand',
+                                    }),
+                                    partyId: v,
+                                })
+                        "
+                        @update:display="
+                            (v) =>
+                                (resolutions[p.code] = {
+                                    ...(resolutions[p.code] ?? {
+                                        partyId: null,
+                                        type: 'brand',
+                                    }),
+                                    display: v,
+                                })
+                        "
                     />
                 </div>
                 <div class="col-span-12 flex gap-2 md:col-span-4">
-                    <Button size="sm" :disabled="!resolutions[p.code]?.partyId" @click="resolve(p.code, 'link')">{{ t('oracle.link_to') }}</Button>
-                    <Button size="sm" variant="outline" @click="resolve(p.code, 'create')">{{ t('oracle.create_party') }}</Button>
+                    <Button
+                        size="sm"
+                        :disabled="!resolutions[p.code]?.partyId"
+                        @click="resolve(p.code, 'link')"
+                        >{{ t('oracle.link_to') }}</Button
+                    >
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        @click="resolve(p.code, 'create')"
+                        >{{ t('oracle.create_party') }}</Button
+                    >
                 </div>
             </div>
         </FormBlock>
@@ -8363,11 +9225,23 @@ const columns = computed<ColumnDef<ImportRow>[]>(() => [
                 role="tab"
                 :aria-selected="tab === a"
                 class="-mb-px border-b-2 px-3 py-1.5 text-sm tabular-nums"
-                :class="tab === a ? 'border-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                :class="
+                    tab === a
+                        ? 'border-primary font-medium'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                "
                 @click="openTab(a)"
             >
                 {{ t(`oracle.actions.${a}`) }}
-                <span class="ms-1 rounded bg-muted px-1.5 text-xs" :class="a === 'error' && count(a) > 0 ? 'bg-destructive/15 text-destructive' : ''">{{ count(a) }}</span>
+                <span
+                    class="ms-1 rounded bg-muted px-1.5 text-xs"
+                    :class="
+                        a === 'error' && count(a) > 0
+                            ? 'bg-destructive/15 text-destructive'
+                            : ''
+                    "
+                    >{{ count(a) }}</span
+                >
             </button>
         </div>
 
@@ -8399,6 +9273,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Reserved migration range: none.
 
 **Files:**
+
 - Create: `app/Modules/Foundation/Http/Controllers/DashboardController.php`
 - Create: `app/Modules/OracleSync/Console/ImportOracleFile.php`
 - Create: `tests/Feature/Foundation/DashboardTest.php`, `tests/Feature/OracleSync/ImportCommandTest.php`
@@ -8406,10 +9281,11 @@ Reserved migration range: none.
 - Modify: `routes/web.php` (dashboard route → controller), `resources/js/pages/Dashboard.vue`, `bootstrap/app.php` (register the command if it isn't auto-discovered)
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces:
-  - `GET /dashboard` → `DashboardController`, Inertia `Dashboard`, props `stats: {open_lots, open_contracts, open_greige_qty, parties, missing_from_oracle}` and `lastImport: ImportSummary|null`.
-  - The artisan command `oracle:import {path} {--user=} {--commit}`. It prints the preview counts; with `--commit` it commits only when there are no errors, otherwise it lists the unresolved parties and exits 1. This is the operator fallback, and the hook the future API will reuse.
+    - `GET /dashboard` → `DashboardController`, Inertia `Dashboard`, props `stats: {open_lots, open_contracts, open_greige_qty, parties, missing_from_oracle}` and `lastImport: ImportSummary|null`.
+    - The artisan command `oracle:import {path} {--user=} {--commit}`. It prints the preview counts; with `--commit` it commits only when there are no errors, otherwise it lists the unresolved parties and exits 1. This is the operator fallback, and the hook the future API will reuse.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -8577,8 +9453,8 @@ class ImportOracleFile extends Command
 Laravel auto-discovers commands only in `app/Console/Commands`, so register this one in `bootstrap/app.php`: `->withCommands([\App\Modules\OracleSync\Console\ImportOracleFile::class])`.
 
 - [ ] **Step 4: Update** `resources/js/pages/Dashboard.vue`. Replace the kit's placeholder with:
-  - A compact row of five stat tiles, each a translated label and a `tabular-nums` value: open lots, open POs, open greige metres (formatted `toLocaleString('en-US')` with the suffix "m"), active parties, and lots missing from Oracle. The missing tile is amber when > 0 and links to `/oracle/imports`.
-  - A "Last Oracle import" card: label, committed date, user, new/changed/missing counts, and a link to the import. If there is none, show a translated empty state with a button to `/oracle/imports` (shown only when `can('oracle.import.view')`).
+    - A compact row of five stat tiles, each a translated label and a `tabular-nums` value: open lots, open POs, open greige metres (formatted `toLocaleString('en-US')` with the suffix "m"), active parties, and lots missing from Oracle. The missing tile is amber when > 0 and links to `/oracle/imports`.
+    - A "Last Oracle import" card: label, committed date, user, new/changed/missing counts, and a link to the import. If there is none, show a translated empty state with a button to `/oracle/imports` (shown only when `can('oracle.import.view')`).
 
 Create `lang/en/dashboard.php` and `lang/ur/dashboard.php` with the keys `open_lots, open_contracts, open_greige, parties, missing_from_oracle, last_import, no_import, go_to_import`. Use only the existing components (`Card`, `Badge`, `Button`) and Tailwind utilities; no new libraries.
 
@@ -8594,13 +9470,16 @@ docker compose up -d
 php artisan migrate:fresh --seed
 php artisan oracle:import tests/Fixtures/oracle-wip-2026-09.xlsx
 ```
+
 Expected: `New: 471 ... Errors: 152` and 4 unresolved party warnings. Then:
 
 ```bash
 php artisan queue:work --stop-when-empty &
 composer run dev
 ```
+
 In the browser, log in as `admin@fabric.local` / `password` and:
+
 1. Upload the fixture under Oracle Import. Link U&I → U&I GARMENTS, Image → IMAGE and Al Hamd → AL HAMD TEXTILE; create Lenok. Commit. The status turns Committed within a few seconds.
 2. On the Dashboard: open lots 623, open POs 167.
 3. Switch to اردو: the layout goes RTL and the labels are Urdu.
@@ -8622,22 +9501,22 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Spec coverage (P1 scope)
 
-| Spec item | Task |
-|---|---|
-| §2 D1–D3 Oracle upload, ownership, greige = QNTY | T16, T17, T18 |
-| §2 D4 roles; §8 permission matrix | T2, T14 |
-| §2 D5 audit every change | T3 (+ every Auditable model) |
-| §2 D12 editable status lists | T3 (lookups), T12 |
-| §2 D14 stack | T1 |
-| §2 D15 Oracle-Forms behaviour (toolbar, query mode, LOV, status line, keys, unsaved guard) | T7, T8, T9, T10, T12, T13 |
-| §2 D16 English/Urdu, RTL | T6, T11 |
-| §4.1 look (sidebar groups, top bar language/theme, tabular numbers) | T9, T11 |
-| §4.4 screens 1 (dashboard, P1 part), 2 (Oracle Import), 10 (masters/admin) | T12–T14, T18, T19 |
-| §5.1 Foundation tables | T3, T4, T5 |
-| §5.2 OracleSync tables + field mapping | T16, T17 |
-| §5.3 contracts/lots, Oracle-owned fields | T15 (progress columns deferred to P2) |
-| §6.1 import workflow incl. party resolution & missing flag | T17, T18 |
-| §9 audit, i18n, performance (indexes on lots, prefetch), error handling, security | T2, T3, T6, T11, T15, T17 |
-| §11 testing (Pest, fixture-based import tests, Vitest) | every task |
+| Spec item                                                                                  | Task                                  |
+| ------------------------------------------------------------------------------------------ | ------------------------------------- |
+| §2 D1–D3 Oracle upload, ownership, greige = QNTY                                           | T16, T17, T18                         |
+| §2 D4 roles; §8 permission matrix                                                          | T2, T14                               |
+| §2 D5 audit every change                                                                   | T3 (+ every Auditable model)          |
+| §2 D12 editable status lists                                                               | T3 (lookups), T12                     |
+| §2 D14 stack                                                                               | T1                                    |
+| §2 D15 Oracle-Forms behaviour (toolbar, query mode, LOV, status line, keys, unsaved guard) | T7, T8, T9, T10, T12, T13             |
+| §2 D16 English/Urdu, RTL                                                                   | T6, T11                               |
+| §4.1 look (sidebar groups, top bar language/theme, tabular numbers)                        | T9, T11                               |
+| §4.4 screens 1 (dashboard, P1 part), 2 (Oracle Import), 10 (masters/admin)                 | T12–T14, T18, T19                     |
+| §5.1 Foundation tables                                                                     | T3, T4, T5                            |
+| §5.2 OracleSync tables + field mapping                                                     | T16, T17                              |
+| §5.3 contracts/lots, Oracle-owned fields                                                   | T15 (progress columns deferred to P2) |
+| §6.1 import workflow incl. party resolution & missing flag                                 | T17, T18                              |
+| §9 audit, i18n, performance (indexes on lots, prefetch), error handling, security          | T2, T3, T6, T11, T15, T17             |
+| §11 testing (Pest, fixture-based import tests, Vitest)                                     | every task                            |
 
 Deferred to later phases (by design): ledger/balances, production sheets, routes per lot (P2 listens to `LotImported`), dispatch/closing (P3), reports and the dashboard's production widgets (P4), the colour module (P5).

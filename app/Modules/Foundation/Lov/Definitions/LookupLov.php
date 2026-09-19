@@ -10,9 +10,15 @@ use Illuminate\Validation\ValidationException;
 
 class LookupLov implements LovDefinition
 {
-    public function name(): string { return 'lookup'; }
+    public function name(): string
+    {
+        return 'lookup';
+    }
 
-    public function permission(): ?string { return null; }
+    public function permission(): ?string
+    {
+        return null;
+    }
 
     public function columns(): array
     {
@@ -26,9 +32,18 @@ class LookupLov implements LovDefinition
         return LookupValue::query()->where('list_key', $key)->where('is_active', true);
     }
 
-    public function searchColumns(): array { return ['code', 'label_en', 'label_ur']; }
+    public function searchColumns(): array
+    {
+        return ['code', 'label_en', 'label_ur'];
+    }
 
-    public function exactColumn(): string { return 'code'; }
+    public function exactColumn(): string
+    {
+        return 'code';
+    }
 
-    public function row(Model $m): array { return ['id' => $m->id, 'code' => $m->code, 'label' => $m->label]; }
+    public function row(Model $m): array
+    {
+        return ['id' => $m->id, 'code' => $m->code, 'label' => $m->label];
+    }
 }

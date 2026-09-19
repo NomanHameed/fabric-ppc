@@ -12,7 +12,9 @@ import {
 import { switchLocale, t } from '@/lib/i18n';
 
 const page = usePage();
-const locales = computed(() => page.props.locales as Record<string, { name: string; dir: string }>);
+const locales = computed(
+    () => page.props.locales as Record<string, { name: string; dir: string }>,
+);
 const current = computed(() => page.props.locale as string);
 </script>
 

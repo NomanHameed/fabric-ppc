@@ -1,8 +1,12 @@
 import { reactive, ref } from 'vue';
 
-export function useQueryMode<T extends Record<string, string | null>>(fields: (keyof T)[]) {
+export function useQueryMode<T extends Record<string, string | null>>(
+    fields: (keyof T)[],
+) {
     const mode = ref<'normal' | 'enterQuery'>('normal');
-    const criteria = reactive(Object.fromEntries(fields.map((f) => [f, null]))) as T;
+    const criteria = reactive(
+        Object.fromEntries(fields.map((f) => [f, null])),
+    ) as T;
 
     function enterQuery(): void {
         for (const f of fields) {

@@ -3,7 +3,10 @@ import { useQueryMode } from '@/composables/useQueryMode';
 
 describe('useQueryMode', () => {
     it('enters query mode with cleared criteria and returns non-blank criteria', () => {
-        const q = useQueryMode<{ code: string | null; name: string | null }>(['code', 'name']);
+        const q = useQueryMode<{ code: string | null; name: string | null }>([
+            'code',
+            'name',
+        ]);
         q.criteria.code = 'old';
         q.enterQuery();
         expect(q.mode.value).toBe('enterQuery');

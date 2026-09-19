@@ -1,562 +1,562 @@
 [
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "BATCH FOR PRINTING"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "BATCH FOR STENTOR DYE"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "DYE BATCH FOR PRINTING"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "FR PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "LECO PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "PADDING"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "RAISEN PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "RC BATCH FOR DYEING"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "SOFTNER PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "STRETCH"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "STRETCH FOR DYE"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "STRETCH FOR FR PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "normal",
-  "name": "STRETCH FOR MERCERIZE"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "reprocess",
-  "name": "RE FR PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "reprocess",
-  "name": "RE LECO PAD"
- },
- {
-  "department": "BATCHING - STENTER",
-  "kind": "reprocess",
-  "name": "RE STRETCH"
- },
- {
-  "department": "CURING",
-  "kind": "normal",
-  "name": "CURE"
- },
- {
-  "department": "CURING",
-  "kind": "normal",
-  "name": "DYED CURE"
- },
- {
-  "department": "CURING",
-  "kind": "normal",
-  "name": "FR CURE"
- },
- {
-  "department": "CURING",
-  "kind": "normal",
-  "name": "PIGMENT CURE"
- },
- {
-  "department": "CURING",
-  "kind": "normal",
-  "name": "RAISAN PAD CURE"
- },
- {
-  "department": "CURING",
-  "kind": "normal",
-  "name": "REACTIVE CURE"
- },
- {
-  "department": "CURING",
-  "kind": "reprocess",
-  "name": "RE CURE"
- },
- {
-  "department": "DRYING",
-  "kind": "normal",
-  "name": "DRY"
- },
- {
-  "department": "DRYING",
-  "kind": "reprocess",
-  "name": "RE DRY"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "DESIZE FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "DRY"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "DYE FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "DYE FINISH FOR CALENDER"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "DYE FINISH FOR COATING"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "DYE FINISH FOR SANFORIZING"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "FR FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "IR DYE"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "PRINT FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "STENTAR IR DYE+FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "STENTER DYE"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "STENTER FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "STRETCH FOR FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "WHITE FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "WHITE FINISH FOR CALENDER"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "WHITE FINISH FOR COATING"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "normal",
-  "name": "WHITE FINISH FOR SANFORIZING"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "reprocess",
-  "name": "RE DRY DUE TO WHITNESS"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "reprocess",
-  "name": "RE FINISH"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "reprocess",
-  "name": "RE FINISH DUE TO BOWING/SKEW"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "reprocess",
-  "name": "RE FINISH DUE TO SHADE"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "reprocess",
-  "name": "RE FINISH DUE TO WHITNESS"
- },
- {
-  "department": "FINISH - STENTER",
-  "kind": "reprocess",
-  "name": "RE FINISH DUE TO WIDTH VARIATION"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "BLEACH+CAUSTIC SIZE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DESIZE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DESIZE+BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DIRECT DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DISPERSE DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DISPERSE+DIRECT DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DISPERSE+SULPHIER DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "DOUBLE BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "FR WASH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "MERCERIZING"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "REACTIVE DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "REDUCTION CLEANING R/C"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "SCOUR"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "SCOUR+BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "SCOUR+BLEACH+CAUSTIC SIZE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "SINGLE BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "SOLOMATIC BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "SULPHIER DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "VAT DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "WASHING"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "reprocess",
-  "name": "RE BLEACH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "reprocess",
-  "name": "RE DISPERSE DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "reprocess",
-  "name": "RE DYE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "reprocess",
-  "name": "RE MERCERIZE"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "reprocess",
-  "name": "RE WASH"
- },
- {
-  "department": "JIGGER DYEING",
-  "kind": "normal",
-  "name": "CAUSTIC SIZE"
- },
- {
-  "department": "KIER BLEACHING",
-  "kind": "normal",
-  "name": "BLEACH"
- },
- {
-  "department": "KIER BLEACHING",
-  "kind": "normal",
-  "name": "SCOUR"
- },
- {
-  "department": "KIER BLEACHING",
-  "kind": "normal",
-  "name": "SOLOMATIC BLEACH"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "normal",
-  "name": "DOUBLE FR WASH"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "normal",
-  "name": "DOUBLE WASH"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "normal",
-  "name": "FR WASH"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "normal",
-  "name": "MERCERIZING"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "normal",
-  "name": "WASHING"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "reprocess",
-  "name": "RE MERCERIZING"
- },
- {
-  "department": "MERCERIZING",
-  "kind": "reprocess",
-  "name": "RE WASH"
- },
- {
-  "department": "PRINTING",
-  "kind": "normal",
-  "name": "DISPERSE PRINTING"
- },
- {
-  "department": "PRINTING",
-  "kind": "normal",
-  "name": "PIGMENT PRINTING"
- },
- {
-  "department": "PRINTING",
-  "kind": "normal",
-  "name": "REACTIVE PRINTING"
- },
- {
-  "department": "ROLLING",
-  "kind": "normal",
-  "name": "ROLLING"
- },
- {
-  "department": "ROLLING",
-  "kind": "normal",
-  "name": "RE ROLLING"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "CHINTZ CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "DOUBLE CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "DOUBLE SANFORIZING"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "GREIGE CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "HEAVY CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "NORMAL CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "SANFORIZE"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "SINGLE CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "normal",
-  "name": "TRIPPLE SANFORIZING"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "reprocess",
-  "name": "RE CALENDER"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "reprocess",
-  "name": "RE CALENDER DUE TO BOWING/SKEW"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "reprocess",
-  "name": "RE CALENDER DUE TO SHADE ISSUE"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "reprocess",
-  "name": "RE CALENDER DUE TO WIDTH VARIATION"
- },
- {
-  "department": "SANFORIZING / CALANDER",
-  "kind": "reprocess",
-  "name": "RE SANFORIZING"
- },
- {
-  "department": "SINGEING",
-  "kind": "normal",
-  "name": "CAUSTIC SIZING"
- },
- {
-  "department": "SINGEING",
-  "kind": "normal",
-  "name": "COLD BLEACH"
- },
- {
-  "department": "SINGEING",
-  "kind": "normal",
-  "name": "DOUBLE COLD BLEACH"
- },
- {
-  "department": "SINGEING",
-  "kind": "normal",
-  "name": "ENZYMATIC DESIZING"
- },
- {
-  "department": "SINGEING",
-  "kind": "normal",
-  "name": "OXADATIVE DESIZING"
- },
- {
-  "department": "SINGEING",
-  "kind": "normal",
-  "name": "SINGING"
- },
- {
-  "department": "SINGEING",
-  "kind": "reprocess",
-  "name": "RE SINGING"
- },
- {
-  "department": "STITCHING",
-  "kind": "normal",
-  "name": "NORMAL STITCHING"
- }
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "BATCH FOR PRINTING"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "BATCH FOR STENTOR DYE"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "DYE BATCH FOR PRINTING"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "FR PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "LECO PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "PADDING"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "RAISEN PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "RC BATCH FOR DYEING"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "SOFTNER PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "STRETCH"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "STRETCH FOR DYE"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "STRETCH FOR FR PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "normal",
+        "name": "STRETCH FOR MERCERIZE"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "reprocess",
+        "name": "RE FR PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "reprocess",
+        "name": "RE LECO PAD"
+    },
+    {
+        "department": "BATCHING - STENTER",
+        "kind": "reprocess",
+        "name": "RE STRETCH"
+    },
+    {
+        "department": "CURING",
+        "kind": "normal",
+        "name": "CURE"
+    },
+    {
+        "department": "CURING",
+        "kind": "normal",
+        "name": "DYED CURE"
+    },
+    {
+        "department": "CURING",
+        "kind": "normal",
+        "name": "FR CURE"
+    },
+    {
+        "department": "CURING",
+        "kind": "normal",
+        "name": "PIGMENT CURE"
+    },
+    {
+        "department": "CURING",
+        "kind": "normal",
+        "name": "RAISAN PAD CURE"
+    },
+    {
+        "department": "CURING",
+        "kind": "normal",
+        "name": "REACTIVE CURE"
+    },
+    {
+        "department": "CURING",
+        "kind": "reprocess",
+        "name": "RE CURE"
+    },
+    {
+        "department": "DRYING",
+        "kind": "normal",
+        "name": "DRY"
+    },
+    {
+        "department": "DRYING",
+        "kind": "reprocess",
+        "name": "RE DRY"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "DESIZE FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "DRY"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "DYE FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "DYE FINISH FOR CALENDER"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "DYE FINISH FOR COATING"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "DYE FINISH FOR SANFORIZING"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "FR FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "IR DYE"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "PRINT FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "STENTAR IR DYE+FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "STENTER DYE"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "STENTER FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "STRETCH FOR FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "WHITE FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "WHITE FINISH FOR CALENDER"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "WHITE FINISH FOR COATING"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "normal",
+        "name": "WHITE FINISH FOR SANFORIZING"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "reprocess",
+        "name": "RE DRY DUE TO WHITNESS"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "reprocess",
+        "name": "RE FINISH"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "reprocess",
+        "name": "RE FINISH DUE TO BOWING/SKEW"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "reprocess",
+        "name": "RE FINISH DUE TO SHADE"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "reprocess",
+        "name": "RE FINISH DUE TO WHITNESS"
+    },
+    {
+        "department": "FINISH - STENTER",
+        "kind": "reprocess",
+        "name": "RE FINISH DUE TO WIDTH VARIATION"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "BLEACH+CAUSTIC SIZE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DESIZE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DESIZE+BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DIRECT DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DISPERSE DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DISPERSE+DIRECT DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DISPERSE+SULPHIER DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "DOUBLE BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "FR WASH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "MERCERIZING"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "REACTIVE DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "REDUCTION CLEANING R/C"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "SCOUR"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "SCOUR+BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "SCOUR+BLEACH+CAUSTIC SIZE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "SINGLE BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "SOLOMATIC BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "SULPHIER DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "VAT DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "WASHING"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "reprocess",
+        "name": "RE BLEACH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "reprocess",
+        "name": "RE DISPERSE DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "reprocess",
+        "name": "RE DYE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "reprocess",
+        "name": "RE MERCERIZE"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "reprocess",
+        "name": "RE WASH"
+    },
+    {
+        "department": "JIGGER DYEING",
+        "kind": "normal",
+        "name": "CAUSTIC SIZE"
+    },
+    {
+        "department": "KIER BLEACHING",
+        "kind": "normal",
+        "name": "BLEACH"
+    },
+    {
+        "department": "KIER BLEACHING",
+        "kind": "normal",
+        "name": "SCOUR"
+    },
+    {
+        "department": "KIER BLEACHING",
+        "kind": "normal",
+        "name": "SOLOMATIC BLEACH"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "normal",
+        "name": "DOUBLE FR WASH"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "normal",
+        "name": "DOUBLE WASH"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "normal",
+        "name": "FR WASH"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "normal",
+        "name": "MERCERIZING"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "normal",
+        "name": "WASHING"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "reprocess",
+        "name": "RE MERCERIZING"
+    },
+    {
+        "department": "MERCERIZING",
+        "kind": "reprocess",
+        "name": "RE WASH"
+    },
+    {
+        "department": "PRINTING",
+        "kind": "normal",
+        "name": "DISPERSE PRINTING"
+    },
+    {
+        "department": "PRINTING",
+        "kind": "normal",
+        "name": "PIGMENT PRINTING"
+    },
+    {
+        "department": "PRINTING",
+        "kind": "normal",
+        "name": "REACTIVE PRINTING"
+    },
+    {
+        "department": "ROLLING",
+        "kind": "normal",
+        "name": "ROLLING"
+    },
+    {
+        "department": "ROLLING",
+        "kind": "normal",
+        "name": "RE ROLLING"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "CHINTZ CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "DOUBLE CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "DOUBLE SANFORIZING"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "GREIGE CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "HEAVY CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "NORMAL CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "SANFORIZE"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "SINGLE CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "normal",
+        "name": "TRIPPLE SANFORIZING"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "reprocess",
+        "name": "RE CALENDER"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "reprocess",
+        "name": "RE CALENDER DUE TO BOWING/SKEW"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "reprocess",
+        "name": "RE CALENDER DUE TO SHADE ISSUE"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "reprocess",
+        "name": "RE CALENDER DUE TO WIDTH VARIATION"
+    },
+    {
+        "department": "SANFORIZING / CALANDER",
+        "kind": "reprocess",
+        "name": "RE SANFORIZING"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "normal",
+        "name": "CAUSTIC SIZING"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "normal",
+        "name": "COLD BLEACH"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "normal",
+        "name": "DOUBLE COLD BLEACH"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "normal",
+        "name": "ENZYMATIC DESIZING"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "normal",
+        "name": "OXADATIVE DESIZING"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "normal",
+        "name": "SINGING"
+    },
+    {
+        "department": "SINGEING",
+        "kind": "reprocess",
+        "name": "RE SINGING"
+    },
+    {
+        "department": "STITCHING",
+        "kind": "normal",
+        "name": "NORMAL STITCHING"
+    }
 ]

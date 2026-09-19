@@ -10,11 +10,20 @@ use Illuminate\Validation\Rule;
 
 class LookupValueResource extends MasterResource
 {
-    public function key(): string { return 'lookups'; }
+    public function key(): string
+    {
+        return 'lookups';
+    }
 
-    public function model(): string { return LookupValue::class; }
+    public function model(): string
+    {
+        return LookupValue::class;
+    }
 
-    public function defaultSort(): string { return 'list_key'; }
+    public function defaultSort(): string
+    {
+        return 'list_key';
+    }
 
     public function fields(): array
     {

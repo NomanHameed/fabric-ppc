@@ -11,13 +11,25 @@ use Illuminate\Validation\Rule;
 
 class OperationResource extends MasterResource
 {
-    public function key(): string { return 'operations'; }
+    public function key(): string
+    {
+        return 'operations';
+    }
 
-    public function model(): string { return Operation::class; }
+    public function model(): string
+    {
+        return Operation::class;
+    }
 
-    public function with(): array { return ['department']; }
+    public function with(): array
+    {
+        return ['department'];
+    }
 
-    public function defaultSort(): string { return 'department_id'; }
+    public function defaultSort(): string
+    {
+        return 'department_id';
+    }
 
     public function fields(): array
     {

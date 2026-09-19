@@ -9,9 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class MachineLov implements LovDefinition
 {
-    public function name(): string { return 'machines'; }
+    public function name(): string
+    {
+        return 'machines';
+    }
 
-    public function permission(): ?string { return null; }
+    public function permission(): ?string
+    {
+        return null;
+    }
 
     public function columns(): array
     {
@@ -24,9 +30,18 @@ class MachineLov implements LovDefinition
             ->when($filters['department_id'] ?? null, fn ($q, $id) => $q->whereHas('departments', fn ($d) => $d->whereKey($id)));
     }
 
-    public function searchColumns(): array { return ['code', 'name']; }
+    public function searchColumns(): array
+    {
+        return ['code', 'name'];
+    }
 
-    public function exactColumn(): string { return 'code'; }
+    public function exactColumn(): string
+    {
+        return 'code';
+    }
 
-    public function row(Model $m): array { return ['id' => $m->id, 'code' => $m->code, 'label' => $m->name]; }
+    public function row(Model $m): array
+    {
+        return ['id' => $m->id, 'code' => $m->code, 'label' => $m->name];
+    }
 }

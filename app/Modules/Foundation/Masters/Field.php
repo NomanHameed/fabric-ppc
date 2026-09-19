@@ -38,24 +38,68 @@ final class Field
         return new self($name, $type);
     }
 
-    public function label(string $key): self { $this->label = $key; return $this; }
+    public function label(string $key): self
+    {
+        $this->label = $key;
 
-    public function required(): self { $this->required = true; return $this; }
+        return $this;
+    }
+
+    public function required(): self
+    {
+        $this->required = true;
+
+        return $this;
+    }
 
     /** @param list<array{value: mixed, label: string}> $options */
-    public function options(array $options): self { $this->options = $options; return $this; }
+    public function options(array $options): self
+    {
+        $this->options = $options;
 
-    public function lov(string $lov, string $displayFrom): self { $this->lov = $lov; $this->displayFrom = $displayFrom; return $this; }
+        return $this;
+    }
 
-    public function span(int $span): self { $this->span = $span; return $this; }
+    public function lov(string $lov, string $displayFrom): self
+    {
+        $this->lov = $lov;
+        $this->displayFrom = $displayFrom;
 
-    public function grid(bool $grid = true): self { $this->grid = $grid; return $this; }
+        return $this;
+    }
 
-    public function queryType(?string $type): self { $this->queryType = $type; return $this; }
+    public function span(int $span): self
+    {
+        $this->span = $span;
 
-    public function readonly(): self { $this->readonly = true; return $this; }
+        return $this;
+    }
 
-    public function queryable(): ?string { return $this->queryType; }
+    public function grid(bool $grid = true): self
+    {
+        $this->grid = $grid;
+
+        return $this;
+    }
+
+    public function queryType(?string $type): self
+    {
+        $this->queryType = $type;
+
+        return $this;
+    }
+
+    public function readonly(): self
+    {
+        $this->readonly = true;
+
+        return $this;
+    }
+
+    public function queryable(): ?string
+    {
+        return $this->queryType;
+    }
 
     public function toArray(): array
     {

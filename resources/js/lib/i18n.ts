@@ -5,9 +5,19 @@ import { computed, reactive } from 'vue';
 type Dict = { [key: string]: string | Dict };
 type Dir = 'ltr' | 'rtl';
 
-const state = reactive<{ locale: string; dir: Dir; dict: Dict; version: string }>({ locale: 'en', dir: 'ltr', dict: {}, version: '' });
+const state = reactive<{
+    locale: string;
+    dir: Dir;
+    dict: Dict;
+    version: string;
+}>({ locale: 'en', dir: 'ltr', dict: {}, version: '' });
 
-export function setTranslations(locale: string, dir: Dir, dict: Dict, version?: string): void {
+export function setTranslations(
+    locale: string,
+    dir: Dir,
+    dict: Dict,
+    version?: string,
+): void {
     state.locale = locale;
     state.dir = dir;
     state.dict = dict;
@@ -20,11 +30,19 @@ export function setTranslations(locale: string, dir: Dir, dict: Dict, version?: 
     }
 }
 
-export function t(key: string, replace: Record<string, string | number> = {}): string {
-    const value = key.split('.').reduce<string | Dict | undefined>(
-        (acc, part) => (acc !== undefined && typeof acc === 'object' ? acc[part] : undefined),
-        state.dict,
-    );
+export function t(
+    key: string,
+    replace: Record<string, string | number> = {},
+): string {
+    const value = key
+        .split('.')
+        .reduce<string | Dict | undefined>(
+            (acc, part) =>
+                acc !== undefined && typeof acc === 'object'
+                    ? acc[part]
+                    : undefined,
+            state.dict,
+        );
     let text = typeof value === 'string' ? value : key;
     for (const [name, v] of Object.entries(replace)) {
         text = text.replaceAll(`:${name}`, String(v));
@@ -33,11 +51,21 @@ export function t(key: string, replace: Record<string, string | number> = {}): s
 }
 
 export function useI18n() {
-    return { t, locale: computed(() => state.locale), dir: computed(() => state.dir) };
+    return {
+        t,
+        locale: computed(() => state.locale),
+        dir: computed(() => state.dir),
+    };
 }
 
-export async function loadLocale(locale: string, dir: Dir, version: string): Promise<void> {
-    const res = await fetch(`/i18n/${locale}.json?v=${version}`, { headers: { Accept: 'application/json' } });
+export async function loadLocale(
+    locale: string,
+    dir: Dir,
+    version: string,
+): Promise<void> {
+    const res = await fetch(`/i18n/${locale}.json?v=${version}`, {
+        headers: { Accept: 'application/json' },
+    });
     if (!res.ok) {
         throw new Error(`Failed to load translations for ${locale}`);
     }
@@ -50,7 +78,11 @@ let inFlight: { key: string; promise: Promise<void> } | null = null;
 /** Load the page's locale if it differs from the loaded dictionary (locale or translation version). */
 export function syncLocale(props: LocaleProps): Promise<void> {
     const { locale, i18nVersion: version } = props;
-    if (!locale || !version || (locale === state.locale && version === state.version)) {
+    if (
+        !locale ||
+        !version ||
+        (locale === state.locale && version === state.version)
+    ) {
         return Promise.resolve();
     }
     const key = `${locale}|${version}`;
@@ -81,21 +113,34 @@ export function initializeLocaleSync(): () => void {
 
 export function switchLocale(locale: string): Promise<void> {
     return new Promise((resolve) => {
-        router.post('/locale', { locale }, {
-            preserveScroll: true,
-            onSuccess: async (page) => {
-                // The navigate listener may already be loading this locale; share that request.
-                await syncLocale(page.props as unknown as LocaleProps);
-                resolve();
+        router.post(
+            '/locale',
+            { locale },
+            {
+                preserveScroll: true,
+                onSuccess: async (page) => {
+                    // The navigate listener may already be loading this locale; share that request.
+                    await syncLocale(page.props as unknown as LocaleProps);
+                    resolve();
+                },
+                onFinish: () => resolve(),
             },
-            onFinish: () => resolve(),
-        });
+        );
     });
 }
 
 export const i18n = {
     install(app: App): void {
-        const boot = (window as unknown as { __I18N__?: { locale: string; dir: Dir; dict: Dict; version?: string } }).__I18N__;
+        const boot = (
+            window as unknown as {
+                __I18N__?: {
+                    locale: string;
+                    dir: Dir;
+                    dict: Dict;
+                    version?: string;
+                };
+            }
+        ).__I18N__;
         if (boot) {
             setTranslations(boot.locale, boot.dir, boot.dict, boot.version);
         }

@@ -2,9 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Modules\Foundation\Access\Permissions;
+use App\Modules\Foundation\I18n\TranslationRepository;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use App\Modules\Foundation\Access\Permissions;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -53,7 +54,7 @@ class HandleInertiaRequests extends Middleware
             'locale' => app()->getLocale(),
             'dir' => config('app.available_locales.'.app()->getLocale().'.dir', 'ltr'),
             'locales' => config('app.available_locales'),
-            'i18nVersion' => app(\App\Modules\Foundation\I18n\TranslationRepository::class)->version(app()->getLocale()),
+            'i18nVersion' => app(TranslationRepository::class)->version(app()->getLocale()),
         ];
     }
 }

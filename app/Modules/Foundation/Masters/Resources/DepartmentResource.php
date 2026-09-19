@@ -10,11 +10,20 @@ use Illuminate\Validation\Rule;
 
 class DepartmentResource extends MasterResource
 {
-    public function key(): string { return 'departments'; }
+    public function key(): string
+    {
+        return 'departments';
+    }
 
-    public function model(): string { return Department::class; }
+    public function model(): string
+    {
+        return Department::class;
+    }
 
-    public function defaultSort(): string { return 'sort'; }
+    public function defaultSort(): string
+    {
+        return 'sort';
+    }
 
     public function fields(): array
     {

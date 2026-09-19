@@ -29,7 +29,10 @@ export function replayOptions(visit: PendingVisit): VisitOptions {
  * Oracle-Forms style "Save changes?" guard.
  * Render <ConfirmSaveDialog :open="dialogOpen" @choose="choose" /> in the page.
  */
-export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<boolean>) {
+export function useUnsavedGuard(
+    isDirty: () => boolean,
+    save: () => Promise<boolean>,
+) {
     const dialogOpen = ref(false);
     let pendingAction: (() => void) | null = null;
     let bypass = false;
@@ -60,7 +63,9 @@ export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<bool
         removeRouterListener?.();
     });
 
-    async function choose(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
+    async function choose(
+        choice: 'save' | 'discard' | 'cancel',
+    ): Promise<void> {
         dialogOpen.value = false;
         if (choice === 'cancel') {
             pendingAction = null;

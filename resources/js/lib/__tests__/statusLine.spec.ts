@@ -8,7 +8,13 @@ describe('statusLine', () => {
         statusLine.setRecord(3, 18);
         statusLine.setMessage('Saved', 'success');
         statusLine.setDirty(true);
-        expect(statusLine.state).toMatchObject({ recordIndex: 3, recordCount: 18, message: 'Saved', kind: 'success', dirty: true });
+        expect(statusLine.state).toMatchObject({
+            recordIndex: 3,
+            recordCount: 18,
+            message: 'Saved',
+            kind: 'success',
+            dirty: true,
+        });
     });
 
     it('resets', () => {

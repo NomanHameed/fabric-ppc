@@ -5,6 +5,7 @@ use App\Modules\Foundation\Models\Party;
 use App\Modules\Foundation\Models\Quality;
 use App\Modules\Production\Models\Contract;
 use App\Modules\Production\Models\Lot;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -41,4 +42,4 @@ it('lists contracts', function () {
 
 it('enforces unique oracle line ids', function () {
     Lot::create(['oracle_line_id' => 47090, 'lot_no' => '1', 'contract_id' => Contract::first()->id, 'quality_id' => Quality::first()->id, 'po_type' => 'DYED', 'greige_qty' => 1]);
-})->throws(\Illuminate\Database\UniqueConstraintViolationException::class);
+})->throws(UniqueConstraintViolationException::class);

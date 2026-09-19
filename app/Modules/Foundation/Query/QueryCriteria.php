@@ -80,7 +80,7 @@ final class QueryCriteria
 
         foreach (self::DATE_FORMATS as $format) {
             try {
-                $date = CarbonImmutable::createFromFormat('!' . $format, $value);
+                $date = CarbonImmutable::createFromFormat('!'.$format, $value);
                 if ($date !== false && $date->format($format) === $value) {
                     return $date->toDateString();
                 }

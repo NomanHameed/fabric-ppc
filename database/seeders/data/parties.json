@@ -1,506 +1,506 @@
 [
- {
-  "name": "ALMIRAH",
-  "type": "brand"
- },
- {
-  "name": "A.B EXPORTS PVT LIMITED",
-  "type": "local"
- },
- {
-  "name": "Aamir Bhai Karachi",
-  "type": "local"
- },
- {
-  "name": "ABC",
-  "type": "brand"
- },
- {
-  "name": "ABDULLAH SOHAIL FABRIC",
-  "type": "local"
- },
- {
-  "name": "Abid Traders",
-  "type": "local"
- },
- {
-  "name": "Abrish",
-  "type": "local"
- },
- {
-  "name": "ADREES SHER YAR",
-  "type": "local"
- },
- {
-  "name": "AFZAL ART TEXTILE",
-  "type": "local"
- },
- {
-  "name": "A-I TEXTILE",
-  "type": "local"
- },
- {
-  "name": "AL - HAREEM TEX (ELAF PREMIUM)",
-  "type": "brand"
- },
- {
-  "name": "AL BARAKA",
-  "type": "brand"
- },
- {
-  "name": "AL HAMD TEXTILE",
-  "type": "brand"
- },
- {
-  "name": "AL RAZZAQ FIBRES",
-  "type": "brand"
- },
- {
-  "name": "ALBEEN",
-  "type": "brand"
- },
- {
-  "name": "Albeen",
-  "type": "brand"
- },
- {
-  "name": "AL-HAMRA",
-  "type": "brand"
- },
- {
-  "name": "ALI Tawakkal Fabrics",
-  "type": "local"
- },
- {
-  "name": "AMJAD FABRIC",
-  "type": "local"
- },
- {
-  "name": "ANAMTA",
-  "type": "brand"
- },
- {
-  "name": "Asghar bhatti",
-  "type": "local"
- },
- {
-  "name": "BA TAX",
-  "type": "brand"
- },
- {
-  "name": "BATIK",
-  "type": "brand"
- },
- {
-  "name": "BAWO JEE FABRICS",
-  "type": "local"
- },
- {
-  "name": "BBK",
-  "type": "brand"
- },
- {
-  "name": "CH.IJAZ",
-  "type": "local"
- },
- {
-  "name": "CHEN ONE",
-  "type": "brand"
- },
- {
-  "name": "Cotton elements",
-  "type": "brand"
- },
- {
-  "name": "ELAN FACON",
-  "type": "brand"
- },
- {
-  "name": "ELEANOR",
-  "type": "brand"
- },
- {
-  "name": "ESCORTS",
-  "type": "brand"
- },
- {
-  "name": "GAZI FABRIC",
-  "type": "local"
- },
- {
-  "name": "Gohar Fabrics",
-  "type": "local"
- },
- {
-  "name": "GUL ROSE",
-  "type": "local"
- },
- {
-  "name": "HASSAN RIZWAN",
-  "type": "brand"
- },
- {
-  "name": "H-M TEX",
-  "type": "local"
- },
- {
-  "name": "HUSNAIN TRADERS",
-  "type": "brand"
- },
- {
-  "name": "I-J Fabrics",
-  "type": "local"
- },
- {
-  "name": "IMAGE",
-  "type": "brand"
- },
- {
-  "name": "ITTEFAQ FABRIC",
-  "type": "local"
- },
- {
-  "name": "ITTEHAD WEAVING",
-  "type": "brand"
- },
- {
-  "name": "JAHAN TEXTILE",
-  "type": "brand"
- },
- {
-  "name": "JH-TEX",
-  "type": "brand"
- },
- {
-  "name": "KAAMASH",
-  "type": "brand"
- },
- {
-  "name": "KATTAN",
-  "type": "brand"
- },
- {
-  "name": "LENOK CREATIONS",
-  "type": "brand"
- },
- {
-  "name": "Loftex Limited",
-  "type": "brand"
- },
- {
-  "name": "LOFTEX LIMITED - OTFTR",
-  "type": "brand"
- },
- {
-  "name": "LOFTEX LIMITED - PRET",
-  "type": "brand"
- },
- {
-  "name": "LOFTEX LIMITED - UNSTCH",
-  "type": "brand"
- },
- {
-  "name": "M AFZAL TRADING",
-  "type": "local"
- },
- {
-  "name": "M-Abdullah",
-  "type": "local"
- },
- {
-  "name": "MANNAM",
-  "type": "brand"
- },
- {
-  "name": "Maria B (BASIC)",
-  "type": "brand"
- },
- {
-  "name": "MARIA B / ELAN FACON",
-  "type": "brand"
- },
- {
-  "name": "MARIA B DESIGNS (PVT) LTD",
-  "type": "brand"
- },
- {
-  "name": "Maria B Unsititch",
-  "type": "brand"
- },
- {
-  "name": "MARIA-B",
-  "type": "brand"
- },
- {
-  "name": "MARIA-B (BASIC)",
-  "type": "brand"
- },
- {
-  "name": "MARWAT FABRICS",
-  "type": "brand"
- },
- {
-  "name": "MAYAL",
-  "type": "brand"
- },
- {
-  "name": "MOTIFE  TRADING",
-  "type": "brand"
- },
- {
-  "name": "MUSHAQ  FABRICS",
-  "type": "brand"
- },
- {
-  "name": "MUZAMAL TEX",
-  "type": "brand"
- },
- {
-  "name": "MUZAMAL TEXTILE",
-  "type": "brand"
- },
- {
-  "name": "M-ZAIN",
-  "type": "local"
- },
- {
-  "name": "N . N .  EXPORT INT ' L (PVT)  LTD",
-  "type": "brand"
- },
- {
-  "name": "Nagina Fabric",
-  "type": "local"
- },
- {
-  "name": "NOOR BY SADIA",
-  "type": "brand"
- },
- {
-  "name": "OMBRE",
-  "type": "brand"
- },
- {
-  "name": "OMBRE - OTFTR",
-  "type": "brand"
- },
- {
-  "name": "OMBRE-UST",
-  "type": "brand"
- },
- {
-  "name": "ONION OUTFITS",
-  "type": "brand"
- },
- {
-  "name": "PRINCE FABRIC",
-  "type": "local"
- },
- {
-  "name": "QALAMKAR FABRIC",
-  "type": "brand"
- },
- {
-  "name": "QARI EJAZ",
-  "type": "local"
- },
- {
-  "name": "R & D",
-  "type": "brand"
- },
- {
-  "name": "RABAZKA - LAHORE",
-  "type": "brand"
- },
- {
-  "name": "RANA IJAZ",
-  "type": "local"
- },
- {
-  "name": "RANA NASIR",
-  "type": "local"
- },
- {
-  "name": "RANA TEXTILE MILLS LIMITED",
-  "type": "brand"
- },
- {
-  "name": "RANG RASIYA",
-  "type": "brand"
- },
- {
-  "name": "Rania Collection",
-  "type": "local"
- },
- {
-  "name": "REPUBLIC WOMENSWEAR",
-  "type": "brand"
- },
- {
-  "name": "SANORHA FABRIC",
-  "type": "local"
- },
- {
-  "name": "SAPPHIRE RETAIL LIMITED",
-  "type": "brand"
- },
- {
-  "name": "SARDAR INC",
-  "type": "brand"
- },
- {
-  "name": "SAYA  WEAVING",
-  "type": "brand"
- },
- {
-  "name": "SAYA / SAHAR",
-  "type": "brand"
- },
- {
-  "name": "Shabbir Ali",
-  "type": "local"
- },
- {
-  "name": "SHAHEEN FABRIC",
-  "type": "local"
- },
- {
-  "name": "SHEHZAD CHAWALA FABRICS",
-  "type": "local"
- },
- {
-  "name": "Sheikhupura Textile Mills Limited",
-  "type": "brand"
- },
- {
-  "name": "SHEZA HASSAN",
-  "type": "brand"
- },
- {
-  "name": "S-K FABRIC",
-  "type": "local"
- },
- {
-  "name": "S-M Siddique",
-  "type": "local"
- },
- {
-  "name": "SOHAIL FABRIC",
-  "type": "local"
- },
- {
-  "name": "SSFR (PVT.) LIMITED",
-  "type": "brand"
- },
- {
-  "name": "Star Fabrics",
-  "type": "local"
- },
- {
-  "name": "Sunder G Fabric",
-  "type": "local"
- },
- {
-  "name": "Tawakkal Fabrics",
-  "type": "local"
- },
- {
-  "name": "Times Clothing Pvt.Ltd",
-  "type": "brand"
- },
- {
-  "name": "U&I GARMENTS",
-  "type": "brand"
- },
- {
-  "name": "UMAR DRAZ",
-  "type": "local"
- },
- {
-  "name": "UNICOM",
-  "type": "brand"
- },
- {
-  "name": "USMAN NAZIR KARACHI",
-  "type": "local"
- },
- {
-  "name": "VANGUARD",
-  "type": "brand"
- },
- {
-  "name": "VANGUARD",
-  "type": "brand"
- },
- {
-  "name": "VANGUARD (PRET)",
-  "type": "brand"
- },
- {
-  "name": "WAHAB FABRICS",
-  "type": "local"
- },
- {
-  "name": "Wahab Noor",
-  "type": "local"
- },
- {
-  "name": "WAQAS WEAVING",
-  "type": "local"
- },
- {
-  "name": "WASEEM FABRIC",
-  "type": "local"
- },
- {
-  "name": "Y.Z CORPORATION",
-  "type": "brand"
- },
- {
-  "name": "YZ .C",
-  "type": "brand"
- },
- {
-  "name": "ZAHA",
-  "type": "brand"
- },
- {
-  "name": "ZAR TEX SAYA",
-  "type": "brand"
- },
- {
-  "name": "ZARA SHAH",
-  "type": "brand"
- },
- {
-  "name": "Zaviyaar Fabric karachi",
-  "type": "local"
- },
- {
-  "name": "SAJJAD IMPEX",
-  "type": "brand"
- },
- {
-  "name": "KHAADI  PAKISTAN",
-  "type": "brand"
- },
- {
-  "name": "TEXTILE EMPORIUM LHR",
-  "type": "brand"
- },
- {
-  "name": "SUFYAN SEQUENCE",
-  "type": "brand"
- },
- {
-  "name": "WEAVES PAKISTAN",
-  "type": "brand"
- },
- {
-  "name": "FLORENT",
-  "type": "brand"
- },
- {
-  "name": "RANA & SONS FABRIC",
-  "type": "brand"
- }
+    {
+        "name": "ALMIRAH",
+        "type": "brand"
+    },
+    {
+        "name": "A.B EXPORTS PVT LIMITED",
+        "type": "local"
+    },
+    {
+        "name": "Aamir Bhai Karachi",
+        "type": "local"
+    },
+    {
+        "name": "ABC",
+        "type": "brand"
+    },
+    {
+        "name": "ABDULLAH SOHAIL FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "Abid Traders",
+        "type": "local"
+    },
+    {
+        "name": "Abrish",
+        "type": "local"
+    },
+    {
+        "name": "ADREES SHER YAR",
+        "type": "local"
+    },
+    {
+        "name": "AFZAL ART TEXTILE",
+        "type": "local"
+    },
+    {
+        "name": "A-I TEXTILE",
+        "type": "local"
+    },
+    {
+        "name": "AL - HAREEM TEX (ELAF PREMIUM)",
+        "type": "brand"
+    },
+    {
+        "name": "AL BARAKA",
+        "type": "brand"
+    },
+    {
+        "name": "AL HAMD TEXTILE",
+        "type": "brand"
+    },
+    {
+        "name": "AL RAZZAQ FIBRES",
+        "type": "brand"
+    },
+    {
+        "name": "ALBEEN",
+        "type": "brand"
+    },
+    {
+        "name": "Albeen",
+        "type": "brand"
+    },
+    {
+        "name": "AL-HAMRA",
+        "type": "brand"
+    },
+    {
+        "name": "ALI Tawakkal Fabrics",
+        "type": "local"
+    },
+    {
+        "name": "AMJAD FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "ANAMTA",
+        "type": "brand"
+    },
+    {
+        "name": "Asghar bhatti",
+        "type": "local"
+    },
+    {
+        "name": "BA TAX",
+        "type": "brand"
+    },
+    {
+        "name": "BATIK",
+        "type": "brand"
+    },
+    {
+        "name": "BAWO JEE FABRICS",
+        "type": "local"
+    },
+    {
+        "name": "BBK",
+        "type": "brand"
+    },
+    {
+        "name": "CH.IJAZ",
+        "type": "local"
+    },
+    {
+        "name": "CHEN ONE",
+        "type": "brand"
+    },
+    {
+        "name": "Cotton elements",
+        "type": "brand"
+    },
+    {
+        "name": "ELAN FACON",
+        "type": "brand"
+    },
+    {
+        "name": "ELEANOR",
+        "type": "brand"
+    },
+    {
+        "name": "ESCORTS",
+        "type": "brand"
+    },
+    {
+        "name": "GAZI FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "Gohar Fabrics",
+        "type": "local"
+    },
+    {
+        "name": "GUL ROSE",
+        "type": "local"
+    },
+    {
+        "name": "HASSAN RIZWAN",
+        "type": "brand"
+    },
+    {
+        "name": "H-M TEX",
+        "type": "local"
+    },
+    {
+        "name": "HUSNAIN TRADERS",
+        "type": "brand"
+    },
+    {
+        "name": "I-J Fabrics",
+        "type": "local"
+    },
+    {
+        "name": "IMAGE",
+        "type": "brand"
+    },
+    {
+        "name": "ITTEFAQ FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "ITTEHAD WEAVING",
+        "type": "brand"
+    },
+    {
+        "name": "JAHAN TEXTILE",
+        "type": "brand"
+    },
+    {
+        "name": "JH-TEX",
+        "type": "brand"
+    },
+    {
+        "name": "KAAMASH",
+        "type": "brand"
+    },
+    {
+        "name": "KATTAN",
+        "type": "brand"
+    },
+    {
+        "name": "LENOK CREATIONS",
+        "type": "brand"
+    },
+    {
+        "name": "Loftex Limited",
+        "type": "brand"
+    },
+    {
+        "name": "LOFTEX LIMITED - OTFTR",
+        "type": "brand"
+    },
+    {
+        "name": "LOFTEX LIMITED - PRET",
+        "type": "brand"
+    },
+    {
+        "name": "LOFTEX LIMITED - UNSTCH",
+        "type": "brand"
+    },
+    {
+        "name": "M AFZAL TRADING",
+        "type": "local"
+    },
+    {
+        "name": "M-Abdullah",
+        "type": "local"
+    },
+    {
+        "name": "MANNAM",
+        "type": "brand"
+    },
+    {
+        "name": "Maria B (BASIC)",
+        "type": "brand"
+    },
+    {
+        "name": "MARIA B / ELAN FACON",
+        "type": "brand"
+    },
+    {
+        "name": "MARIA B DESIGNS (PVT) LTD",
+        "type": "brand"
+    },
+    {
+        "name": "Maria B Unsititch",
+        "type": "brand"
+    },
+    {
+        "name": "MARIA-B",
+        "type": "brand"
+    },
+    {
+        "name": "MARIA-B (BASIC)",
+        "type": "brand"
+    },
+    {
+        "name": "MARWAT FABRICS",
+        "type": "brand"
+    },
+    {
+        "name": "MAYAL",
+        "type": "brand"
+    },
+    {
+        "name": "MOTIFE  TRADING",
+        "type": "brand"
+    },
+    {
+        "name": "MUSHAQ  FABRICS",
+        "type": "brand"
+    },
+    {
+        "name": "MUZAMAL TEX",
+        "type": "brand"
+    },
+    {
+        "name": "MUZAMAL TEXTILE",
+        "type": "brand"
+    },
+    {
+        "name": "M-ZAIN",
+        "type": "local"
+    },
+    {
+        "name": "N . N .  EXPORT INT ' L (PVT)  LTD",
+        "type": "brand"
+    },
+    {
+        "name": "Nagina Fabric",
+        "type": "local"
+    },
+    {
+        "name": "NOOR BY SADIA",
+        "type": "brand"
+    },
+    {
+        "name": "OMBRE",
+        "type": "brand"
+    },
+    {
+        "name": "OMBRE - OTFTR",
+        "type": "brand"
+    },
+    {
+        "name": "OMBRE-UST",
+        "type": "brand"
+    },
+    {
+        "name": "ONION OUTFITS",
+        "type": "brand"
+    },
+    {
+        "name": "PRINCE FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "QALAMKAR FABRIC",
+        "type": "brand"
+    },
+    {
+        "name": "QARI EJAZ",
+        "type": "local"
+    },
+    {
+        "name": "R & D",
+        "type": "brand"
+    },
+    {
+        "name": "RABAZKA - LAHORE",
+        "type": "brand"
+    },
+    {
+        "name": "RANA IJAZ",
+        "type": "local"
+    },
+    {
+        "name": "RANA NASIR",
+        "type": "local"
+    },
+    {
+        "name": "RANA TEXTILE MILLS LIMITED",
+        "type": "brand"
+    },
+    {
+        "name": "RANG RASIYA",
+        "type": "brand"
+    },
+    {
+        "name": "Rania Collection",
+        "type": "local"
+    },
+    {
+        "name": "REPUBLIC WOMENSWEAR",
+        "type": "brand"
+    },
+    {
+        "name": "SANORHA FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "SAPPHIRE RETAIL LIMITED",
+        "type": "brand"
+    },
+    {
+        "name": "SARDAR INC",
+        "type": "brand"
+    },
+    {
+        "name": "SAYA  WEAVING",
+        "type": "brand"
+    },
+    {
+        "name": "SAYA / SAHAR",
+        "type": "brand"
+    },
+    {
+        "name": "Shabbir Ali",
+        "type": "local"
+    },
+    {
+        "name": "SHAHEEN FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "SHEHZAD CHAWALA FABRICS",
+        "type": "local"
+    },
+    {
+        "name": "Sheikhupura Textile Mills Limited",
+        "type": "brand"
+    },
+    {
+        "name": "SHEZA HASSAN",
+        "type": "brand"
+    },
+    {
+        "name": "S-K FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "S-M Siddique",
+        "type": "local"
+    },
+    {
+        "name": "SOHAIL FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "SSFR (PVT.) LIMITED",
+        "type": "brand"
+    },
+    {
+        "name": "Star Fabrics",
+        "type": "local"
+    },
+    {
+        "name": "Sunder G Fabric",
+        "type": "local"
+    },
+    {
+        "name": "Tawakkal Fabrics",
+        "type": "local"
+    },
+    {
+        "name": "Times Clothing Pvt.Ltd",
+        "type": "brand"
+    },
+    {
+        "name": "U&I GARMENTS",
+        "type": "brand"
+    },
+    {
+        "name": "UMAR DRAZ",
+        "type": "local"
+    },
+    {
+        "name": "UNICOM",
+        "type": "brand"
+    },
+    {
+        "name": "USMAN NAZIR KARACHI",
+        "type": "local"
+    },
+    {
+        "name": "VANGUARD",
+        "type": "brand"
+    },
+    {
+        "name": "VANGUARD",
+        "type": "brand"
+    },
+    {
+        "name": "VANGUARD (PRET)",
+        "type": "brand"
+    },
+    {
+        "name": "WAHAB FABRICS",
+        "type": "local"
+    },
+    {
+        "name": "Wahab Noor",
+        "type": "local"
+    },
+    {
+        "name": "WAQAS WEAVING",
+        "type": "local"
+    },
+    {
+        "name": "WASEEM FABRIC",
+        "type": "local"
+    },
+    {
+        "name": "Y.Z CORPORATION",
+        "type": "brand"
+    },
+    {
+        "name": "YZ .C",
+        "type": "brand"
+    },
+    {
+        "name": "ZAHA",
+        "type": "brand"
+    },
+    {
+        "name": "ZAR TEX SAYA",
+        "type": "brand"
+    },
+    {
+        "name": "ZARA SHAH",
+        "type": "brand"
+    },
+    {
+        "name": "Zaviyaar Fabric karachi",
+        "type": "local"
+    },
+    {
+        "name": "SAJJAD IMPEX",
+        "type": "brand"
+    },
+    {
+        "name": "KHAADI  PAKISTAN",
+        "type": "brand"
+    },
+    {
+        "name": "TEXTILE EMPORIUM LHR",
+        "type": "brand"
+    },
+    {
+        "name": "SUFYAN SEQUENCE",
+        "type": "brand"
+    },
+    {
+        "name": "WEAVES PAKISTAN",
+        "type": "brand"
+    },
+    {
+        "name": "FLORENT",
+        "type": "brand"
+    },
+    {
+        "name": "RANA & SONS FABRIC",
+        "type": "brand"
+    }
 ]

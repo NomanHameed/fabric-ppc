@@ -1,9 +1,21 @@
-export type LovRow = { id: number; code: string; label: string; [col: string]: unknown };
-export type LovResponse = { columns: { key: string; label: string }[]; data: LovRow[] };
+export type LovRow = {
+    id: number;
+    code: string;
+    label: string;
+    [col: string]: unknown;
+};
+export type LovResponse = {
+    columns: { key: string; label: string }[];
+    data: LovRow[];
+};
 
 export async function fetchLov(
     name: string,
-    params: { q?: string; exact?: string; filters?: Record<string, string | number | null | undefined> } = {},
+    params: {
+        q?: string;
+        exact?: string;
+        filters?: Record<string, string | number | null | undefined>;
+    } = {},
 ): Promise<LovResponse> {
     const qs = new URLSearchParams();
     if (params.q) {
@@ -18,7 +30,10 @@ export async function fetchLov(
         }
     }
     const res = await fetch(`/lov/${name}?${qs.toString()}`, {
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
         credentials: 'same-origin',
     });
     if (!res.ok) {

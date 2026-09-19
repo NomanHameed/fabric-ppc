@@ -1,4 +1,8 @@
-import { AllCommunityModule, ModuleRegistry, themeQuartz } from 'ag-grid-community';
+import {
+    AllCommunityModule,
+    ModuleRegistry,
+    themeQuartz,
+} from 'ag-grid-community';
 import type { ColDef } from 'ag-grid-community';
 
 let registered = false;

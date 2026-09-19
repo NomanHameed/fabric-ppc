@@ -4,15 +4,20 @@ namespace App\Modules\Foundation\Lov\Definitions;
 
 use App\Modules\Foundation\Lov\LovDefinition;
 use App\Modules\Foundation\Models\Party;
-use App\Modules\Foundation\Support\PartyName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class PartyLov implements LovDefinition
 {
-    public function name(): string { return 'parties'; }
+    public function name(): string
+    {
+        return 'parties';
+    }
 
-    public function permission(): ?string { return null; }
+    public function permission(): ?string
+    {
+        return null;
+    }
 
     public function columns(): array
     {
@@ -23,12 +28,21 @@ class PartyLov implements LovDefinition
         ];
     }
 
-    public function query(array $filters): Builder { return Party::query()->where('is_active', true); }
+    public function query(array $filters): Builder
+    {
+        return Party::query()->where('is_active', true);
+    }
 
-    public function searchColumns(): array { return ['name_normalized']; }
+    public function searchColumns(): array
+    {
+        return ['name_normalized'];
+    }
 
     /** Exact matching on the normalised name; aliases are handled by the override below. */
-    public function exactColumn(): string { return 'name_normalized'; }
+    public function exactColumn(): string
+    {
+        return 'name_normalized';
+    }
 
     /** Exact match by name or alias, resolved through Party::findByName. */
     public function applyExact(Builder $query, string $value): void

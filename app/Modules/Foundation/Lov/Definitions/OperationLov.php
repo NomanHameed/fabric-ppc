@@ -9,9 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class OperationLov implements LovDefinition
 {
-    public function name(): string { return 'operations'; }
+    public function name(): string
+    {
+        return 'operations';
+    }
 
-    public function permission(): ?string { return null; }
+    public function permission(): ?string
+    {
+        return null;
+    }
 
     public function columns(): array
     {
@@ -29,9 +35,15 @@ class OperationLov implements LovDefinition
             ->when($filters['kind'] ?? null, fn ($q, $k) => $q->where('kind', $k));
     }
 
-    public function searchColumns(): array { return ['name']; }
+    public function searchColumns(): array
+    {
+        return ['name'];
+    }
 
-    public function exactColumn(): string { return 'name'; }
+    public function exactColumn(): string
+    {
+        return 'name';
+    }
 
     public function row(Model $m): array
     {

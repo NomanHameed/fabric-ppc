@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@inertiajs/vue3', () => ({
-    usePage: () => ({ props: { auth: { permissions: ['inquiry.view'], roles: ['viewer'] } } }),
+    usePage: () => ({
+        props: { auth: { permissions: ['inquiry.view'], roles: ['viewer'] } },
+    }),
 }));
 
 describe('can', () => {

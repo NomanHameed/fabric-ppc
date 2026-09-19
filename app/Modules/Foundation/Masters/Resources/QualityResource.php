@@ -11,11 +11,20 @@ use Illuminate\Validation\Rule;
 
 class QualityResource extends MasterResource
 {
-    public function key(): string { return 'qualities'; }
+    public function key(): string
+    {
+        return 'qualities';
+    }
 
-    public function model(): string { return Quality::class; }
+    public function model(): string
+    {
+        return Quality::class;
+    }
 
-    public function defaultSort(): string { return 'oracle_code'; }
+    public function defaultSort(): string
+    {
+        return 'oracle_code';
+    }
 
     public function fields(): array
     {

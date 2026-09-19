@@ -9,9 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class ContractLov implements LovDefinition
 {
-    public function name(): string { return 'contracts'; }
+    public function name(): string
+    {
+        return 'contracts';
+    }
 
-    public function permission(): ?string { return null; }
+    public function permission(): ?string
+    {
+        return null;
+    }
 
     public function columns(): array
     {
@@ -22,11 +28,20 @@ class ContractLov implements LovDefinition
         ];
     }
 
-    public function query(array $filters): Builder { return Contract::query()->with('party'); }
+    public function query(array $filters): Builder
+    {
+        return Contract::query()->with('party');
+    }
 
-    public function searchColumns(): array { return ['po_no', 'ref_no']; }
+    public function searchColumns(): array
+    {
+        return ['po_no', 'ref_no'];
+    }
 
-    public function exactColumn(): string { return 'po_no'; }
+    public function exactColumn(): string
+    {
+        return 'po_no';
+    }
 
     public function row(Model $m): array
     {

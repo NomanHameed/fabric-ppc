@@ -1,5 +1,15 @@
-export type ImportAction = 'new' | 'changed' | 'unchanged' | 'missing' | 'error';
-export type ImportStatus = 'previewed' | 'committing' | 'committed' | 'failed' | 'discarded';
+export type ImportAction =
+    | 'new'
+    | 'changed'
+    | 'unchanged'
+    | 'missing'
+    | 'error';
+export type ImportStatus =
+    | 'previewed'
+    | 'committing'
+    | 'committed'
+    | 'failed'
+    | 'discarded';
 
 export type ImportSummary = {
     id: number;

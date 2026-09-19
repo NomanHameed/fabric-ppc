@@ -9,6 +9,8 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Writer;
 
 beforeEach(function () {
     Storage::fake('local');
@@ -41,9 +43,9 @@ it('rejects non-xlsx uploads and files without the Oracle columns', function () 
         ->assertSessionHasErrors('file');
 
     $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
-    $w = new \OpenSpout\Writer\XLSX\Writer;
+    $w = new Writer;
     $w->openToFile($path);
-    $w->addRow(\OpenSpout\Common\Entity\Row::fromValues(['PARTY']));
+    $w->addRow(Row::fromValues(['PARTY']));
     $w->close();
     $this->actingAs($this->ppc)->post('/oracle/imports', ['file' => new UploadedFile($path, 'bad.xlsx', null, null, true)])
         ->assertSessionHasErrors('file');
