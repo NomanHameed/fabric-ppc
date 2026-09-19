@@ -40,3 +40,10 @@ it('rejects an alias already used by another party', function () {
         'name' => 'BATIK', 'type' => 'brand', 'is_active' => true, 'aliases' => ['M-B'],
     ])->assertSessionHasErrors('aliases.0');
 });
+
+it('rejects duplicate aliases within the same request', function () {
+    $this->actingAs($this->ppc)->post('/masters/parties', [
+        'name' => 'Dup Brand', 'type' => 'brand', 'is_active' => true, 'aliases' => ['NB', 'nb '],
+    ])->assertSessionHasErrors('aliases.1');
+    expect(Party::where('name', 'Dup Brand')->exists())->toBeFalse();
+});

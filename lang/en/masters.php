@@ -22,4 +22,5 @@ return [
         'colour_status' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
         'hold_reason' => 'Hold reason', 'reprocess_reason' => 'Reprocess reason',
     ],
+    'quality_pattern_hint' => 'SQL LIKE pattern, e.g. %VISCOSE%',
 ];

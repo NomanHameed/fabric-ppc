@@ -27,7 +27,7 @@ type TemplateRow = {
     priority: number; is_active: boolean; steps: Step[];
 };
 
-const props = defineProps<{ templates: TemplateRow[]; poTypes: PoType[]; canEdit: boolean }>();
+const props = defineProps<{ templates: TemplateRow[]; poTypes: PoType[]; canEdit: boolean; criteria: Record<string, string> }>();
 
 function currentTemplate(): TemplateRow | null {
     return props.templates.find((tpl) => tpl.id === currentId.value) ?? null;
@@ -195,7 +195,7 @@ function onAction(action: FormsAction): void {
         case 'enterQuery': query.enterQuery(); break;
         case 'executeQuery': {
             const q = query.mode.value === 'enterQuery' ? query.takeCriteria() : {};
-            router.get('/masters/route-templates', { q }, { only: ['templates'], preserveState: true });
+            router.get('/masters/route-templates', { q }, { only: ['templates', 'criteria'], preserveState: true });
             break;
         }
         case 'previousRecord': if (index.value > 0) guard.guard(() => load(props.templates[index.value - 1].id)); break;
@@ -231,7 +231,7 @@ function onAction(action: FormsAction): void {
                 :label="t('masters.fields.quality_pattern')"
                 for="f-quality_pattern"
                 :span="3"
-                :hint="t('masters.fields.quality_pattern') + ' — SQL LIKE, e.g. %VISCOSE%'"
+                :hint="t('masters.quality_pattern_hint')"
                 :error="form.errors.quality_pattern"
             >
                 <Input v-if="inQuery" id="f-quality_pattern" v-model="criteria.quality_pattern as string" class="border-amber-500/60" />

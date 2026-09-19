@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Foundation\Masters\MasterController;
 use App\Modules\Foundation\Models\LookupValue;
 use App\Modules\Foundation\Models\RouteTemplate;
+use App\Modules\Foundation\Query\QueryCriteria;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,8 +22,16 @@ class RouteTemplateController extends Controller
     {
         abort_unless($request->user()->can('masters.view'), 403);
 
+        $criteria = (array) $request->query('q', []);
+        $query = RouteTemplate::query()->with('steps.operation.department');
+        QueryCriteria::apply($query, $criteria, [
+            'name' => ['column' => 'name', 'type' => 'text'],
+            'po_type' => ['column' => 'po_type', 'type' => 'text'],
+            'quality_pattern' => ['column' => 'quality_pattern', 'type' => 'text'],
+        ]);
+
         return Inertia::render('masters/RouteTemplates', [
-            'templates' => RouteTemplate::query()->with('steps.operation.department')->orderByDesc('priority')->orderBy('name')->get()
+            'templates' => $query->orderByDesc('priority')->orderBy('name')->get()
                 ->map(fn (RouteTemplate $t) => [
                     'id' => $t->id, 'name' => $t->name, 'po_type' => $t->po_type, 'quality_pattern' => $t->quality_pattern,
                     'priority' => $t->priority, 'is_active' => $t->is_active,
@@ -33,6 +42,7 @@ class RouteTemplateController extends Controller
                 ]),
             'poTypes' => LookupValue::list('po_type')->get()->map(fn ($v) => ['value' => $v->code, 'label' => $v->label]),
             'canEdit' => $request->user()->can('masters.manage'),
+            'criteria' => (object) $request->query('q', []),
         ]);
     }
 

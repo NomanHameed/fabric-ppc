@@ -96,8 +96,15 @@ class PartyController extends Controller
         if (Party::query()->where('name_normalized', $normalized)->when($party, fn ($q) => $q->whereKeyNot($party->id))->exists()) {
             throw ValidationException::withMessages(['name' => __('validation.unique', ['attribute' => 'name'])]);
         }
+        $seen = [];
         foreach ($data['aliases'] as $i => $alias) {
-            $taken = PartyAlias::query()->where('alias_normalized', PartyName::normalize($alias))
+            $normalizedAlias = PartyName::normalize($alias);
+            if (in_array($normalizedAlias, $seen, true)) {
+                throw ValidationException::withMessages(["aliases.{$i}" => __('validation.distinct', ['attribute' => 'alias'])]);
+            }
+            $seen[] = $normalizedAlias;
+
+            $taken = PartyAlias::query()->where('alias_normalized', $normalizedAlias)
                 ->when($party, fn ($q) => $q->where('party_id', '!=', $party->id))->exists();
             if ($taken) {
                 throw ValidationException::withMessages(["aliases.{$i}" => __('validation.unique', ['attribute' => 'alias'])]);

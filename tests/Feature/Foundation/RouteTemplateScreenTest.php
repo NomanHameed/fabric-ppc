@@ -42,3 +42,9 @@ it('replaces steps on update', function () {
     ])->assertRedirect();
     expect($tpl->fresh()->steps)->toHaveCount(1);
 });
+
+it('filters templates by name in query mode', function () {
+    $this->actingAs($this->ppc)->get('/masters/route-templates?q[name]=Dyed%25')->assertOk()
+        ->assertInertia(fn ($page) => $page->component('masters/RouteTemplates')->has('templates', 1)
+            ->where('templates.0.name', 'Dyed - Standard'));
+});

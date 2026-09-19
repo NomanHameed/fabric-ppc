@@ -21,4 +21,5 @@ return [
         'colour_status' => 'رنگ کی حالت', 'po_type' => 'پی او قسم', 'loss_reason' => 'نقصان کی وجہ',
         'hold_reason' => 'روکنے کی وجہ', 'reprocess_reason' => 'دوبارہ پراسیس کی وجہ',
     ],
+    'quality_pattern_hint' => 'SQL LIKE پیٹرن، مثلاً %VISCOSE%',
 ];
