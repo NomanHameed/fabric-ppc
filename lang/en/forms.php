@@ -21,4 +21,5 @@ return [
     'in_use' => 'Cannot delete: record is in use.',
     'search' => 'Search',
     'select' => 'Select',
+    'lov_failed' => 'Could not load the list. Check your connection and try again.',
 ];

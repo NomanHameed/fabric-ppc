@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { t } from '@/lib/i18n';
 import { fetchLov } from '@/lib/lov';
 import type { LovRow } from '@/lib/lov';
+import { statusLine } from '@/lib/statusLine';
 
 const props = defineProps<{ name: string; filters?: Record<string, string | number | null>; placeholder?: string; disabled?: boolean; id?: string }>();
 const model = defineModel<number | null>({ default: null });
@@ -31,12 +32,16 @@ async function onBlur(): Promise<void> {
     if (model.value !== null || display.value.trim() === '') {
         return;
     }
-    const res = await fetchLov(props.name, { exact: display.value.trim(), filters: props.filters });
-    if (res.data.length === 1) {
-        select(res.data[0]);
-    } else {
-        initialQuery.value = display.value.trim();
-        open.value = true;
+    try {
+        const res = await fetchLov(props.name, { exact: display.value.trim(), filters: props.filters });
+        if (res.data.length === 1) {
+            select(res.data[0]);
+        } else {
+            initialQuery.value = display.value.trim();
+            open.value = true;
+        }
+    } catch {
+        statusLine.setMessage(t('forms.lov_failed'), 'error');
     }
 }
 

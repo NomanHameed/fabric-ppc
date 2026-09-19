@@ -1,27 +1,13 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core';
-import { DialogContent as DialogContentPrimitive } from 'reka-ui';
 import { nextTick, ref, watch } from 'vue';
-import { Dialog, DialogHeader, DialogOverlay, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useFormsKeys } from '@/composables/useFormsKeys';
 import { t } from '@/lib/i18n';
 import { fetchLov } from '@/lib/lov';
 import type { LovResponse, LovRow } from '@/lib/lov';
-import { cn } from '@/lib/utils';
-
-// NB: unlike the other shadcn dialog usages in this app, this dialog renders its
-// content WITHOUT `DialogPortal` (reka-ui's `<DialogContent>` primitive directly,
-// not the `@/components/ui/dialog` wrapper). `DialogPortal` teleports through a
-// reka-ui-internal component that is itself named "Teleport" — jsdom handles a
-// real `<teleport to="body">` fine, but a test that stubs the *native* Vue
-// Teleport by name (`global: { stubs: { teleport: true } }`, as this component's
-// spec does) also matches reka-ui's identically-named wrapper and swallows its
-// slot content entirely (Vue Test Utils only forces `renderStubDefaultSlot` for
-// the built-in Teleport/KeepAlive/Transition stubs, not for name-matched ones).
-// Skipping the portal keeps identical visual behaviour (the content is
-// `position: fixed`, so its DOM position doesn't matter) while staying
-// testable. See resources/js/components/forms/__tests__/LovDialog.spec.ts.
+import { statusLine } from '@/lib/statusLine';
 
 const props = defineProps<{ name: string; filters?: Record<string, string | number | null>; initialQuery?: string; title?: string }>();
 const open = defineModel<boolean>('open', { default: false });
@@ -38,6 +24,9 @@ const load = useDebounceFn(async () => {
     try {
         result.value = await fetchLov(props.name, { q: query.value, filters: props.filters });
         active.value = 0;
+    } catch {
+        result.value = { columns: [], data: [] };
+        statusLine.setMessage(t('forms.lov_failed'), 'error');
     } finally {
         loading.value = false;
     }
@@ -54,8 +43,10 @@ watch(open, async (isOpen) => {
 
 watch(query, () => load());
 
-// Capture form keys while the dialog is open, so the form underneath doesn't react.
-useFormsKeys({});
+// Capture form keys only while the dialog is open, so the form underneath keeps its
+// own keyboard shortcuts (F10/F7/F8/…) the rest of the time — LovDialog stays mounted
+// for the lifetime of the owning LovField, only `open` toggles.
+useFormsKeys({}, () => open.value);
 
 function onKeydown(e: KeyboardEvent): void {
     const count = result.value.data.length;
@@ -82,12 +73,7 @@ function choose(row: LovRow): void {
 
 <template>
     <Dialog v-model:open="open">
-        <DialogOverlay />
-        <DialogContentPrimitive
-            :class="cn(
-                'bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-2xl',
-            )"
-        >
+        <DialogContent class="sm:max-w-2xl">
             <DialogHeader>
                 <DialogTitle>{{ title ?? t('forms.actions.lov') }}</DialogTitle>
             </DialogHeader>
@@ -126,6 +112,6 @@ function choose(row: LovRow): void {
                     </tbody>
                 </table>
             </div>
-        </DialogContentPrimitive>
+        </DialogContent>
     </Dialog>
 </template>
