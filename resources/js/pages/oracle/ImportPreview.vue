@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, usePoll } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, reactive } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import FormBlock from '@/components/forms/FormBlock.vue';
 import LovField from '@/components/forms/LovField.vue';
@@ -18,9 +18,27 @@ const count = (a: ImportAction) => props.import[`${a}_count` as const];
 const resolutions = reactive<Record<number, { partyId: number | null; display: string; type: 'brand' | 'local' }>>({});
 const busy = computed(() => props.import.status === 'committing');
 
-const { start, stop } = usePoll(2000, { only: ['import'] }, { autoStart: false });
+const poll = usePoll(2000, { only: ['import'] }, { autoStart: false });
+const polling = ref(false);
+// Set once the commit request succeeds: keep polling until the job reports committed or failed,
+// even if a poll still shows the import as committing (or, briefly, previewed).
+const awaitingResult = ref(false);
+const finished = computed(() => props.import.status === 'committed' || props.import.status === 'failed');
+
+function startPolling(): void {
+    if (!polling.value) {
+        polling.value = true;
+        poll.start();
+    }
+}
+
+function stopPolling(): void {
+    polling.value = false;
+    poll.stop();
+}
+
 if (busy.value) {
-    start();
+    startPolling();
 }
 
 function openTab(tab: ImportAction): void {
@@ -50,27 +68,37 @@ function commit(): void {
         {},
         {
             preserveScroll: true,
-            onSuccess: () => start(),
+            onSuccess: () => {
+                awaitingResult.value = true;
+                startPolling();
+            },
             onError: (errors) => statusLine.setMessage(errors.import ?? '', 'error'),
         },
     );
 }
 
 function onNavigated(): void {
-    if (!busy.value) {
-        stop();
-        if (props.import.status === 'committed') {
-            statusLine.setMessage(
-                t('oracle.committed', {
-                    new: props.import.new_count,
-                    changed: props.import.changed_count,
-                    missing: props.import.missing_count,
-                }),
-                'success',
-            );
-        }
+    if (busy.value || (awaitingResult.value && !finished.value)) {
+        startPolling();
+
+        return;
+    }
+    stopPolling();
+    awaitingResult.value = false;
+    if (props.import.status === 'committed') {
+        statusLine.setMessage(
+            t('oracle.committed', {
+                new: props.import.new_count,
+                changed: props.import.changed_count,
+                missing: props.import.missing_count,
+            }),
+            'success',
+        );
+    } else if (props.import.status === 'failed' && props.import.error_message) {
+        statusLine.setMessage(props.import.error_message, 'error');
     }
 }
+onBeforeUnmount(() => stopPolling());
 const off = router.on('success', onNavigated);
 onBeforeUnmount(() => off());
 

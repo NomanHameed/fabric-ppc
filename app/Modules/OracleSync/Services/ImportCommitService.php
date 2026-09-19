@@ -52,9 +52,13 @@ final class ImportCommitService
         }
     }
 
-    public function commit(OracleImport $import, User $user): void
+    /**
+     * The checks the commit screen runs synchronously before queueing, and the job repeats before writing.
+     *
+     * @throws DomainException
+     */
+    public function assertCommittable(OracleImport $import): void
     {
-        $import->refresh();
         if ($import->error_count > 0) {
             throw new DomainException(__('oracle.errors.has_errors'));
         }
@@ -62,9 +66,32 @@ final class ImportCommitService
         if ($stale) {
             throw new DomainException(__('oracle.errors.stale'));
         }
+    }
 
-        $committing = OracleImport::query()->whereKey($import->id)->where('status', 'previewed')->update(['status' => 'committing']);
-        if ($committing !== 1) {
+    /** Atomically move a previewed import to committing; false when it was not previewed (already claimed). */
+    public function claim(OracleImport $import): bool
+    {
+        return OracleImport::query()->whereKey($import->id)->where('status', 'previewed')->update(['status' => 'committing']) === 1;
+    }
+
+    /**
+     * Commit a previewed import (CLI path, claimed here) or one the commit screen already moved to committing.
+     */
+    public function commit(OracleImport $import, User $user): void
+    {
+        $import->refresh();
+        $claimed = $import->status === 'committing';
+
+        try {
+            $this->assertCommittable($import);
+        } catch (DomainException $e) {
+            if ($claimed) {
+                $import->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
+            }
+            throw $e;
+        }
+
+        if (! $claimed && ! $this->claim($import)) {
             throw new DomainException(__('oracle.errors.not_previewed'));
         }
         $import->status = 'committing';

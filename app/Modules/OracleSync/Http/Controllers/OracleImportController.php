@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\OracleSync\Exceptions\InvalidOracleFile;
 use App\Modules\OracleSync\Jobs\CommitOracleImport;
 use App\Modules\OracleSync\Models\OracleImport;
+use App\Modules\OracleSync\Services\ImportCommitService;
 use App\Modules\OracleSync\Services\ImportPreviewService;
 use App\Modules\OracleSync\Sources\ExcelUploadSource;
 use App\Modules\Production\Models\Lot;
@@ -23,7 +24,10 @@ class OracleImportController extends Controller
 {
     private const TABS = ['error', 'new', 'changed', 'missing', 'unchanged'];
 
-    public function __construct(private readonly ImportPreviewService $preview) {}
+    public function __construct(
+        private readonly ImportPreviewService $preview,
+        private readonly ImportCommitService $commits,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -99,8 +103,14 @@ class OracleImportController extends Controller
 
     public function commit(Request $request, OracleImport $import): RedirectResponse
     {
-        if ($import->status !== 'previewed' || $import->error_count > 0) {
-            throw ValidationException::withMessages(['import' => __($import->error_count > 0 ? 'oracle.errors.has_errors' : 'oracle.errors.not_previewed')]);
+        // Same checks the job repeats, run here so the user sees them at once instead of a silently failed job.
+        try {
+            $this->commits->assertCommittable($import);
+        } catch (DomainException $e) {
+            throw ValidationException::withMessages(['import' => $e->getMessage()]);
+        }
+        if (! $this->commits->claim($import)) {
+            throw ValidationException::withMessages(['import' => __('oracle.errors.not_previewed')]);
         }
         CommitOracleImport::dispatch($import->id, $request->user()->id);
 
