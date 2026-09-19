@@ -26,7 +26,7 @@ class RoleController extends Controller
     public function update(Request $request, string $role): RedirectResponse
     {
         abort_if($role === Permissions::ROLE_ADMIN, 403);
-        $model = Role::findByName($role, 'web');
+        $model = Role::query()->where('name', $role)->where('guard_name', 'web')->firstOrFail();
         $data = $request->validate([
             'permissions' => ['array'],
             'permissions.*' => [Rule::in(Permissions::ALL)],

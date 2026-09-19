@@ -11,4 +11,8 @@ return [
         'admin' => 'Admin', 'ppc' => 'PPC', 'manager' => 'Manager / GM', 'dept_incharge' => 'Department In-charge',
         'colour_lab' => 'Colour Lab', 'dispatch' => 'Dispatch / Inspection', 'viewer' => 'Viewer',
     ],
+    'permission_groups' => [
+        'admin' => 'Administration', 'masters' => 'Masters', 'oracle' => 'Oracle', 'production' => 'Production',
+        'colour' => 'Colour', 'dispatch' => 'Dispatch', 'inquiry' => 'Inquiry', 'reports' => 'Reports', 'audit' => 'Audit',
+    ],
 ];

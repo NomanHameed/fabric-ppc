@@ -55,6 +55,30 @@ it('edits role permissions except admin', function () {
     $this->actingAs($this->admin)->put('/admin/roles/viewer', ['permissions' => ['made.up']])->assertSessionHasErrors('permissions.0');
 });
 
+it('404s for an unknown role', function () {
+    $this->actingAs($this->admin)->put('/admin/roles/does-not-exist', ['permissions' => []])->assertNotFound();
+});
+
+it('stops a non-admin with admin.users.manage from granting or touching the admin role', function () {
+    $this->ppc->givePermissionTo('admin.users.manage');
+
+    $this->actingAs($this->ppc)->post('/admin/users', [
+        'name' => 'Would-be Admin', 'email' => 'wannabe@fabric.local', 'password' => 'secret-pass-1',
+        'is_active' => true, 'locale' => 'en', 'roles' => ['admin'], 'department_ids' => [],
+    ])->assertForbidden();
+
+    $this->actingAs($this->ppc)->put("/admin/users/{$this->admin->id}", [
+        'name' => 'Renamed Admin', 'email' => $this->admin->email, 'is_active' => true, 'locale' => 'en',
+        'roles' => ['admin'], 'department_ids' => [],
+    ])->assertForbidden();
+
+    $this->actingAs($this->ppc)->post('/admin/users', [
+        'name' => 'Just A Viewer', 'email' => 'viewer-new@fabric.local', 'password' => 'secret-pass-1',
+        'is_active' => true, 'locale' => 'en', 'roles' => ['viewer'], 'department_ids' => [],
+    ])->assertRedirect();
+    expect(User::where('email', 'viewer-new@fabric.local')->exists())->toBeTrue();
+});
+
 it('updates settings', function () {
     $this->actingAs($this->admin)->put('/admin/settings', ['company_name' => 'Albeen Textiles', 'idle_lot_alert_days' => 5])->assertRedirect();
     expect(Setting::get('company_name'))->toBe('Albeen Textiles')->and(Setting::get('idle_lot_alert_days'))->toBe(5);

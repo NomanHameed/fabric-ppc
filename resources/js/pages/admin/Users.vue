@@ -129,7 +129,7 @@ function onAction(action: FormsAction): void {
                     <option v-for="(meta, code) in locales" :key="code" :value="code">{{ meta.name }}</option>
                 </select>
             </FormField>
-            <FormField :label="t('admin.active')" for="f-active" :span="2">
+            <FormField :label="t('admin.active')" for="f-active" :span="2" :error="form.errors.is_active">
                 <Checkbox
                     id="f-active"
                     :model-value="Boolean(form.is_active)"

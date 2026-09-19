@@ -32,6 +32,10 @@ class UserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request, null);
+        abort_if(
+            ! $request->user()->hasRole(Permissions::ROLE_ADMIN) && in_array(Permissions::ROLE_ADMIN, $data['roles'], true),
+            403
+        );
         DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'], 'email' => $data['email'], 'password' => $data['password'],
@@ -49,6 +53,11 @@ class UserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         $data = $this->validated($request, $user);
+        abort_if(
+            ! $request->user()->hasRole(Permissions::ROLE_ADMIN)
+                && (in_array(Permissions::ROLE_ADMIN, $data['roles'], true) || $user->hasRole(Permissions::ROLE_ADMIN)),
+            403
+        );
         if ($user->is($request->user())) {
             $errors = [];
             if (! ($data['is_active'] ?? true)) {

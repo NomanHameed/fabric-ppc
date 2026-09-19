@@ -101,7 +101,7 @@ const guard = useUnsavedGuard(isDirty, save);
                     <template v-for="group in groups" :key="group.key">
                         <tr class="border-b bg-muted/20">
                             <td :colspan="roles.length + 1" class="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                                {{ group.key }}
+                                {{ t(`admin.permission_groups.${group.key}`) }}
                             </td>
                         </tr>
                         <tr v-for="perm in group.permissions" :key="perm" class="border-b last:border-b-0">

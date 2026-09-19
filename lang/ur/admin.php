@@ -11,4 +11,8 @@ return [
         'admin' => 'ایڈمن', 'ppc' => 'پی پی سی', 'manager' => 'مینیجر / جی ایم', 'dept_incharge' => 'شعبہ انچارج',
         'colour_lab' => 'کلر لیب', 'dispatch' => 'ڈسپیچ / انسپیکشن', 'viewer' => 'ناظر',
     ],
+    'permission_groups' => [
+        'admin' => 'انتظامیہ', 'masters' => 'ماسٹرز', 'oracle' => 'اوریکل', 'production' => 'پروڈکشن',
+        'colour' => 'رنگ', 'dispatch' => 'ڈسپیچ', 'inquiry' => 'معلومات', 'reports' => 'رپورٹس', 'audit' => 'آڈٹ',
+    ],
 ];
