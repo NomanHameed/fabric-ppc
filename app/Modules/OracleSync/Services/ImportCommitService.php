@@ -21,9 +21,6 @@ final class ImportCommitService
     public function commit(OracleImport $import, User $user): void
     {
         $import->refresh();
-        if ($import->status !== 'previewed') {
-            throw new DomainException(__('oracle.errors.not_previewed'));
-        }
         if ($import->error_count > 0) {
             throw new DomainException(__('oracle.errors.has_errors'));
         }
@@ -32,7 +29,11 @@ final class ImportCommitService
             throw new DomainException(__('oracle.errors.stale'));
         }
 
-        $import->update(['status' => 'committing']);
+        $committing = OracleImport::query()->whereKey($import->id)->where('status', 'previewed')->update(['status' => 'committing']);
+        if ($committing !== 1) {
+            throw new DomainException(__('oracle.errors.not_previewed'));
+        }
+        $import->status = 'committing';
         $events = [];
 
         try {

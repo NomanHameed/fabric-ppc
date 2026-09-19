@@ -9,7 +9,9 @@ use App\Modules\OracleSync\Data\OracleLotRow;
 use App\Modules\OracleSync\Models\OracleImport;
 use App\Modules\OracleSync\Models\OracleImportRow;
 use App\Modules\Production\Models\Lot;
+use DomainException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class ImportPreviewService
 {
@@ -20,8 +22,19 @@ final class ImportPreviewService
 
     public function __construct(private readonly PartyResolver $parties) {}
 
+    /**
+     * Per-run bookkeeping: party id => the first Oracle code that matched it by name/alias
+     * while its oracle_code was still null. A later, different code matching the same
+     * uncoded party is left unresolved instead of silently sharing that party.
+     *
+     * @var array<int, int>
+     */
+    private array $nameMatchedPartyIds = [];
+
     public function preview(OracleLotSource $source, User $user, string $sourceKind = 'excel'): OracleImport
     {
+        $this->nameMatchedPartyIds = [];
+
         return DB::transaction(function () use ($source, $user, $sourceKind) {
             $import = OracleImport::create(['source' => $sourceKind, 'label' => $source->label(), 'uploaded_by' => $user->id]);
             $existing = Lot::query()->with(['contract.party', 'quality'])->get()->keyBy('oracle_line_id');
@@ -62,8 +75,18 @@ final class ImportPreviewService
     /** @param array{mode: 'link'|'create', party_id?: int, type?: string} $resolution */
     public function resolveParty(OracleImport $import, int $code, array $resolution): OracleImport
     {
+        if ($import->status !== 'previewed') {
+            throw new DomainException(__('oracle.errors.not_previewed'));
+        }
+
         return DB::transaction(function () use ($import, $code, $resolution) {
-            $rows = $import->rows()->where('action', 'error')->where('party_code', $code)->get();
+            $rows = $import->rows()->where('action', 'error')->where('party_code', $code)
+                ->where('message', 'like', 'unknown_party%')->get();
+
+            if ($rows->isEmpty()) {
+                throw ValidationException::withMessages(['code' => __('oracle.errors.unknown_party', ['code' => $code, 'name' => ''])]);
+            }
+
             $name = $rows->first()?->payload['party_name'] ?? '';
             $resolution['mode'] === 'link'
                 ? $this->parties->link($code, $name, Party::query()->findOrFail($resolution['party_id']))
@@ -92,7 +115,19 @@ final class ImportPreviewService
 
     private function classify(OracleImport $import, ?int $rowNo, OracleLotRow $row, ?Lot $lot): array
     {
-        if ($this->parties->resolve($row->partyCode, $row->partyName) === null) {
+        $party = $this->parties->resolve($row->partyCode, $row->partyName);
+
+        if ($party !== null && $party->oracle_code === null) {
+            // Matched by name/alias while the party is still uncoded: only the first
+            // Oracle code to claim it this run may use it; a later code is unresolved.
+            if (isset($this->nameMatchedPartyIds[$party->id]) && $this->nameMatchedPartyIds[$party->id] !== $row->partyCode) {
+                $party = null;
+            } else {
+                $this->nameMatchedPartyIds[$party->id] ??= $row->partyCode;
+            }
+        }
+
+        if ($party === null) {
             return $this->rowAttrs($import, $rowNo, $row, 'error', null, null,
                 'unknown_party:'.__('oracle.errors.unknown_party', ['code' => $row->partyCode, 'name' => $row->partyName]));
         }
