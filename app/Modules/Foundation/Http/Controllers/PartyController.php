@@ -67,7 +67,7 @@ class PartyController extends Controller
     {
         abort_unless($request->user()->can('masters.manage'), 403);
         try {
-            $party->delete();
+            $party->deleteOrFail();
         } catch (QueryException $e) {
             if (! MasterController::isForeignKeyViolation($e)) {
                 throw $e;
@@ -82,7 +82,7 @@ class PartyController extends Controller
 
     private function validated(Request $request, ?Party $party): array
     {
-        $request->merge(['aliases' => array_values(array_filter(array_map('trim', (array) $request->input('aliases', [])), 'strlen'))]);
+        $request->merge(['aliases' => array_values(array_filter(array_map('trim', (array) $request->input('aliases', [])), fn ($v) => $v !== ''))]);
         $data = $request->validate([
             'oracle_code' => ['nullable', 'integer', Rule::unique('parties', 'oracle_code')->ignore($party?->id)],
             'name' => ['required', 'string', 'max:150'],

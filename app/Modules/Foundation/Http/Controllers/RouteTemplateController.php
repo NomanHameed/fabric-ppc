@@ -70,7 +70,7 @@ class RouteTemplateController extends Controller
     {
         abort_unless($request->user()->can('masters.manage'), 403);
         try {
-            $routeTemplate->delete();
+            $routeTemplate->deleteOrFail();
         } catch (QueryException $e) {
             if (! MasterController::isForeignKeyViolation($e)) {
                 throw $e;

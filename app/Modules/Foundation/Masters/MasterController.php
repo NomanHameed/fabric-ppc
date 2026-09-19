@@ -73,7 +73,7 @@ class MasterController extends Controller
         $res = $this->authorizeEdit($request, $resource);
         $model = $res->model()::query()->findOrFail($id);
         try {
-            $model->delete();
+            $model->deleteOrFail();
         } catch (QueryException $e) {
             if (! self::isForeignKeyViolation($e)) {
                 throw $e;
