@@ -24,6 +24,7 @@ return [
     ],
     'errors' => [
         'missing_headers' => 'The file is missing required columns: :headers',
+        'unreadable_file' => 'This file could not be read as an Excel (.xlsx) workbook. Export it again from Oracle and upload the new file.',
         'unknown_party' => 'Unknown Oracle party :code — :name',
         'duplicate_line' => 'Oracle line :line appears more than once in the file',
         'has_errors' => 'Resolve all errors before committing.',

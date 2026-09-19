@@ -27,8 +27,10 @@ final class ExcelUploadSource implements OracleLotSource
     public function rows(): iterable
     {
         $reader = new Reader;
-        $reader->open($this->path);
+        $opened = false;
         try {
+            $reader->open($this->path);
+            $opened = true;
             foreach ($reader->getSheetIterator() as $sheet) {
                 $map = null;
                 $rowNo = 0;
@@ -47,8 +49,14 @@ final class ExcelUploadSource implements OracleLotSource
                 }
                 break; // first sheet only
             }
+        } catch (InvalidOracleFile $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw InvalidOracleFile::unreadable($e);
         } finally {
-            $reader->close();
+            if ($opened) {
+                $reader->close();
+            }
         }
     }
 

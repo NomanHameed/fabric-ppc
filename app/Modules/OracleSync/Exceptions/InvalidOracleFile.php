@@ -16,4 +16,9 @@ final class InvalidOracleFile extends RuntimeException
     {
         return new self("Row {$row}: {$reason}");
     }
+
+    public static function unreadable(?\Throwable $previous = null): self
+    {
+        return new self(__('oracle.errors.unreadable_file'), 0, $previous);
+    }
 }

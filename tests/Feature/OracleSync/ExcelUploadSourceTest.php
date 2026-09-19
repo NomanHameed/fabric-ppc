@@ -57,6 +57,12 @@ it('rejects a file with missing headers', function () {
     iterator_to_array((new ExcelUploadSource($path))->rows());
 })->throws(InvalidOracleFile::class, 'PARTY_CODE');
 
+it('rejects a corrupt xlsx that is not a valid zip', function () {
+    $path = tempnam(sys_get_temp_dir(), 'orc').'.xlsx';
+    file_put_contents($path, 'not a zip file at all');
+    iterator_to_array((new ExcelUploadSource($path))->rows());
+})->throws(InvalidOracleFile::class);
+
 it('reports the row number of an unparseable value', function () {
     $headers = ['PARTY', 'PARTY_CODE', 'CONTRACT_NUM', 'REF_NUM', 'DATED', 'QUALITY', 'Q_CODE', 'LOT_NUM1', 'GSM', 'DESIGN_CODE',
         'DESIGN', 'COLOUR_NAME', 'COLOUR_CODE', 'G_WIDTH', 'F_WIDTH', 'PROCESS_TYPE', 'PC_DTL_ID', 'QNTY', 'QNTY_CONT'];

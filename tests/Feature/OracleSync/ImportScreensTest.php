@@ -50,6 +50,15 @@ it('rejects non-xlsx uploads and files without the Oracle columns', function () 
     expect(OracleImport::count())->toBe(0);
 });
 
+it('rejects a corrupt xlsx that is not a valid zip', function () {
+    $this->actingAs($this->ppc)->post('/oracle/imports', [
+        'file' => UploadedFile::fake()->createWithContent('broken.xlsx', 'not a zip'),
+    ])->assertSessionHasErrors('file');
+
+    expect(OracleImport::count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles('oracle-imports'))->toBeEmpty();
+});
+
 it('lets managers view but not run imports', function () {
     $this->actingAs($this->manager)->get('/oracle/imports')->assertOk()->assertInertia(fn ($p) => $p->where('canRun', false));
     $this->actingAs($this->manager)->post('/oracle/imports', ['file' => ($this->file)()])->assertForbidden();
