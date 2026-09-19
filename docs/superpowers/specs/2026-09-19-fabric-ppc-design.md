@@ -32,13 +32,13 @@ Every lot is tracked through every operation from greige receipt to dispatch. Th
 | D11 | Colour gate | Dyeing or printing on a lot whose colour is not approved shows a warning. PPC/Manager must override with a reason, and the override is logged. |
 | D12 | Status codes | Status lists (colour status, PO type, loss reasons, hold reasons) are editable lookups, seeded from the codes in the tracker. `DOX` and `LCR` stay open items that PPC will define. |
 | D13 | Storage model | Movement ledger plus a live balances table (Approach A). |
-| D14 | Stack | Laravel 12 + MySQL 8 + Redis. Front end: Inertia.js v2 + Vue 3 (TypeScript) + Tailwind, with AG Grid Community for grids. |
+| D14 | Stack | Laravel 13 + MySQL 8 + Redis. Front end: Inertia.js v3 + Vue 3 (TypeScript) + Tailwind 4, with AG Grid Community for grids. Built on the official `laravel/vue-starter-kit` (Fortify auth, Wayfinder routes, Vite+). |
 | D15 | UX | Professional desktop-style UI that **behaves like Oracle Forms** (master-detail, query mode, LOVs, toolbar, function keys, status line). Reports follow Oracle Reports conventions. |
 | D16 | Language | English by default, with Urdu available (full right-to-left layout). |
 
 ## 3. Architecture
 
-A modular monolith: one Laravel application. Each module owns its models, tables, services, controllers, Vue pages and tests under `app/Modules/<Module>` and `resources/js/Modules/<Module>`.
+A modular monolith: one Laravel application. Each module owns its models, tables, services, controllers, Vue pages and tests under `app/Modules/<Module>`. Following the starter kit's conventions, Vue pages live in `resources/js/pages/<area>/`, shared components in `resources/js/components/`, and migrations in `database/migrations/`.
 
 | Module | Responsibility | Depends on |
 |---|---|---|
@@ -51,9 +51,9 @@ A modular monolith: one Laravel application. Each module owns its models, tables
 
 Only a module's own services write to its tables. Other modules call those services, never write to the tables directly. The **ledger service** (`Production\LedgerService`) is the only code that writes `lot_movements` and `lot_balances`.
 
-**Stack details:** PHP 8.3+, Laravel 12, MySQL 8, and Redis for cache, queue and sessions. Also: Inertia.js v2 (prefetch on hover, deferred props, polling where useful), Vue 3 + TypeScript, Vite, Tailwind CSS (logical properties for RTL), AG Grid Community, `spatie/laravel-permission`, `owen-it/laravel-auditing`, `maatwebsite/excel` (import/export), PDF via `barryvdh/laravel-dompdf` (or Browsershot if layouts need it), `laravel-vue-i18n`, and Pest for tests.
+**Stack details:** PHP 8.3+ (dev machine runs 8.5), Laravel 13, MySQL 8, and Redis for cache, queue and sessions. Also: Inertia.js v3 (prefetch on hover, deferred props, polling where useful), Vue 3 + TypeScript, Vite, Tailwind CSS (logical properties for RTL), AG Grid Community, `spatie/laravel-permission`, `owen-it/laravel-auditing`, `openspout/openspout` (streaming XLSX import/export), PDF via `barryvdh/laravel-dompdf` (or Browsershot if layouts need it), a small in-house translation loader (per-module PHP lang files served as cached JSON), and Pest 4 for tests.
 
-**Dev environment:** PHP, Composer and Node run natively. MySQL 8 and Redis run in Docker (`docker-compose.yml` at the repo root). Hosting is open; any Linux host with PHP 8.3+, MySQL 8 and Redis will do.
+**Dev environment:** PHP, Composer and Node run natively. MySQL 8.4 and Redis 7 run in Docker (`docker-compose.yml` at the repo root, host ports 33306 and 63790). Automated tests run on in-memory SQLite. Hosting is open; any Linux host with PHP 8.3+, MySQL 8 and Redis will do.
 
 ## 4. User interface
 
@@ -135,8 +135,8 @@ All tables have `id`, `created_at` and `updated_at`. Auditable models are marked
   | `REF_NUM` | `contracts.ref_no` |
   | `DATED` | `contracts.po_date` |
   | `QUALITY`, `Q_CODE` | quality |
-  | `LOT_NUM1` | `lots.lot_no` (unique key) |
-  | `PC_DTL_ID` | `lots.oracle_line_id` |
+  | `LOT_NUM1` | `lots.lot_no` |
+  | `PC_DTL_ID` | `lots.oracle_line_id` (the unique match key) |
   | `GSM` | `gsm` |
   | `DESIGN_CODE`, `DESIGN` | `design_code`, `design` |
   | `COLOUR_CODE`, `COLOUR_NAME` | `colour_code`, `colour` |
@@ -149,7 +149,7 @@ All tables have `id`, `created_at` and `updated_at`. Auditable models are marked
 
 ### 5.3 Production
 - `contracts` (A): `po_no` (unique), `party_id`, `ref_no`, `po_date`, `contract_qty`, `oracle_missing_at`.
-- `lots` (A): `lot_no` (unique, 6-digit), `contract_id`, `oracle_line_id`, `quality_id`, `gsm`, `design_code`, `design`, `colour_code`, `colour`, `g_width`, `f_width`, `po_type`, `greige_qty`, `colour_status` (lookup code), `state` (`open` | `hold` | `closed` | `cancelled`), `hold_reason`, `closed_at`, `closed_by`, `loss_qty`, `loss_reason`, `oracle_missing_at`, `remarks`. It also carries denormalised totals, kept by the ledger in the same transaction for fast grids: `stock_qty`, `issued_qty`, `wip_qty`, `finished_qty`, `dispatched_qty`, `current_label`, `last_movement_at`.
+- `lots` (A): `oracle_line_id` (**unique**; Oracle `PC_DTL_ID`), `lot_no` (6-digit, indexed, **not unique**: Oracle reuses one lot no. across POs, e.g. 264899 in POs 261071 and 261072), `contract_id`, `quality_id`, `gsm`, `design_code`, `design`, `colour_code`, `colour`, `g_width`, `f_width`, `po_type`, `greige_qty`, `colour_status` (lookup code), `state` (`open` | `hold` | `closed` | `cancelled`), `hold_reason`, `closed_at`, `closed_by`, `loss_qty`, `loss_reason`, `oracle_missing_at`, `remarks`. It also carries denormalised totals, kept by the ledger in the same transaction for fast grids: `stock_qty`, `issued_qty`, `wip_qty`, `finished_qty`, `dispatched_qty`, `current_label`, `last_movement_at`.
 - `lot_route_steps` (A): `lot_id`, `seq`, `operation_id`, `is_added` (bool; step added outside the template), `status` (`pending` | `partial` | `done` | `skipped`).
 - `production_sheets` (A): `sheet_date`, `shift_id`, `department_id`, `machine_id`, `downtime_minutes`, `remarks`, `entered_by`.
 - `production_lines` (A): `production_sheet_id`, `batch_no` (nullable; lines with the same batch_no form one run), `lot_id`, `lot_route_step_id` (nullable for reprocess and unplanned work), `operation_id`, `is_reprocess`, `reprocess_reason`, `qty_in`, `qty_out`, `output_type` (null | `dyed` | `print`), `g_width`, `f_width`, `colour_override_id` (nullable), `remarks`.
@@ -209,13 +209,13 @@ All tables have `id`, `created_at` and `updated_at`. Auditable models are marked
 ## 6. Workflows
 
 1. **Import.**
-   1. PPC uploads the XLSX. The system validates the headers and parses the rows, matching on `LOT_NUM1`.
-   2. The preview shows new, changed (with field diff), unchanged and missing lots, plus error rows (e.g. unknown party code: create the party inline, or map it to an existing one).
+   1. PPC uploads the XLSX. The system validates the headers and parses the rows, matching on `PC_DTL_ID`.
+   2. The preview shows new, changed (with field diff), unchanged and missing lots, plus error rows. An Oracle party is matched by `oracle_code`, then by normalised name, then by alias. Unmatched parties must be resolved before commit: map to an existing party (stores the code and the Oracle name as an alias) or create a new one. In the Sep-26 export, 4 of 17 need mapping: U&I, Image, Al Hamd, Lenok.
    3. Commit runs in one transaction on a queue job. It creates or updates parties, qualities, contracts and lots. New lots get a route from the best-matching template and an `import` movement. Lots absent from the file get `oracle_missing_at` and an alert.
 2. **Planning.** PPC reviews and edits routes (templates, per-lot edit, bulk apply to a PO) and issues greige to the floor (per lot, or bulk per PO).
 3. **Production entry.** Usually PPC or a manager types in the paper sheet; department in-charges can enter their own.
    1. Open a sheet for date + shift + machine. The header's department limits the operation LOV.
-   2. Add lines. The lot LOV accepts the full lot no., the last 4 digits (resolved to the unique open lot, or offering a choice), or a PO.
+   2. Add lines. The lot LOV accepts the full lot no., the last 4 digits, or a PO. Because lot numbers repeat across POs, it always shows PO + design + colour, and asks the user to choose when more than one open lot matches.
    3. Pick the route step: the next pending step on this department is the default.
    4. Enter the metres. For batches, give lines the same batch no.; "split batch total" spreads a total over the batch lines in proportion to available metres.
    5. The colour gate runs on save.
