@@ -18,6 +18,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(\App\Modules\Foundation\Lov\LovRegistry::class);
         $this->app->singleton(\App\Modules\Foundation\Masters\MasterRegistry::class);
+        $this->app->scoped(\App\Modules\OracleSync\Services\PartyResolver::class);
     }
 
     /**

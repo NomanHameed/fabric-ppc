@@ -1,0 +1,35 @@
+<?php
+
+return [
+    'title' => 'Oracle Import',
+    'upload' => 'Upload Oracle export',
+    'upload_hint' => 'Processing Contract Status [Party Wise] (.xlsx)',
+    'preview' => 'Preview',
+    'commit' => 'Commit import',
+    'discard' => 'Discard',
+    'history' => 'Import history',
+    'actions' => ['new' => 'New', 'changed' => 'Changed', 'unchanged' => 'Unchanged', 'missing' => 'Missing from Oracle', 'error' => 'Errors'],
+    'status' => ['previewed' => 'Previewed', 'committing' => 'Committing…', 'committed' => 'Committed', 'failed' => 'Failed', 'discarded' => 'Discarded'],
+    'unresolved' => 'Oracle parties to resolve',
+    'unresolved_hint' => 'Link each Oracle party to an existing party, or create it. Commit is enabled when none remain.',
+    'link_to' => 'Link to party',
+    'create_party' => 'Create as new party',
+    'fields' => [
+        'lot_no' => 'Lot #', 'po_no' => 'PO #', 'ref_no' => 'Ref.', 'po_date' => 'PO date', 'party' => 'Party', 'party_code' => 'Party code',
+        'quality' => 'Quality', 'quality_code' => 'Q code', 'quality_description' => 'Quality', 'gsm' => 'GSM', 'design_code' => 'Design code',
+        'design' => 'Design', 'colour_code' => 'Colour code', 'colour' => 'Colour / Shade', 'g_width' => 'G/W', 'f_width' => 'F/W',
+        'po_type' => 'PO type', 'greige_qty' => 'Greige (m)', 'contract_qty' => 'Contract (m)', 'oracle_line_id' => 'Oracle line',
+        'row_no' => 'Row', 'message' => 'Message', 'diff' => 'Changes',
+        'date' => 'Date', 'file' => 'File', 'user' => 'User', 'status_col' => 'Status',
+    ],
+    'errors' => [
+        'missing_headers' => 'The file is missing required columns: :headers',
+        'unknown_party' => 'Unknown Oracle party :code — :name',
+        'duplicate_line' => 'Oracle line :line appears more than once in the file',
+        'has_errors' => 'Resolve all errors before committing.',
+        'not_previewed' => 'This import is not in preview state.',
+        'stale' => 'Another import was committed after this preview. Upload the file again.',
+        'code_conflict' => 'This party is already linked to Oracle code :code.',
+    ],
+    'committed' => 'Import committed: :new new, :changed changed, :missing missing.',
+];
