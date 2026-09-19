@@ -1,6 +1,8 @@
 import type { PendingVisit } from '@inertiajs/core';
-import { describe, expect, it } from 'vitest';
-import { replayOptions } from '@/composables/useUnsavedGuard';
+import { mount } from '@vue/test-utils';
+import { defineComponent } from 'vue';
+import { describe, expect, it, vi } from 'vitest';
+import { replayOptions, useUnsavedGuard } from '@/composables/useUnsavedGuard';
 
 function makeVisit(overrides: Partial<PendingVisit> = {}): PendingVisit {
     return {
@@ -73,5 +75,72 @@ describe('replayOptions', () => {
         expect(options.preserveScroll).toBe(false);
         expect(options.only).toEqual(['stats']);
         expect(options.except).toEqual(['heavyBlock']);
+    });
+});
+
+function mountGuard(isDirty: () => boolean, save: () => Promise<boolean>) {
+    let api!: ReturnType<typeof useUnsavedGuard>;
+    const wrapper = mount(defineComponent({
+        setup() {
+            api = useUnsavedGuard(isDirty, save);
+            return () => null;
+        },
+    }));
+    return { wrapper, guard: api };
+}
+
+describe('useUnsavedGuard: guard()', () => {
+    it('runs the action immediately when the form is clean', () => {
+        const fn = vi.fn();
+        const { guard } = mountGuard(() => false, async () => true);
+
+        guard.guard(fn);
+
+        expect(fn).toHaveBeenCalledTimes(1);
+        expect(guard.dialogOpen.value).toBe(false);
+    });
+
+    it('opens the dialog when dirty, and runs the action only after choosing discard', async () => {
+        const fn = vi.fn();
+        const { guard } = mountGuard(() => true, async () => true);
+
+        guard.guard(fn);
+        expect(fn).not.toHaveBeenCalled();
+        expect(guard.dialogOpen.value).toBe(true);
+
+        await guard.choose('discard');
+        expect(fn).toHaveBeenCalledTimes(1);
+        expect(guard.dialogOpen.value).toBe(false);
+    });
+
+    it('runs the action after choosing save when save resolves true', async () => {
+        const fn = vi.fn();
+        const { guard } = mountGuard(() => true, async () => true);
+
+        guard.guard(fn);
+        await guard.choose('save');
+
+        expect(fn).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not run the action after choosing save when save resolves false', async () => {
+        const fn = vi.fn();
+        const { guard } = mountGuard(() => true, async () => false);
+
+        guard.guard(fn);
+        await guard.choose('save');
+
+        expect(fn).not.toHaveBeenCalled();
+    });
+
+    it('never runs the action when choosing cancel', async () => {
+        const fn = vi.fn();
+        const { guard } = mountGuard(() => true, async () => true);
+
+        guard.guard(fn);
+        await guard.choose('cancel');
+
+        expect(fn).not.toHaveBeenCalled();
+        expect(guard.dialogOpen.value).toBe(false);
     });
 });

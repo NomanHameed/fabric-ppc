@@ -74,7 +74,10 @@ class MasterController extends Controller
         $model = $res->model()::query()->findOrFail($id);
         try {
             $model->delete();
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            if (! self::isForeignKeyViolation($e)) {
+                throw $e;
+            }
             throw ValidationException::withMessages(['record' => __('forms.in_use')]);
         }
 
@@ -89,5 +92,14 @@ class MasterController extends Controller
         abort_unless($request->user()->can($res->editPermission()), 403);
 
         return $res;
+    }
+
+    /**
+     * Only an integrity-constraint violation (FK violation) means "in use". SQLSTATE 23000
+     * is what both MySQL and SQLite report for a foreign key constraint failure.
+     */
+    public static function isForeignKeyViolation(QueryException $e): bool
+    {
+        return ($e->errorInfo[0] ?? $e->getCode()) === '23000';
     }
 }

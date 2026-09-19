@@ -74,3 +74,49 @@ it('maps the lookup approved flag into meta', function () {
 it('returns 404 for an unknown master', function () {
     $this->actingAs($this->viewer)->get('/masters/nope')->assertNotFound();
 });
+
+it('does not treat an unrelated query exception as "in use"', function () {
+    $fakeModel = new class extends \Illuminate\Database\Eloquent\Model
+    {
+        protected $table = 'departments';
+
+        protected $guarded = ['id'];
+
+        public function delete()
+        {
+            throw new \Illuminate\Database\QueryException('sqlite', 'boom', [], new \PDOException('boom'));
+        }
+    };
+
+    $resource = new class($fakeModel::class) extends \App\Modules\Foundation\Masters\MasterResource
+    {
+        public function __construct(private readonly string $modelClass) {}
+
+        public function key(): string
+        {
+            return 'zzfake';
+        }
+
+        public function model(): string
+        {
+            return $this->modelClass;
+        }
+
+        public function fields(): array
+        {
+            return [];
+        }
+
+        public function rules(?\Illuminate\Database\Eloquent\Model $record): array
+        {
+            return [];
+        }
+    };
+
+    app(\App\Modules\Foundation\Masters\MasterRegistry::class)->register($resource);
+
+    $dept = Department::where('code', 'DRYING')->first();
+
+    $this->actingAs($this->ppc)->delete("/masters/zzfake/{$dept->id}")->assertStatus(500);
+    expect(Department::whereKey($dept->id)->exists())->toBeTrue();
+});

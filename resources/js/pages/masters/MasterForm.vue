@@ -72,13 +72,16 @@ const guard = useUnsavedGuard(() => form.isDirty, save);
 function onAction(action: FormsAction): void {
     switch (action) {
         case 'save': void save(); break;
-        case 'newRecord': load(null); break;
+        case 'newRecord': guard.guard(() => load(null)); break;
         case 'deleteRecord':
             if (currentId.value !== null && window.confirm(t('forms.confirm_delete'))) {
                 router.delete(`/masters/${props.resource.key}/${currentId.value}`, {
                     preserveScroll: true,
                     onSuccess: () => statusLine.setMessage(t('forms.deleted'), 'success'),
-                    onError: (e) => statusLine.setMessage(Object.values(e)[0] ?? '', 'error'),
+                    onError: (errors) => {
+                        form.setError(errors);
+                        statusLine.setMessage(Object.values(errors)[0] ?? '', 'error');
+                    },
                 });
             }
             break;
@@ -88,8 +91,8 @@ function onAction(action: FormsAction): void {
             router.get(`/masters/${props.resource.key}`, { q }, { preserveState: true, preserveScroll: true, only: ['rows', 'criteria'] });
             break;
         }
-        case 'previousRecord': if (index.value > 0) load(props.rows[index.value - 1].id); break;
-        case 'nextRecord': if (index.value < props.rows.length - 1) load(props.rows[index.value + 1].id); break;
+        case 'previousRecord': if (index.value > 0) guard.guard(() => load(props.rows[index.value - 1].id)); break;
+        case 'nextRecord': if (index.value < props.rows.length - 1) guard.guard(() => load(props.rows[index.value + 1].id)); break;
         case 'clear': query.mode.value === 'enterQuery' ? query.cancelQuery() : load(currentId.value); break;
         case 'print': window.print(); break;
         case 'exit': router.visit('/dashboard'); break;
@@ -147,7 +150,7 @@ const criteria = reactive(query.criteria);
             </FormField>
         </FormBlock>
         <p v-if="form.errors['record']" class="text-sm text-destructive">{{ form.errors['record'] }}</p>
-        <DataGrid :rows="rows" :columns="columns" :selected-id="currentId" @row-selected="(r) => load(r.id)" />
+        <DataGrid :rows="rows" :columns="columns" :selected-id="currentId" @row-selected="(r) => guard.guard(() => load(r.id))" />
         <ConfirmSaveDialog :open="guard.dialogOpen.value" @choose="guard.choose" />
     </div>
 </template>

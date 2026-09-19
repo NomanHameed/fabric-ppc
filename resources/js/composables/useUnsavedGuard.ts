@@ -31,7 +31,7 @@ export function replayOptions(visit: PendingVisit): VisitOptions {
  */
 export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<boolean>) {
     const dialogOpen = ref(false);
-    let pendingVisit: (() => void) | null = null;
+    let pendingAction: (() => void) | null = null;
     let bypass = false;
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -49,7 +49,7 @@ export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<bool
             if (bypass || !isDirty() || visit.method !== 'get') {
                 return;
             }
-            pendingVisit = () => router.visit(visit.url, replayOptions(visit));
+            pendingAction = () => router.visit(visit.url, replayOptions(visit));
             dialogOpen.value = true;
             return false;
         });
@@ -63,17 +63,31 @@ export function useUnsavedGuard(isDirty: () => boolean, save: () => Promise<bool
     async function choose(choice: 'save' | 'discard' | 'cancel'): Promise<void> {
         dialogOpen.value = false;
         if (choice === 'cancel') {
-            pendingVisit = null;
+            pendingAction = null;
             return;
         }
         if (choice === 'save' && !(await save())) {
             return;
         }
         bypass = true;
-        pendingVisit?.();
-        pendingVisit = null;
+        pendingAction?.();
+        pendingAction = null;
         bypass = false;
     }
 
-    return { dialogOpen, choose };
+    /**
+     * Runs `fn` immediately when the form is clean. Otherwise defers it behind the
+     * same "Save changes?" dialog used for guarded router visits: `fn` runs after a
+     * successful Save or after Discard, and never runs on Cancel.
+     */
+    function guard(fn: () => void): void {
+        if (!isDirty()) {
+            fn();
+            return;
+        }
+        pendingAction = fn;
+        dialogOpen.value = true;
+    }
+
+    return { dialogOpen, choose, guard };
 }
