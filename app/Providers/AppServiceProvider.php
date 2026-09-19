@@ -39,6 +39,8 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\Foundation\Lov\Definitions\UserLov::class,
             \App\Modules\Foundation\Lov\Definitions\LookupLov::class,
             \App\Modules\Foundation\Lov\Definitions\ShiftLov::class,
+            \App\Modules\Production\Lov\LotLov::class,
+            \App\Modules\Production\Lov\ContractLov::class,
         ] as $class) {
             $lovs->register(new $class);
         }

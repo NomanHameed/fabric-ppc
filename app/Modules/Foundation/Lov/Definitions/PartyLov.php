@@ -30,6 +30,12 @@ class PartyLov implements LovDefinition
     /** Exact matching on the normalised name; aliases are handled by the override below. */
     public function exactColumn(): string { return 'name_normalized'; }
 
+    /** Exact match by name or alias, resolved through Party::findByName. */
+    public function applyExact(Builder $query, string $value): void
+    {
+        $query->whereKey(Party::findByName($value)?->id ?? 0);
+    }
+
     public function row(Model $m): array
     {
         return ['id' => $m->id, 'code' => (string) ($m->oracle_code ?? $m->id), 'label' => $m->name, 'oracle_code' => $m->oracle_code, 'type' => $m->type];
