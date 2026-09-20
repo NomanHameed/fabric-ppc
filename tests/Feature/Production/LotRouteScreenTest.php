@@ -55,6 +55,21 @@ it('shows the lot header and its steps with metres waiting after each one and th
             ->where('steps.2.status', 'pending')->where('steps.2.at_position', 0)->where('steps.2.locked', false));
 });
 
+it('locks a step the moment metres are processed through it, before refreshStatuses() has run', function () {
+    $steps = $this->lot->routeSteps()->get();
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    $this->ledger->post($this->lot, 'process', $this->routes->previousPosition($steps[0]), $this->routes->targetPosition($steps[0]), 100, 100);
+    $this->ledger->post($this->lot, 'process', $this->routes->previousPosition($steps[1]), $this->routes->targetPosition($steps[1]), 100, 100);
+    // no refreshStatuses(): the statuses still say pending, yet the service would refuse to touch s1 and s2
+    expect($this->routes->lockedStepIds($this->lot))->toBe([$steps[0]->id, $steps[1]->id]);
+
+    $this->actingAs($this->ppc)->get("/production/routes?lot={$this->lot->id}")->assertOk()
+        ->assertInertia(fn ($page) => $page->component('production/LotRoute')
+            ->where('steps.0.status', 'pending')->where('steps.0.at_position', 0)->where('steps.0.locked', true)
+            ->where('steps.1.status', 'pending')->where('steps.1.at_position', 100)->where('steps.1.locked', true)
+            ->where('steps.2.status', 'pending')->where('steps.2.at_position', 0)->where('steps.2.locked', false));
+});
+
 it('renders the empty state without a lot and 404s an unknown one', function () {
     $this->actingAs($this->ppc)->get('/production/routes')->assertOk()
         ->assertInertia(fn ($page) => $page->component('production/LotRoute')->where('lot', null)->where('steps', []));
@@ -140,6 +155,61 @@ it('validates the steps payload', function () {
         ->assertSessionHasErrors(['steps.0.id']);
     $this->actingAs($this->ppc)->put('/production/routes/999999', ['steps' => []])->assertNotFound();
     expect($this->lot->routeSteps()->count())->toBe(5);
+});
+
+it('refuses a step id of another lot, a duplicate step id and an inactive operation without touching any route', function () {
+    $steps = $this->lot->routeSteps()->get();
+    $other = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $this->routes->assign($other);
+    $otherSteps = $other->routeSteps()->get();
+    $rows = fn (Lot $lot) => $lot->routeSteps()->get()->map(fn (LotRouteStep $s) => [$s->id, $s->seq, $s->operation_id, $s->status])->all();
+    $before = [$rows($this->lot), $rows($other)];
+    $payload = fn () => $steps->map(fn (LotRouteStep $s) => ['id' => $s->id, 'operation_id' => $s->operation_id, 'skipped' => false])->all();
+
+    // a step of another lot, spliced in as row 2
+    $foreign = $payload();
+    $foreign[2]['id'] = $otherSteps[2]->id;
+    $this->actingAs($this->ppc)->put("/production/routes/{$this->lot->id}", ['steps' => $foreign])
+        ->assertRedirect()->assertSessionHasErrors(['steps.2.id'])->assertSessionDoesntHaveErrors(['steps.0.id', 'steps.1.id']);
+
+    // the same step twice, the second copy skipped
+    $duplicate = $payload();
+    $duplicate[3]['id'] = $steps[1]->id;
+    $duplicate[3]['skipped'] = true;
+    $this->actingAs($this->ppc)->putJson("/production/routes/{$this->lot->id}", ['steps' => $duplicate])
+        ->assertStatus(422)->assertJsonValidationErrors(['steps.1.id', 'steps.3.id']);
+
+    // an operation that has been deactivated
+    $inactive = Operation::factory()->create(['is_active' => false]);
+    $stale = $payload();
+    $stale[4]['operation_id'] = $inactive->id;
+    $this->actingAs($this->ppc)->putJson("/production/routes/{$this->lot->id}", ['steps' => $stale])
+        ->assertStatus(422)->assertJsonValidationErrors(['steps.4.operation_id']);
+
+    expect([$rows($this->lot), $rows($other)])->toBe($before)
+        ->and($this->lot->routeSteps()->pluck('status')->all())->toBe(['pending', 'pending', 'pending', 'pending', 'pending']);
+});
+
+it('re-derives the lot status label when a save changes the first active step', function () {
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    expect($this->lot->fresh()->current_label)->toBe('SINGEING/');
+    $steps = $this->lot->routeSteps()->get();
+    $payload = fn () => $steps->map(fn (LotRouteStep $s) => ['id' => $s->id, 'operation_id' => $s->operation_id, 'skipped' => false])->all();
+
+    // skipping SINGING: the metres at ISSUED now wait for SINGLE BLEACH
+    $skipped = $payload();
+    $skipped[0]['skipped'] = true;
+    $this->actingAs($this->ppc)->put("/production/routes/{$this->lot->id}", ['steps' => $skipped])->assertSessionHasNoErrors();
+    expect($this->lot->fresh()->current_label)->toBe('BLEACHING/');
+    $this->actingAs($this->ppc)->get("/production/routes?lot={$this->lot->id}")
+        ->assertInertia(fn ($page) => $page->where('lot.current_label', 'BLEACHING/')->where('lot.issued', 100)->where('steps.0.status', 'skipped'));
+
+    // un-skipped and moved: SINGING second, DRY first
+    $reordered = $payload();
+    [$reordered[0], $reordered[2]] = [$reordered[2], $reordered[0]];
+    $this->actingAs($this->ppc)->put("/production/routes/{$this->lot->id}", ['steps' => $reordered])->assertSessionHasNoErrors();
+    expect($this->lot->fresh()->current_label)->toBe('DRYING/')
+        ->and($this->lot->routeSteps()->pluck('id')->all())->toBe([$steps[2]->id, $steps[1]->id, $steps[0]->id, $steps[3]->id, $steps[4]->id]);
 });
 
 // ---- skip ---------------------------------------------------------------------------------------------------

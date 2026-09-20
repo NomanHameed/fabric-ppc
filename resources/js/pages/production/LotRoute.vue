@@ -24,7 +24,7 @@ import { t } from '@/lib/i18n';
 import type { LovRow } from '@/lib/lov';
 import {
     blankStepRow,
-    errorRowIndexes,
+    errorGridRowIndexes,
     restoreLockedRows,
     stepPayload,
     stepRowsFrom,
@@ -54,7 +54,10 @@ const stepRows = ref<RouteStepRow[]>(stepRowsFrom(props.steps));
 const baseline = ref(stepSignature(stepRows.value));
 const detailKey = ref(0);
 const form = useForm<{ steps: ReturnType<typeof stepPayload> }>({ steps: [] });
-const errorRows = computed(() => errorRowIndexes(form.errors));
+// Server errors name payload rows; blank grid rows are dropped from the payload, so they are mapped back to grid rows.
+const errorRows = computed(() =>
+    errorGridRowIndexes(form.errors, stepRows.value),
+);
 
 const template = ref<LovRow | null>(null);
 const templateDisplay = ref('');
@@ -375,6 +378,7 @@ function onAction(action: FormsAction): void {
                     v-model="lotId"
                     v-model:display="lotDisplay"
                     name="lots"
+                    :filters="{ states: 'open,hold' }"
                     @selected="onLotSelected"
                 />
             </FormField>

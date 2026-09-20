@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     blankStepRow,
+    errorGridRowIndexes,
     errorRowIndexes,
+    payloadToGridRows,
     restoreLockedRows,
     stepPayload,
     stepRowsFrom,
@@ -121,5 +123,42 @@ describe('errorRowIndexes', () => {
             }),
         ).toEqual(new Set([0, 2]));
         expect(errorRowIndexes({})).toEqual(new Set());
+    });
+});
+
+describe('payloadToGridRows / errorGridRowIndexes', () => {
+    // grid: [step 1, blank, step 2, blank, step 3] -> payload: [step 1, step 2, step 3]
+    const rows: RouteStepRow[] = [
+        stepRowsFrom([step({ id: 1 })])[0],
+        blankStepRow(),
+        stepRowsFrom([step({ id: 2 })])[0],
+        blankStepRow(),
+        { ...blankStepRow(), operation_id: 9, operation: 'OP 9' },
+    ];
+
+    it('maps payload rows to the grid rows that have an operation', () => {
+        expect(payloadToGridRows(rows)).toEqual([0, 2, 4]);
+        expect(payloadToGridRows([])).toEqual([]);
+        expect(payloadToGridRows([blankStepRow()])).toEqual([]);
+    });
+
+    it('highlights the grid row behind an erroring payload row, past the blank rows above it', () => {
+        expect(errorGridRowIndexes({ 'steps.1.skipped': 'no' }, rows)).toEqual(
+            new Set([2]),
+        );
+        expect(
+            errorGridRowIndexes(
+                {
+                    'steps.0.operation_id': 'no',
+                    'steps.2.id': 'no',
+                    steps: 'no',
+                },
+                rows,
+            ),
+        ).toEqual(new Set([0, 4]));
+        // a payload row the grid no longer has (rows changed since the save) is ignored
+        expect(errorGridRowIndexes({ 'steps.7.skipped': 'no' }, rows)).toEqual(
+            new Set(),
+        );
     });
 });

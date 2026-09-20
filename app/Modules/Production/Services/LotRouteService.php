@@ -85,7 +85,7 @@ final class LotRouteService
             $this->lockLot($lot);
             $existing = $lot->routeSteps()->get()->keyBy('id');
             $keptIds = array_values(array_filter(array_map(fn (array $s) => $s['id'] ?? null, $steps)));
-            $locked = $existing->filter(fn (LotRouteStep $s) => $this->hasProgress($lot, $s, $existing))->map(fn (LotRouteStep $s): int => $s->id)->values()->all();
+            $locked = $this->lockedIn($lot, $existing);
             if (array_diff($locked, $keptIds) !== []) {
                 throw new DomainException(__('production.errors.route_step_in_progress'));
             }
@@ -149,6 +149,18 @@ final class LotRouteService
         return $n;
     }
 
+    /**
+     * The ids of the steps a route edit may not remove, move, skip or re-operate: done/partial, metres waiting at
+     * their position, or something already processed through them (even before refreshStatuses() has run). The
+     * screen shows these as locked, so it applies exactly the facts the edits here are refused on.
+     *
+     * @return list<int>
+     */
+    public function lockedStepIds(Lot $lot): array
+    {
+        return $this->lockedIn($lot, $lot->routeSteps()->get()->keyBy('id'));
+    }
+
     /** ISSUED before the first active step, else STEP:<id of the nearest earlier active step>. */
     public function previousPosition(LotRouteStep $step): Position
     {
@@ -202,7 +214,7 @@ final class LotRouteService
             if ($this->hasProgress($lot, $step, $steps)) {
                 throw new DomainException(__('production.errors.route_step_in_progress'));
             }
-            $locked = $steps->filter(fn (LotRouteStep $s) => $this->hasProgress($lot, $s, $steps))->map(fn (LotRouteStep $s): int => $s->id)->values()->all();
+            $locked = $this->lockedIn($lot, $steps);
             $before = $this->positionsOf($steps, $locked);
 
             $step->update(['status' => $skipped ? 'skipped' : 'pending']);
@@ -282,6 +294,15 @@ final class LotRouteService
         }
 
         return $out;
+    }
+
+    /**
+     * @param  Collection<int, LotRouteStep>  $steps  the lot's whole route, keyed by id
+     * @return list<int> the ids of the steps in $steps with progress, in route order
+     */
+    private function lockedIn(Lot $lot, Collection $steps): array
+    {
+        return array_values($steps->filter(fn (LotRouteStep $s) => $this->hasProgress($lot, $s, $steps))->map(fn (LotRouteStep $s): int => $s->id)->all());
     }
 
     /** @param  Collection<int, LotRouteStep>  $steps  the lot's whole route */

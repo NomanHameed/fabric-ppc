@@ -10,6 +10,8 @@ use InvalidArgumentException;
 
 class LotLov implements LovDefinition
 {
+    private const STATES = ['open', 'hold', 'closed', 'cancelled'];
+
     public function name(): string
     {
         return 'lots';
@@ -32,10 +34,16 @@ class LotLov implements LovDefinition
         ];
     }
 
-    /** Open lots; `in_stock=1` keeps only those with greige still in stock (Issue to Floor). */
+    /**
+     * Lots in the states named by `states` (comma-separated; open only by default, and whenever nothing valid is
+     * asked for — the Lot Route screen asks for `open,hold`); `in_stock=1` keeps only those with greige still in
+     * stock (Issue to Floor).
+     */
     public function query(array $filters): Builder
     {
-        return Lot::query()->open()->with(['contract.party', 'quality'])
+        $states = array_values(array_intersect(explode(',', (string) ($filters['states'] ?? 'open')), self::STATES)) ?: ['open'];
+
+        return Lot::query()->whereIn('lots.state', $states)->with(['contract.party', 'quality'])
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')->select('lots.*')
             ->when(filter_var($filters['in_stock'] ?? false, FILTER_VALIDATE_BOOL), fn ($q) => $q->where('lots.stock_qty', '>', 0));
     }

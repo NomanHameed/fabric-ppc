@@ -18,6 +18,7 @@ beforeEach(function () {
     Lot::create($base + ['oracle_line_id' => 47120, 'lot_no' => '264899', 'contract_id' => $c2->id, 'design' => 'E1295/104', 'colour' => '121 MID OLIVE', 'greige_qty' => 1065]);
     Lot::create($base + ['oracle_line_id' => 47090, 'lot_no' => '265025', 'contract_id' => $c2->id, 'design' => 'D1', 'colour' => 'BLACK', 'greige_qty' => 3650]);
     Lot::create($base + ['oracle_line_id' => 40000, 'lot_no' => '255025', 'contract_id' => $c2->id, 'design' => 'OLD', 'colour' => 'RED', 'greige_qty' => 10, 'state' => 'closed']);
+    Lot::create($base + ['oracle_line_id' => 40001, 'lot_no' => '245025', 'contract_id' => $c2->id, 'design' => 'HELD', 'colour' => 'GREY', 'greige_qty' => 10, 'state' => 'hold']);
 });
 
 it('returns every open lot sharing a lot number with PO context', function () {
@@ -43,6 +44,24 @@ it('returns nothing for a non-numeric exact needle (M-13)', function () {
 it('searches by design or PO', function () {
     expect($this->actingAs($this->user)->getJson('/lov/lots?q=olive')->json('data'))->toHaveCount(1)
         ->and($this->actingAs($this->user)->getJson('/lov/lots?q=261072')->json('data'))->toHaveCount(2);
+});
+
+it('includes held lots only when filters[states] asks for them (R1)', function () {
+    $codes = fn (string $query) => collect($this->actingAs($this->user)->getJson('/lov/lots?exact=5025'.$query)->assertOk()->json('data'))->pluck('code')->sort()->values()->all();
+
+    expect($codes(''))->toBe(['265025'])
+        ->and($codes('&filters[states]=open'))->toBe(['265025'])
+        ->and($codes('&filters[states]=open,hold'))->toBe(['245025', '265025'])
+        ->and($codes('&filters[states]=hold'))->toBe(['245025'])
+        ->and($codes('&filters[states]=open,hold,closed'))->toBe(['245025', '255025', '265025']);
+});
+
+it('falls back to open lots only for a junk states filter', function () {
+    $codes = fn (string $query) => collect($this->actingAs($this->user)->getJson('/lov/lots?exact=5025'.$query)->assertOk()->json('data'))->pluck('code')->all();
+
+    expect($codes('&filters[states]=junk'))->toBe(['265025'])
+        ->and($codes('&filters[states]=junk,also'))->toBe(['265025'])
+        ->and($codes('&filters[states][]=hold'))->toBe(['265025']);
 });
 
 it('lists contracts', function () {

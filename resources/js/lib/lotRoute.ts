@@ -90,13 +90,43 @@ export function restoreLockedRows(
     return out;
 }
 
-/** Row indexes named by server errors keyed `steps.<row>.<field>`. */
+/** Payload row indexes named by server errors keyed `steps.<row>.<field>`. */
 export function errorRowIndexes(errors: Record<string, unknown>): Set<number> {
     const out = new Set<number>();
     for (const key of Object.keys(errors)) {
         const m = /^steps\.(\d+)\./.exec(key);
         if (m) {
             out.add(Number(m[1]));
+        }
+    }
+    return out;
+}
+
+/**
+ * Grid row index of each payload row: stepPayload() drops the blank rows (no operation yet), so payload row N
+ * is the Nth grid row that has an operation. Blank rows have no payload index.
+ */
+export function payloadToGridRows(rows: RouteStepRow[]): number[] {
+    const out: number[] = [];
+    rows.forEach((r, index) => {
+        if (r.operation_id !== null) {
+            out.push(index);
+        }
+    });
+    return out;
+}
+
+/** Grid row indexes to highlight for server errors keyed by payload row (`steps.<row>.<field>`). */
+export function errorGridRowIndexes(
+    errors: Record<string, unknown>,
+    rows: RouteStepRow[],
+): Set<number> {
+    const gridRows = payloadToGridRows(rows);
+    const out = new Set<number>();
+    for (const payloadIndex of errorRowIndexes(errors)) {
+        const gridIndex = gridRows[payloadIndex];
+        if (gridIndex !== undefined) {
+            out.add(gridIndex);
         }
     }
     return out;

@@ -17,9 +17,11 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use LogicException;
 
 /**
  * Lot Route editor (`production.route.manage`, spec §4.4 screen 3, §6.2): a lot's planned steps with the metres
@@ -37,6 +39,7 @@ class LotRouteController extends Controller
             ? Lot::query()->with(['contract.party', 'quality'])->findOrFail($request->integer('lot'))
             : null;
         $balances = $lot === null ? [] : $this->ledger->balances($lot);
+        $locked = $lot === null ? [] : $this->routes->lockedStepIds($lot);
 
         return Inertia::render('production/LotRoute', [
             'lot' => $lot === null ? null : [
@@ -47,7 +50,7 @@ class LotRouteController extends Controller
                 'wip_qty' => (float) $lot->wip_qty, 'finished_qty' => (float) $lot->finished_qty,
             ],
             'steps' => $lot === null ? [] : $lot->routeSteps()->with('operation.department')->get()
-                ->map(fn (LotRouteStep $s): array => $this->stepRow($s, $balances))->values(),
+                ->map(fn (LotRouteStep $s): array => $this->stepRow($s, $balances, $locked))->values(),
         ]);
     }
 
@@ -55,9 +58,9 @@ class LotRouteController extends Controller
     public function update(Request $request, Lot $lot): RedirectResponse
     {
         $data = $request->validate([
-            'steps' => ['present', 'array'],
-            'steps.*.id' => ['nullable', 'integer'],
-            'steps.*.operation_id' => ['required', 'integer', 'exists:operations,id'],
+            'steps' => ['present', 'array', 'max:100'],
+            'steps.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('lot_route_steps', 'id')->where('lot_id', $lot->id)],
+            'steps.*.operation_id' => ['required', 'integer', Rule::exists('operations', 'id')->where('is_active', true)],
             'steps.*.skipped' => ['sometimes', 'boolean'],
         ]);
         /** @var list<array{id: int|null, operation_id: int, skipped: bool}> $steps */
@@ -74,6 +77,9 @@ class LotRouteController extends Controller
                 // replace() writes the rows in payload order (seq = row * 10), so row i of the payload is saved step i:
                 // that is how a step added and skipped in the same save (id null) finds its row.
                 $saved = $lot->routeSteps()->get()->values();
+                if ($saved->count() !== count($steps)) {
+                    throw new LogicException("LotRouteService::replace() left {$saved->count()} steps on lot {$lot->id} for a payload of ".count($steps).'.');
+                }
                 foreach ($steps as $i => $s) {
                     $step = $saved->get($i);
                     if ($step !== null && $s['skipped'] !== ($step->status === 'skipped')) {
@@ -124,7 +130,11 @@ class LotRouteController extends Controller
     public function applyToContract(Request $request, Contract $contract): RedirectResponse
     {
         $template = $this->template($request);
-        $n = $this->routes->applyTemplateToContract($contract, $template);
+        try {
+            $n = $this->routes->applyTemplateToContract($contract, $template);
+        } catch (DomainException $e) {
+            throw ValidationException::withMessages(['route_template_id' => $e->getMessage()]);
+        }
         Inertia::flash('toast', [
             'type' => $n > 0 ? 'success' : 'info',
             'message' => __($n > 0 ? 'production.route.applied' : 'production.route.applied_none', ['n' => $n, 'po' => $contract->po_no]),
@@ -150,22 +160,23 @@ class LotRouteController extends Controller
     }
 
     /**
-     * A step is locked (read-only on the screen) once it has production or metres waiting after it — the same
-     * facts LotRouteService uses to refuse removing, moving, skipping or re-operating it.
+     * A step is locked (read-only on the screen) when LotRouteService::lockedStepIds() says so — the same facts
+     * it refuses removing, moving, skipping or re-operating the step on, including metres processed through it
+     * before its status caught up.
      *
      * @param  array<string, float>  $balances
+     * @param  list<int>  $locked
      * @return array<string, mixed>
      */
-    private function stepRow(LotRouteStep $s, array $balances): array
+    private function stepRow(LotRouteStep $s, array $balances, array $locked): array
     {
-        $atPosition = (float) ($balances[Position::step($s->id)->value()] ?? 0);
         $department = $s->operation->department; // Department::name is a locale-aware accessor, so it is read as an attribute
 
         return [
             'id' => $s->id, 'seq' => $s->seq, 'operation_id' => $s->operation_id, 'operation' => $s->operation->name,
             'department' => $department instanceof Department ? $department->getAttribute('name') : null, 'status' => $s->status, 'is_added' => $s->is_added,
-            'at_position' => $atPosition,
-            'locked' => in_array($s->status, ['done', 'partial'], true) || $atPosition > 0,
+            'at_position' => (float) ($balances[Position::step($s->id)->value()] ?? 0),
+            'locked' => in_array($s->id, $locked, true),
         ];
     }
 }

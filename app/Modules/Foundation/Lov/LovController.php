@@ -15,7 +15,8 @@ class LovController extends Controller
             abort_unless($request->user()->can($def->permission()), 403);
         }
 
-        $filters = array_filter((array) $request->input('filters', []), fn ($v) => $v !== null && $v !== '');
+        // LovDefinition::query() takes string filters: nested arrays and blanks are dropped, not passed on.
+        $filters = array_filter(array_map(fn ($v) => is_scalar($v) ? (string) $v : '', (array) $request->input('filters', [])), fn (string $v) => $v !== '');
         $query = $def->query($filters);
 
         if (($exact = trim((string) $request->query('exact'))) !== '') {
