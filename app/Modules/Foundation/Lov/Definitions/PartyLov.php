@@ -4,6 +4,7 @@ namespace App\Modules\Foundation\Lov\Definitions;
 
 use App\Modules\Foundation\Lov\LovDefinition;
 use App\Modules\Foundation\Models\Party;
+use App\Modules\Foundation\Support\PartyName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -42,6 +43,16 @@ class PartyLov implements LovDefinition
     public function exactColumn(): string
     {
         return 'name_normalized';
+    }
+
+    /**
+     * Search on the normalised name so "m-b" finds "M B" and "MARIA-B" alike (M-12).
+     *
+     * @param  Builder<Party>  $query
+     */
+    public function applySearch(Builder $query, string $needle): void
+    {
+        $query->whereRaw('LOWER(name_normalized) LIKE ?', ['%'.mb_strtolower(PartyName::normalize($needle)).'%']);
     }
 
     /** Exact match by name or alias, resolved through Party::findByName. */

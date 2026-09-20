@@ -23,4 +23,10 @@ return [
     ],
     'language' => 'Language',
     'theme' => 'Theme',
+    'errors' => [
+        'title' => 'Something went wrong',
+        'unexpected' => 'An unexpected error occurred. It has been logged.',
+        'reference' => 'Reference: :ref',
+        'back' => 'Back to dashboard',
+    ],
 ];

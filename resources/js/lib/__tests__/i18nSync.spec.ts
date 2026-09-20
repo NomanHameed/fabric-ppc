@@ -46,6 +46,35 @@ describe('locale sync on navigate', () => {
         off();
     });
 
+    it('discards a superseded locale response that arrives late (locale race)', async () => {
+        setTranslations('en', 'ltr', { app: { name: 'Fabric PPC' } }, 'v-old');
+        const deferred: Record<string, (dict: unknown) => void> = {};
+        const fetchMock = vi.fn((url: string) => {
+            const locale = url.includes('/ur.json') ? 'ur' : 'en';
+            return new Promise((resolve) => {
+                deferred[locale] = (dict) =>
+                    resolve({ ok: true, json: async () => dict });
+            });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const off = initializeLocaleSync();
+
+        navigate({ locale: 'ur', dir: 'rtl', i18nVersion: 'v-ur' });
+        navigate({ locale: 'en', dir: 'ltr', i18nVersion: 'v-en' });
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+
+        deferred.en({ app: { name: 'Fabric PPC (new)' } });
+        await flush();
+        deferred.ur({ app: { name: 'فیبرک' } });
+        await flush();
+
+        expect(useI18n().locale.value).toBe('en');
+        expect(document.documentElement.dir).toBe('ltr');
+        expect(t('app.name')).toBe('Fabric PPC (new)');
+        off();
+    });
+
     it('reloads the dictionary when only the translation version changes', async () => {
         setTranslations('en', 'ltr', {}, 'v1');
         const fetchMock = vi

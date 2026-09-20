@@ -5,6 +5,7 @@ use App\Modules\Foundation\Models\Party;
 use App\Modules\Production\Models\Contract;
 use Database\Seeders\PartySeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Inertia\Support\SessionKey;
 
 beforeEach(function () {
     $this->seed([RolesAndPermissionsSeeder::class, PartySeeder::class]);
@@ -21,7 +22,7 @@ it('lists parties with aliases and filters by normalised name', function () {
 it('creates a party with aliases', function () {
     $this->actingAs($this->ppc)->post('/masters/parties', [
         'oracle_code' => 999, 'name' => 'New Brand Ltd', 'type' => 'brand', 'is_active' => true, 'aliases' => ['NB', ' ', 'New-B'],
-    ])->assertRedirect();
+    ])->assertRedirect()->assertSessionHas(SessionKey::FLASH_DATA, fn ($flash) => $flash['selectedId'] === Party::where('oracle_code', 999)->value('id'));
     $p = Party::where('oracle_code', 999)->firstOrFail();
     expect($p->aliases->pluck('alias')->sort()->values()->all())->toBe(['NB', 'New-B'])
         ->and(Party::findByName('nb')?->id)->toBe($p->id);

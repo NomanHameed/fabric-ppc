@@ -8,6 +8,17 @@ it('serves translations for a locale as json with ur falling back to en', functi
         ->and($res->json('app.name'))->toBe('Fabric PPC');
 });
 
+it('serves the auth and settings groups in both locales (M-11)', function () {
+    foreach (['en', 'ur'] as $locale) {
+        $res = $this->getJson("/i18n/{$locale}.json")->assertOk();
+        expect($res->json('settings.profile'))->toBeArray()->toHaveKeys(['title', 'name', 'email'])
+            ->and($res->json('auth.pages.login'))->toBeArray()->toHaveKeys(['title', 'submit'])
+            ->and($res->json('passwords.reset'))->toBeString()
+            ->and($res->json('app.errors.reference'))->toContain(':ref');
+    }
+    expect($this->getJson('/i18n/ur.json')->json('auth.pages.login.submit'))->not->toBe(__('auth.pages.login.submit', [], 'en'));
+});
+
 it('rejects unknown locales', function () {
     $this->getJson('/i18n/fr.json')->assertNotFound();
 });

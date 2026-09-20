@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
+import { useFlashSelect } from '@/lib/flashSelect';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 
@@ -75,15 +76,18 @@ watch(
     (d) => statusLine.setDirty(d),
     { immediate: true },
 );
-watch(
-    () => props.users,
-    () =>
-        load(
-            props.users.find((u) => u.id === currentId.value)?.id ??
-                props.users[0]?.id ??
-                null,
-        ),
-);
+const flashSelect = useFlashSelect();
+watch([() => props.users, flashSelect.pending], () => {
+    // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
+    const wanted =
+        flashSelect.take((id) => props.users.some((u) => u.id === id)) ??
+        currentId.value;
+    load(
+        props.users.find((u) => u.id === wanted)?.id ??
+            props.users[0]?.id ??
+            null,
+    );
+});
 
 const showDepartments = computed(() =>
     (form.roles as string[]).includes('dept_incharge'),
@@ -165,7 +169,8 @@ function onAction(action: FormsAction): void {
                 guard.guard(() => load(props.users[index.value + 1].id));
             break;
         case 'clear':
-            load(currentId.value);
+            // Oracle Forms' Clear prompts Save/Discard/Cancel before dropping edits.
+            guard.guard(() => load(currentId.value));
             break;
         case 'print':
             window.print();

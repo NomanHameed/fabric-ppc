@@ -12,6 +12,7 @@ import { useQueryMode } from '@/composables/useQueryMode';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
+import { useFlashSelect } from '@/lib/flashSelect';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 import type { MasterField, MasterMeta, MasterRow } from '@/types/masters';
@@ -65,15 +66,18 @@ watch(
     (d) => statusLine.setDirty(d),
     { immediate: true },
 );
-watch(
-    () => props.rows,
-    () =>
-        load(
-            props.rows.find((r) => r.id === currentId.value)?.id ??
-                props.rows[0]?.id ??
-                null,
-        ),
-);
+const flashSelect = useFlashSelect();
+watch([() => props.rows, flashSelect.pending], () => {
+    // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
+    const wanted =
+        flashSelect.take((id) => props.rows.some((r) => r.id === id)) ??
+        currentId.value;
+    load(
+        props.rows.find((r) => r.id === wanted)?.id ??
+            props.rows[0]?.id ??
+            null,
+    );
+});
 
 const columns = computed<ColumnDef<MasterRow>[]>(() =>
     props.resource.fields
@@ -181,7 +185,8 @@ function onAction(action: FormsAction): void {
             if (query.mode.value === 'enterQuery') {
                 query.cancelQuery();
             } else {
-                load(currentId.value);
+                // Oracle Forms' Clear prompts Save/Discard/Cancel before dropping edits.
+                guard.guard(() => load(currentId.value));
             }
             break;
         case 'print':

@@ -21,6 +21,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { useAppearance } from '@/composables/useAppearance';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
+import { t } from '@/lib/i18n';
 import { confirm } from '@/routes/two-factor';
 import type { TwoFactorConfigContent } from '@/types';
 
@@ -46,26 +47,24 @@ const pinInputContainerRef = useTemplateRef('pinInputContainerRef');
 const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (props.twoFactorEnabled) {
         return {
-            title: 'Two-factor authentication enabled',
-            description:
-                'Two-factor authentication is now enabled. Scan the QR code or enter the setup key in your authenticator app.',
-            buttonText: 'Close',
+            title: t('settings.two_factor.modal.enabled_title'),
+            description: t('settings.two_factor.modal.enabled_description'),
+            buttonText: t('settings.two_factor.modal.close'),
         };
     }
 
     if (showVerificationStep.value) {
         return {
-            title: 'Verify authentication code',
-            description: 'Enter the 6-digit code from your authenticator app',
-            buttonText: 'Continue',
+            title: t('settings.two_factor.modal.verify_title'),
+            description: t('settings.two_factor.modal.verify_description'),
+            buttonText: t('settings.two_factor.modal.continue'),
         };
     }
 
     return {
-        title: 'Enable two-factor authentication',
-        description:
-            'To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app',
-        buttonText: 'Continue',
+        title: t('settings.two_factor.modal.setup_title'),
+        description: t('settings.two_factor.modal.setup_description'),
+        buttonText: t('settings.two_factor.modal.continue'),
     };
 });
 
@@ -196,9 +195,9 @@ watch(
                             <div
                                 class="bg-border absolute inset-0 top-1/2 h-px w-full"
                             />
-                            <span class="bg-card relative px-2 py-1"
-                                >or, enter the code manually</span
-                            >
+                            <span class="bg-card relative px-2 py-1">{{
+                                t('settings.two_factor.modal.manual')
+                            }}</span>
                         </div>
 
                         <div
@@ -279,14 +278,14 @@ watch(
                                     @click="showVerificationStep = false"
                                     :disabled="processing"
                                 >
-                                    Back
+                                    {{ t('settings.two_factor.modal.back') }}
                                 </Button>
                                 <Button
                                     type="submit"
                                     class="w-auto flex-1"
                                     :disabled="processing || code.length < 6"
                                 >
-                                    Confirm
+                                    {{ t('settings.two_factor.modal.confirm') }}
                                 </Button>
                             </div>
                         </div>

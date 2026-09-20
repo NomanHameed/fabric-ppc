@@ -46,9 +46,10 @@ class PartyController extends Controller
     public function store(Request $request): RedirectResponse
     {
         abort_unless($request->user()->can('masters.manage'), 403);
-        $this->save(new Party, $this->validated($request, null));
+        $party = $this->save(new Party, $this->validated($request, null));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('forms.saved')]);
+        Inertia::flash('selectedId', $party->id);
 
         return back();
     }
@@ -114,9 +115,9 @@ class PartyController extends Controller
         return $data;
     }
 
-    private function save(Party $party, array $data): void
+    private function save(Party $party, array $data): Party
     {
-        DB::transaction(function () use ($party, $data) {
+        return DB::transaction(function () use ($party, $data) {
             $party->fill(collect($data)->except('aliases')->all())->save();
             $keep = collect($data['aliases'])->map(fn ($a) => PartyName::normalize($a))->all();
             // Delete per model so owen-it records a `deleted` audit per alias (M-8).
@@ -124,6 +125,8 @@ class PartyController extends Controller
             foreach ($data['aliases'] as $alias) {
                 $party->aliases()->updateOrCreate(['alias_normalized' => PartyName::normalize($alias)], ['alias' => $alias]);
             }
+
+            return $party;
         });
     }
 }

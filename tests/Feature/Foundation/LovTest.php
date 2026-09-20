@@ -65,6 +65,13 @@ it('finds parties by alias', function () {
     expect($res->json('data.0.label'))->toBe('MARIA-B');
 });
 
+it('searches parties on the normalised name (M-12)', function () {
+    $res = $this->actingAs($this->user)->getJson('/lov/parties?q=maria - b')->assertOk();
+    expect(collect($res->json('data'))->pluck('label')->all())->toContain('MARIA-B');
+    $res = $this->actingAs($this->user)->getJson('/lov/parties?q=maria-b')->assertOk();
+    expect(collect($res->json('data'))->pluck('label')->all())->toContain('MARIA-B');
+});
+
 it('requires list_key for lookups and returns 404 for unknown lovs', function () {
     $this->actingAs($this->user)->getJson('/lov/lookup')
         ->assertUnprocessable()

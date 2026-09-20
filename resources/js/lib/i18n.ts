@@ -58,10 +58,15 @@ export function useI18n() {
     };
 }
 
+/**
+ * Fetches a locale's dictionary and installs it, unless `apply()` says the result is no longer
+ * wanted by the time it arrives (a later switch superseded this one).
+ */
 export async function loadLocale(
     locale: string,
     dir: Dir,
     version: string,
+    apply: () => boolean = () => true,
 ): Promise<void> {
     const res = await fetch(`/i18n/${locale}.json?v=${version}`, {
         headers: { Accept: 'application/json' },
@@ -69,11 +74,16 @@ export async function loadLocale(
     if (!res.ok) {
         throw new Error(`Failed to load translations for ${locale}`);
     }
-    setTranslations(locale, dir, (await res.json()) as Dict, version);
+    const dict = (await res.json()) as Dict;
+    if (apply()) {
+        setTranslations(locale, dir, dict, version);
+    }
 }
 
 type LocaleProps = { locale?: string; dir?: Dir; i18nVersion?: string };
 let inFlight: { key: string; promise: Promise<void> } | null = null;
+/** The most recently requested `locale|version`; a response for anything else is discarded. */
+let latestKey: string | null = null;
 
 /** Load the page's locale if it differs from the loaded dictionary (locale or translation version). */
 export function syncLocale(props: LocaleProps): Promise<void> {
@@ -89,7 +99,13 @@ export function syncLocale(props: LocaleProps): Promise<void> {
     if (inFlight?.key === key) {
         return inFlight.promise;
     }
-    const promise = loadLocale(locale, props.dir ?? 'ltr', version)
+    latestKey = key;
+    const promise = loadLocale(
+        locale,
+        props.dir ?? 'ltr',
+        version,
+        () => latestKey === key,
+    )
         .catch(() => undefined) // keep the current dictionary; the next navigation retries
         .finally(() => {
             if (inFlight?.key === key) {

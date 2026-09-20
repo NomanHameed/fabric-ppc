@@ -4,14 +4,20 @@ use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Modules\Foundation\Http\Middleware\EnsureUserIsActive;
 use App\Modules\Foundation\Http\Middleware\SetLocale;
+use App\Modules\Foundation\Support\ErrorReference;
 use App\Modules\OracleSync\Console\ImportOracleFile;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -40,4 +46,26 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $isExpected = fn (Throwable $e): bool => $e instanceof HttpExceptionInterface
+            || $e instanceof ValidationException
+            || $e instanceof AuthenticationException;
+
+        // Every unexpected error gets a reference id the user can quote; the same id is in the log line (spec §9).
+        $exceptions->report(function (Throwable $e) use ($isExpected) {
+            if ($isExpected($e)) {
+                return;
+            }
+            Log::error($e->getMessage(), ['ref' => ErrorReference::for($e), 'exception' => $e]);
+
+            return false;
+        });
+        $exceptions->render(function (Throwable $e, Request $request) use ($isExpected) {
+            if (config('app.debug') || $isExpected($e) || $request->expectsJson() || ! $request->header('X-Inertia')) {
+                return null;
+            }
+
+            return Inertia::render('Error', ['status' => 500, 'reference' => ErrorReference::for($e)])
+                ->toResponse($request)->setStatusCode(500);
+        });
     })->create();

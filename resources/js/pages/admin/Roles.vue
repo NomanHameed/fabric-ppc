@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { computed, reactive } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
-import { Button } from '@/components/ui/button';
+import FormsToolbar from '@/components/forms/FormsToolbar.vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
+import type { FormsAction } from '@/forms/keymap';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 
@@ -115,12 +116,46 @@ async function save(): Promise<boolean> {
 }
 
 const guard = useUnsavedGuard(isDirty, save);
+watch(isDirty, (d) => statusLine.setDirty(d), { immediate: true });
+
+function onAction(action: FormsAction): void {
+    switch (action) {
+        case 'save':
+            void save();
+            break;
+        case 'clear':
+            // Oracle Forms' Clear: drop the edits back to what was last saved, after the Save/Discard/Cancel prompt.
+            guard.guard(() => {
+                for (const r of props.roles) {
+                    Object.assign(state[r.name], checkedSet(r));
+                }
+            });
+            break;
+        case 'print':
+            window.print();
+            break;
+        case 'exit':
+            router.visit('/dashboard');
+            break;
+    }
+}
 </script>
 
 <template>
     <Head :title="t('admin.roles')" />
     <div class="flex flex-col gap-3 p-4">
         <h1 class="text-lg font-semibold">{{ t('admin.roles') }}</h1>
+        <FormsToolbar
+            :disabled="{
+                newRecord: true,
+                deleteRecord: true,
+                enterQuery: true,
+                executeQuery: true,
+                previousRecord: true,
+                nextRecord: true,
+            }"
+            @action="onAction"
+        />
         <div class="bg-card overflow-x-auto rounded-md border">
             <table class="w-full border-collapse text-sm">
                 <thead>
@@ -170,27 +205,6 @@ const guard = useUnsavedGuard(isDirty, save);
                         </tr>
                     </template>
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="p-2"></td>
-                        <td
-                            v-for="role in roles"
-                            :key="role.name"
-                            class="p-2 text-center"
-                        >
-                            <Button
-                                size="sm"
-                                :disabled="
-                                    role.name === 'admin' ||
-                                    !isRoleDirty(role.name)
-                                "
-                                @click="saveRole(role.name)"
-                            >
-                                {{ t('forms.actions.save') }}
-                            </Button>
-                        </td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
         <ConfirmSaveDialog

@@ -3,7 +3,6 @@
 namespace App\Modules\Foundation\Lov;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Foundation\Support\PartyName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,12 +26,15 @@ class LovController extends Controller
                 $query->whereRaw('LOWER('.$def->exactColumn().') = ?', [mb_strtolower($exact)]);
             }
         } elseif (($search = trim((string) $request->query('q'))) !== '') {
-            $needle = $name === 'parties' ? PartyName::normalize($search) : $search;
-            $query->where(function ($q) use ($def, $needle) {
-                foreach ($def->searchColumns() as $column) {
-                    $q->orWhereRaw("LOWER({$column}) LIKE ?", ['%'.mb_strtolower($needle).'%']);
-                }
-            });
+            if (method_exists($def, 'applySearch')) {
+                $def->applySearch($query, $search);
+            } else {
+                $query->where(function ($q) use ($def, $search) {
+                    foreach ($def->searchColumns() as $column) {
+                        $q->orWhereRaw("LOWER({$column}) LIKE ?", ['%'.mb_strtolower($search).'%']);
+                    }
+                });
+            }
         }
 
         $rows = $query->orderBy($def->exactColumn())->limit(50)->get()->map(fn ($m) => $def->row($m))->values();

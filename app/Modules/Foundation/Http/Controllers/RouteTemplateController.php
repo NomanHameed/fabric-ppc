@@ -49,9 +49,10 @@ class RouteTemplateController extends Controller
     public function store(Request $request): RedirectResponse
     {
         abort_unless($request->user()->can('masters.manage'), 403);
-        $this->save(new RouteTemplate, $this->validated($request, null));
+        $template = $this->save(new RouteTemplate, $this->validated($request, null));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('forms.saved')]);
+        Inertia::flash('selectedId', $template->id);
 
         return back();
     }
@@ -96,15 +97,17 @@ class RouteTemplateController extends Controller
         ]);
     }
 
-    private function save(RouteTemplate $template, array $data): void
+    private function save(RouteTemplate $template, array $data): RouteTemplate
     {
-        DB::transaction(function () use ($template, $data) {
+        return DB::transaction(function () use ($template, $data) {
             $template->fill(collect($data)->except('steps')->all())->save();
             // Delete per model so owen-it records a `deleted` audit per step (M-8).
             $template->steps()->get()->each->delete();
             foreach (array_values($data['steps']) as $i => $step) {
                 $template->steps()->create(['seq' => ($i + 1) * 10, 'operation_id' => $step['operation_id']]);
             }
+
+            return $template;
         });
     }
 }

@@ -6,6 +6,7 @@ use App\Modules\Foundation\Models\Setting;
 use Database\Seeders\FoundationSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Support\SessionKey;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -25,7 +26,7 @@ it('creates a department in-charge limited to departments', function () {
     $this->actingAs($this->admin)->post('/admin/users', [
         'name' => 'Stenter Incharge', 'email' => 'stenter@fabric.local', 'password' => 'secret-pass-1',
         'is_active' => true, 'locale' => 'ur', 'roles' => ['dept_incharge'], 'department_ids' => [$dept->id],
-    ])->assertRedirect();
+    ])->assertRedirect()->assertSessionHas(SessionKey::FLASH_DATA, fn ($flash) => $flash['selectedId'] === User::where('email', 'stenter@fabric.local')->value('id'));
     $u = User::where('email', 'stenter@fabric.local')->firstOrFail();
     expect($u->hasRole('dept_incharge'))->toBeTrue()
         ->and($u->departments->pluck('id')->all())->toBe([$dept->id])

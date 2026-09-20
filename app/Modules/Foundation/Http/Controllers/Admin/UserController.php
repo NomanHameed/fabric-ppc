@@ -36,16 +36,19 @@ class UserController extends Controller
             ! $request->user()->hasRole(Permissions::ROLE_ADMIN) && in_array(Permissions::ROLE_ADMIN, $data['roles'], true),
             403
         );
-        DB::transaction(function () use ($data) {
+        $user = DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'], 'email' => $data['email'], 'password' => $data['password'],
                 'is_active' => $data['is_active'] ?? true, 'locale' => $data['locale'], 'email_verified_at' => now(),
             ]);
             $user->syncRoles($data['roles']);
             $user->departments()->sync($data['department_ids'] ?? []);
+
+            return $user;
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('forms.saved')]);
+        Inertia::flash('selectedId', $user->id);
 
         return back();
     }

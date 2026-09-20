@@ -6,6 +6,7 @@ use App\Modules\Foundation\Models\RouteTemplate;
 use Database\Seeders\FoundationSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\RouteTemplateSeeder;
+use Inertia\Support\SessionKey;
 
 beforeEach(function () {
     $this->seed([RolesAndPermissionsSeeder::class, FoundationSeeder::class, RouteTemplateSeeder::class]);
@@ -23,7 +24,7 @@ it('saves a template with renumbered steps', function () {
     $this->actingAs($this->ppc)->post('/masters/route-templates', [
         'name' => 'Quick', 'po_type' => 'PFD', 'quality_pattern' => null, 'priority' => 5, 'is_active' => true,
         'steps' => [['operation_id' => $ops['SINGING']], ['operation_id' => $ops['DRY']], ['operation_id' => $ops['SANFORIZE']]],
-    ])->assertRedirect();
+    ])->assertRedirect()->assertSessionHas(SessionKey::FLASH_DATA, fn ($flash) => $flash['selectedId'] === RouteTemplate::where('name', 'Quick')->value('id'));
     $tpl = RouteTemplate::where('name', 'Quick')->firstOrFail();
     expect($tpl->steps->pluck('seq')->all())->toBe([10, 20, 30])
         ->and($tpl->steps->pluck('operation_id')->all())->toBe([$ops['SINGING'], $ops['DRY'], $ops['SANFORIZE']]);
