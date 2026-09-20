@@ -22,6 +22,7 @@ use App\Modules\Foundation\Masters\Resources\ShiftResource;
 use App\Modules\OracleSync\Services\PartyResolver;
 use App\Modules\Production\Lov\ContractLov;
 use App\Modules\Production\Lov\LotLov;
+use App\Modules\Production\Services\LedgerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(LovRegistry::class);
         $this->app->singleton(MasterRegistry::class);
         $this->app->scoped(PartyResolver::class);
+        $this->app->singleton(LedgerService::class);
     }
 
     /**
