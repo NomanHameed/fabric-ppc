@@ -48,3 +48,42 @@ export type IssueRow = {
     user: string | null;
     remarks: string | null;
 };
+
+export type RouteStepStatus = 'pending' | 'partial' | 'done' | 'skipped';
+
+/** One step of a lot's route as the Lot Route screen receives it (LotRouteController::index). */
+export type RouteStep = {
+    id: number | null;
+    seq: number;
+    operation_id: number | null;
+    operation: string;
+    department: string;
+    status: RouteStepStatus;
+    is_added: boolean;
+    /** Metres that completed this step and wait after it (the STEP:<id> balance). */
+    at_position: number;
+    /** Production or metres waiting: the service refuses to remove, move, skip or re-operate it. */
+    locked: boolean;
+};
+
+/** A route step as the editor's grid holds it: the skip flag is the edit, `status` stays as loaded. */
+export type RouteStepRow = RouteStep & { skipped: boolean };
+
+/** The lot header of the Lot Route screen (LotRouteController::index). */
+export type RouteLot = {
+    id: number;
+    lot_no: string;
+    po_no: number;
+    party: string;
+    contract_id: number;
+    quality: string | null;
+    design: string | null;
+    colour: string | null;
+    po_type: string | null;
+    state: LotState;
+    current_label: string | null;
+    stock_qty: number;
+    issued: number;
+    wip_qty: number;
+    finished_qty: number;
+};

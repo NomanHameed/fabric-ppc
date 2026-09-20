@@ -8,6 +8,7 @@ return [
         'oracle_import' => 'اوریکل امپورٹ',
         'production' => 'پروڈکشن',
         'issue' => 'فلور کو اجرا',
+        'lot_routes' => 'لاٹ روٹس',
         'masters' => 'ماسٹرز',
         'departments' => 'شعبے',
         'machines' => 'مشینیں',

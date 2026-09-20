@@ -22,6 +22,7 @@ use App\Modules\Foundation\Masters\Resources\ShiftResource;
 use App\Modules\OracleSync\Services\PartyResolver;
 use App\Modules\Production\Lov\ContractLov;
 use App\Modules\Production\Lov\LotLov;
+use App\Modules\Production\Lov\RouteTemplateLov;
 use App\Modules\Production\Services\LedgerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -64,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
             ShiftLov::class,
             LotLov::class,
             ContractLov::class,
+            RouteTemplateLov::class,
         ] as $class) {
             $lovs->register(new $class);
         }

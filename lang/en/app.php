@@ -9,6 +9,7 @@ return [
         'oracle_import' => 'Oracle Import',
         'production' => 'Production',
         'issue' => 'Issue to Floor',
+        'lot_routes' => 'Lot Routes',
         'masters' => 'Masters',
         'departments' => 'Departments',
         'machines' => 'Machines',

@@ -63,6 +63,13 @@ export const NAVIGATION: NavGroup[] = [
                 icon: PackageOpen,
                 permission: 'production.issue',
             },
+            {
+                key: 'lot_routes',
+                titleKey: 'app.nav.lot_routes',
+                href: '/production/routes',
+                icon: Route,
+                permission: 'production.route.manage',
+            },
         ],
     },
     {
