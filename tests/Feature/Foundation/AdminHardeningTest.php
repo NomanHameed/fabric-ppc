@@ -2,6 +2,10 @@
 
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Laravel\Passkeys\Passkey;
+use Laravel\Passkeys\Passkeys;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -31,7 +35,7 @@ it('still stops an admin dropping their own admin role (M-2)', function () {
     ])->assertSessionHasErrors('roles');
 });
 
-it('refuses admin.* permissions from a non-admin roles manager (M-3)', function () {
+it('refuses new admin.* permissions from a non-admin roles manager (M-3)', function () {
     $manager = User::factory()->create()->assignRole('ppc');
     $manager->givePermissionTo('admin.roles.manage');
     $this->actingAs($manager)->put('/admin/roles/viewer', ['permissions' => ['inquiry.view', 'admin.users.manage']])
@@ -41,6 +45,42 @@ it('refuses admin.* permissions from a non-admin roles manager (M-3)', function 
     $this->actingAs($this->admin)->put('/admin/roles/viewer', ['permissions' => ['inquiry.view', 'admin.users.manage']])
         ->assertSessionHasNoErrors();
     expect(Role::findByName('viewer')->hasPermissionTo('admin.users.manage'))->toBeTrue();
+});
+
+it('lets a non-admin roles manager keep or drop an existing admin.* permission but not add one (M-3)', function () {
+    Role::findByName('viewer')->syncPermissions(['inquiry.view', 'admin.settings.manage']);
+    $manager = User::factory()->create()->assignRole('ppc');
+    $manager->givePermissionTo('admin.roles.manage');
+
+    $this->actingAs($manager)->put('/admin/roles/viewer', ['permissions' => ['inquiry.view', 'admin.settings.manage', 'audit.view']])
+        ->assertSessionHasNoErrors()->assertRedirect();
+    expect(Role::findByName('viewer')->permissions->pluck('name')->sort()->values()->all())
+        ->toBe(['admin.settings.manage', 'audit.view', 'inquiry.view']);
+
+    $this->actingAs($manager)->put('/admin/roles/viewer', ['permissions' => ['inquiry.view', 'admin.settings.manage', 'admin.users.manage']])
+        ->assertSessionHasErrors('permissions');
+    expect(Role::findByName('viewer')->hasPermissionTo('admin.users.manage'))->toBeFalse();
+
+    $this->actingAs($manager)->put('/admin/roles/viewer', ['permissions' => ['inquiry.view']])
+        ->assertSessionHasNoErrors()->assertRedirect();
+    expect(Role::findByName('viewer')->permissions->pluck('name')->all())->toBe(['inquiry.view']);
+});
+
+it('lets a non-admin roles manager save non-admin permissions (M-3)', function () {
+    $manager = User::factory()->create()->assignRole('ppc');
+    $manager->givePermissionTo('admin.roles.manage');
+    $this->actingAs($manager)->put('/admin/roles/viewer', ['permissions' => ['inquiry.view', 'audit.view']])
+        ->assertSessionHasNoErrors()->assertRedirect();
+    expect(Role::findByName('viewer')->permissions->pluck('name')->sort()->values()->all())->toBe(['audit.view', 'inquiry.view']);
+});
+
+it('stops a non-admin user manager deactivating themselves (M-2)', function () {
+    $manager = User::factory()->create(['locale' => 'en'])->assignRole('ppc');
+    $manager->givePermissionTo('admin.users.manage');
+    $this->actingAs($manager)->put("/admin/users/{$manager->id}", [
+        'name' => $manager->name, 'email' => $manager->email, 'is_active' => false, 'locale' => 'en', 'roles' => ['ppc'],
+    ])->assertSessionHasErrors(['is_active' => __('admin.cannot_deactivate_self')]);
+    expect($manager->fresh()->is_active)->toBeTrue();
 });
 
 it('blocks an inactive user at login (M-4)', function () {
@@ -56,9 +96,27 @@ it('still logs an active user in with the right password (M-4)', function () {
     $this->assertAuthenticatedAs($user);
 });
 
+it('blocks an inactive user at passkey login (M-4)', function () {
+    $passkey = (new Passkey)->setRelation('user', User::factory()->create(['is_active' => false]));
+    try {
+        Passkeys::allowsLogin(Request::create('/passkeys/login', 'POST'), $passkey);
+        $this->fail('Expected the passkey authorization callback to reject an inactive user.');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toBe(['credential' => [__('auth.inactive')]]);
+    }
+});
+
+it('still allows an active user through passkey login (M-4)', function () {
+    $passkey = (new Passkey)->setRelation('user', User::factory()->create());
+    expect(Passkeys::allowsLogin(Request::create('/passkeys/login', 'POST'), $passkey))->toBeTrue();
+});
+
 it('does not expose email addresses through the users LOV (M-10)', function () {
     $user = User::factory()->create(['name' => 'Zed Example', 'email' => 'zed@example.com']);
     $res = $this->actingAs($this->admin)->getJson('/lov/users?q=zed')->assertOk()->json();
     expect(json_encode($res))->not->toContain('zed@example.com')
         ->and(collect($res['data'])->firstWhere('id', $user->id)['label'])->toBe('Zed Example');
+
+    expect($this->actingAs($this->admin)->getJson('/lov/users?q=example.com')->assertOk()->json('data'))->toBe([])
+        ->and($this->actingAs($this->admin)->getJson('/lov/users?exact=zed@example.com')->assertOk()->json('data'))->toBe([]);
 });

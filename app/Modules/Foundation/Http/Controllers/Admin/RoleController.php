@@ -32,8 +32,9 @@ class RoleController extends Controller
             'permissions' => ['array'],
             'permissions.*' => [Rule::in(Permissions::ALL)],
         ]);
-        $adminPerms = array_values(array_filter($data['permissions'] ?? [], fn (string $p) => str_starts_with($p, 'admin.')));
-        if ($adminPerms !== [] && ! $request->user()->hasRole(Permissions::ROLE_ADMIN)) {
+        $submittedAdmin = array_filter($data['permissions'] ?? [], fn (string $p) => str_starts_with($p, 'admin.'));
+        $newAdminPerms = array_diff($submittedAdmin, $model->permissions->pluck('name')->all());
+        if ($newAdminPerms !== [] && ! $request->user()->hasRole(Permissions::ROLE_ADMIN)) {
             throw ValidationException::withMessages(['permissions' => __('admin.admin_permissions_admin_only')]);
         }
         $model->syncPermissions($data['permissions'] ?? []);

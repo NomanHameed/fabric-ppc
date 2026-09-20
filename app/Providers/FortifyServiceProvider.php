@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Contracts\PasskeyUser;
+use Laravel\Passkeys\Passkeys;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -55,6 +57,14 @@ class FortifyServiceProvider extends ServiceProvider
             }
 
             return $user;
+        });
+
+        Passkeys::authorizeLoginUsing(function (Request $request, PasskeyUser $user): bool {
+            if ($user instanceof User && ! $user->is_active) {
+                throw ValidationException::withMessages(['credential' => __('auth.inactive')]);
+            }
+
+            return true;
         });
     }
 
