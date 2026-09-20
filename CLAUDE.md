@@ -11,6 +11,7 @@ Current plan: `docs/superpowers/plans/2026-09-19-p1-foundation-oracle-sync.md`
 ```bash
 docker compose up -d              # MySQL 8.4 (host port 33306) + Redis 7 (host port 63790)
 cp .env.example .env              # check DB_PORT matches your Docker/local MySQL before trusting it
+                                  # Redis must be up before migrate/seed/serve (cache, session, queue are Redis); `docker compose up -d redis` if DB is local
 php artisan key:generate
 php artisan migrate:fresh --seed  # first setup only (wipes data); admin login: see ADMIN_EMAIL/ADMIN_PASSWORD in .env.example
 php artisan migrate               # after pulling new code: applies new tables, keeps data
