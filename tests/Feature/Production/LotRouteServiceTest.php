@@ -5,10 +5,12 @@ use App\Modules\Foundation\Models\RouteTemplate;
 use App\Modules\Foundation\Models\Setting;
 use App\Modules\Production\Ledger\Position;
 use App\Modules\Production\Models\Lot;
+use App\Modules\Production\Models\LotRouteStep;
 use App\Modules\Production\Services\LedgerService;
 use App\Modules\Production\Services\LotRouteService;
 use Database\Seeders\FoundationSeeder;
 use Database\Seeders\RouteTemplateSeeder;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->seed([FoundationSeeder::class, RouteTemplateSeeder::class]);
@@ -125,7 +127,7 @@ it('refuses a skip that would move the positions of a step with progress', funct
     $this->routes->refreshStatuses($lot);
     expect($s4->fresh()->status)->toBe('done');
     // skipping the last step would make s4's target FINISHED while its metres sit at STEP:s4
-    expect(fn () => $this->routes->setSkipped($s5, true))->toThrow(DomainException::class)
+    expect(fn () => $this->routes->setSkipped($s5, true))->toThrow(DomainException::class, __('production.errors.route_step_position_locked'))
         ->and($s5->fresh()->status)->toBe('pending');
 });
 
@@ -140,11 +142,11 @@ it('replaces the route keeping steps with progress in order and flags added step
     $extra = Operation::factory()->create();
 
     expect(fn () => $this->routes->replace($lot, [['id' => $steps[1]->id, 'operation_id' => $steps[1]->operation_id]]))
-        ->toThrow(DomainException::class); // drops the done step
+        ->toThrow(DomainException::class, __('production.errors.route_step_in_progress')); // drops the done step
     expect(fn () => $this->routes->replace($lot, [
         ['id' => null, 'operation_id' => $extra->id],
         ['id' => $steps[0]->id, 'operation_id' => $steps[0]->operation_id],
-    ]))->toThrow(DomainException::class); // the done step would now take from STEP:<extra> instead of ISSUED
+    ]))->toThrow(DomainException::class, __('production.errors.route_step_position_locked')); // the done step would now take from STEP:<extra> instead of ISSUED
     $this->routes->replace($lot, [
         ['id' => $steps[0]->id, 'operation_id' => $steps[0]->operation_id],
         ['id' => null, 'operation_id' => $extra->id],
@@ -171,6 +173,70 @@ it('refuses to reorder steps that already have production', function () {
         ['id' => $steps[0]->id, 'operation_id' => $steps[0]->operation_id],
         ['id' => $steps[2]->id, 'operation_id' => $steps[2]->operation_id],
     ]))->toThrow(DomainException::class, __('production.errors.route_step_order'));
+});
+
+it('keeps is_added on a re-edit that omits it', function () {
+    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $this->routes->assign($lot);
+    $steps = $lot->routeSteps;
+    $extra = Operation::factory()->create();
+    $this->routes->replace($lot, [
+        ['id' => $steps[0]->id, 'operation_id' => $steps[0]->operation_id],
+        ['id' => null, 'operation_id' => $extra->id],
+        ['id' => $steps[1]->id, 'operation_id' => $steps[1]->operation_id],
+    ]);
+    $added = $lot->routeSteps()->get()[1];
+    expect($added->is_added)->toBeTrue();
+    // a later edit that neither sends is_added nor sends is_added => false for a template step rewrites nothing
+    $this->routes->replace($lot, [
+        ['id' => $steps[1]->id, 'operation_id' => $steps[1]->operation_id],
+        ['id' => $added->id, 'operation_id' => $extra->id],
+        ['id' => $steps[0]->id, 'operation_id' => $steps[0]->operation_id, 'is_added' => true],
+    ]);
+    $now = $lot->routeSteps()->get();
+    expect($now->pluck('id')->all())->toBe([$steps[1]->id, $added->id, $steps[0]->id])
+        ->and($now->pluck('seq')->all())->toBe([10, 20, 30])
+        ->and($now->pluck('is_added')->all())->toBe([false, true, false]);
+});
+
+it('changes the operation of a pending step but never of one with production', function () {
+    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $this->routes->assign($lot);
+    $steps = $lot->routeSteps;
+    $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
+    $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    $this->ledger->post($lot, 'process', Position::issued(), Position::step($steps[0]->id), 100, 100);
+    $this->routes->refreshStatuses($lot);
+    $other = Operation::factory()->create();
+    $payload = fn (int $doneOp, int $pendingOp) => [
+        ['id' => $steps[0]->id, 'operation_id' => $doneOp],
+        ['id' => $steps[1]->id, 'operation_id' => $pendingOp],
+        ['id' => $steps[2]->id, 'operation_id' => $steps[2]->operation_id],
+    ];
+    expect(fn () => $this->routes->replace($lot, $payload($other->id, $steps[1]->operation_id)))
+        ->toThrow(DomainException::class, __('production.errors.route_step_in_progress'))
+        ->and($steps[0]->fresh()->operation_id)->toBe($steps[0]->operation_id);
+    $this->routes->replace($lot, $payload($steps[0]->operation_id, $other->id));
+    $now = $lot->routeSteps()->get();
+    expect($now->pluck('id')->all())->toBe([$steps[0]->id, $steps[1]->id, $steps[2]->id])
+        ->and($now[0]->operation_id)->toBe($steps[0]->operation_id)->and($now[0]->status)->toBe('done')
+        ->and($now[1]->operation_id)->toBe($other->id)->and($now[1]->is_added)->toBeFalse();
+});
+
+it('parks kept steps on small temporary seqs whatever their ids', function () {
+    if (DB::getDriverName() !== 'mysql') {
+        $this->markTestSkipped('Needs MySQL strict mode: SQLite does not range-check an unsigned smallint.');
+    }
+    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $this->routes->assign($lot);
+    $steps = $lot->routeSteps;
+    LotRouteStep::whereKey($steps[0]->id)->update(['id' => 60000]); // 10000 + id would overflow seq
+    $this->routes->replace($lot, [
+        ['id' => 60000, 'operation_id' => $steps[0]->operation_id],
+        ['id' => $steps[1]->id, 'operation_id' => $steps[1]->operation_id],
+    ]);
+    expect($lot->routeSteps()->pluck('seq')->all())->toBe([10, 20])
+        ->and($lot->routeSteps()->pluck('id')->all())->toBe([60000, $steps[1]->id]);
 });
 
 it('applies a template to a PO, skipping lots with progress', function () {

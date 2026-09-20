@@ -28,7 +28,7 @@ class BackfillLedger extends Command
         }
         $user = $userId === null ? null : User::query()->whereKey($userId)->first();
         if ($user === null) {
-            $this->error(__('oracle.errors.no_cli_user'));
+            $this->error(__('production.errors.no_cli_user'));
 
             return self::FAILURE;
         }

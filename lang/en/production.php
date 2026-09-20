@@ -19,7 +19,9 @@ return [
         'already_reversed' => 'Movement #:id has already been reversed.',
         'cannot_reverse_reversal' => 'Movement #:id is itself a reversal and cannot be reversed; post the original movement again instead.',
         'route_in_progress' => 'This lot already has production on its route; edit the steps instead of re-assigning.',
-        'route_step_in_progress' => 'A route step with production or metres waiting cannot be removed, moved or skipped.',
+        'route_step_in_progress' => 'A route step with production or metres waiting cannot be removed, moved, skipped or given another operation.',
         'route_step_order' => 'Steps that already have production must keep their order.',
+        'route_step_position_locked' => 'Adding or skipping a step here would move metres already at a completed step; add a reprocess line instead.',
+        'no_cli_user' => 'No user found to record as uploader. Create an admin user or pass --user=<id>.',
     ],
 ];

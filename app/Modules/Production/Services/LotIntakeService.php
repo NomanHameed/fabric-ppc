@@ -22,11 +22,15 @@ final class LotIntakeService
      * A lot with no greige yet gets its route but no movement (the ledger refuses a zero-quantity movement); the
      * movement is posted once a later export brings the quantity, via adjustGreige().
      *
+     * The lot row is locked first, so two callers receiving the same lot at once (an import commit and the
+     * backfill command, say) run one after the other and the second one sees the first one's movement.
+     *
      * @return LotMovement|null the import movement posted, or null when nothing was posted
      */
     public function receive(Lot $lot, ?int $userId, ?Model $source = null): ?LotMovement
     {
         return DB::transaction(function () use ($lot, $userId, $source): ?LotMovement {
+            Lot::query()->whereKey($lot->getKey())->lockForUpdate()->first();
             $this->routes->assign($lot);
             if ((float) $lot->greige_qty <= 0 || $this->received($lot)) {
                 return null;
@@ -64,8 +68,9 @@ final class LotIntakeService
         });
     }
 
+    /** A locking read: it feeds a write, and a plain read would return the transaction's snapshot (see LedgerService). */
     private function received(Lot $lot): bool
     {
-        return $lot->movements()->where('kind', 'import')->exists();
+        return $lot->movements()->where('kind', 'import')->lockForUpdate()->exists();
     }
 }

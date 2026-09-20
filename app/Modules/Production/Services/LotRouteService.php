@@ -34,7 +34,7 @@ final class LotRouteService
     public function assign(Lot $lot, ?RouteTemplate $template = null, bool $replace = false): int
     {
         return DB::transaction(function () use ($lot, $template, $replace): int {
-            $current = $lot->routeSteps()->get();
+            $current = $lot->routeSteps()->lockForUpdate()->get(); // a locking read: it decides whether steps are inserted
             if (! $replace && $current->isNotEmpty()) {
                 return 0;
             }
@@ -60,11 +60,13 @@ final class LotRouteService
     }
 
     /**
-     * Replace the route with $steps = [['id' => existing id|null, 'operation_id' => int, 'is_added' => bool], ...] in order.
-     * Steps with progress (done/partial, or metres waiting at their position) must be kept, in the same relative order,
-     * and the edit may not move the positions they take from or land at (metres already sitting at STEP:<id> would be
-     * orphaned). Removed steps are deleted with deleteOrFail(): a step referenced by a production line fails with an
-     * FK violation that the controller maps to forms.in_use.
+     * Replace the route with $steps = [['id' => existing id|null, 'operation_id' => int], ...] in order.
+     * Steps with progress (done/partial, or metres waiting at their position) must be kept, in the same relative
+     * order and with the same operation, and the edit may not move the positions they take from or land at (metres
+     * already sitting at STEP:<id> would be orphaned). A kept step keeps its identity: only its seq changes, and its
+     * operation only while it has no progress; is_added is never rewritten (a step not from the template is always
+     * added, whatever the payload says). Removed steps are deleted with deleteOrFail(): a step referenced by a
+     * production line fails with an FK violation that the controller maps to forms.in_use.
      *
      * @param  list<array{id?: int|null, operation_id: int, is_added?: bool}>  $steps
      */
@@ -80,6 +82,11 @@ final class LotRouteService
             if (array_values(array_intersect($keptIds, $locked)) !== $locked) {
                 throw new DomainException(__('production.errors.route_step_order'));
             }
+            foreach ($steps as $s) {
+                if (! empty($s['id']) && in_array($s['id'], $locked, true) && $existing[$s['id']]->operation_id !== (int) $s['operation_id']) {
+                    throw new DomainException(__('production.errors.route_step_in_progress'));
+                }
+            }
             $before = $this->positionsOf($existing, $locked);
 
             foreach ($existing as $id => $step) {
@@ -88,22 +95,28 @@ final class LotRouteService
                 }
             }
             // Two passes: park the kept rows on temporary seqs first, so the unique (lot_id, seq) index never collides.
-            foreach ($existing->only($keptIds) as $step) {
-                $step->update(['seq' => 10000 + $step->id]);
+            // The parking seq is a running index, not the id: seq is an unsigned smallint.
+            foreach ($existing->only($keptIds)->values() as $k => $step) {
+                $step->update(['seq' => 10000 + $k]);
             }
             foreach ($steps as $i => $s) {
-                $attrs = ['seq' => ($i + 1) * 10, 'operation_id' => (int) $s['operation_id'], 'is_added' => (bool) ($s['is_added'] ?? false)];
+                $seq = ($i + 1) * 10;
                 if (! empty($s['id']) && $existing->has($s['id'])) {
-                    $existing[$s['id']]->update($attrs);
+                    $step = $existing[$s['id']];
+                    $attrs = ['seq' => $seq];
+                    if (! in_array($step->id, $locked, true)) {
+                        $attrs['operation_id'] = (int) $s['operation_id'];
+                    }
+                    $step->update($attrs);
                 } else {
-                    $lot->routeSteps()->create(['is_added' => true] + $attrs); // a step not from the template is always is_added
+                    $lot->routeSteps()->create(['seq' => $seq, 'operation_id' => (int) $s['operation_id'], 'is_added' => true]);
                 }
             }
             $lot->unsetRelation('routeSteps');
 
             $after = $this->positionsOf($lot->routeSteps()->get()->keyBy('id'), $locked);
             if ($after !== $before) {
-                throw new DomainException(__('production.errors.route_step_in_progress'));
+                throw new DomainException(__('production.errors.route_step_position_locked'));
             }
             $this->refreshStatuses($lot);
         });
@@ -184,7 +197,7 @@ final class LotRouteService
             $lot->unsetRelation('routeSteps');
 
             if ($this->positionsOf($lot->routeSteps()->get()->keyBy('id'), $locked) !== $before) {
-                throw new DomainException(__('production.errors.route_step_in_progress'));
+                throw new DomainException(__('production.errors.route_step_position_locked'));
             }
             $this->refreshStatuses($lot);
         });
