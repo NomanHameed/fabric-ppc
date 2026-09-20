@@ -4,7 +4,7 @@ A Laravel 13 + Inertia v3 + Vue 3 (TS) application for a textile dyeing/printing
 
 **Read `docs/HANDOFF.md` first** — full business context, decisions D1–D16, architecture, conventions, status and open questions.
 Spec: `docs/superpowers/specs/2026-09-19-fabric-ppc-design.md`
-Current plan: `docs/superpowers/plans/2026-09-19-p1-foundation-oracle-sync.md`
+Current plan: `docs/superpowers/plans/2026-09-20-p2-production.md` (P1 plan: `docs/superpowers/plans/2026-09-19-p1-foundation-oracle-sync.md`)
 
 ## Commands
 
