@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\User;
 use App\Modules\Foundation\Query\QueryCriteria;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -62,3 +64,9 @@ it('supports booleans', function () {
 it('rejects unparseable numbers with a field error', function () {
     ($this->codes)(['qty' => '>abc']);
 })->throws(ValidationException::class);
+
+it('rejects array-valued criteria with a validation error (M-5)', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    $ppc = User::factory()->create()->assignRole('ppc');
+    $this->actingAs($ppc)->get('/masters/departments?q[code][]=x')->assertSessionHasErrors('code');
+});

@@ -23,7 +23,7 @@ class PartyController extends Controller
     {
         abort_unless($request->user()->can('masters.view'), 403);
         $criteria = (array) $request->query('q', []);
-        if (! empty($criteria['name'])) {
+        if (is_string($criteria['name'] ?? null) && $criteria['name'] !== '') {
             $criteria['name'] = PartyName::normalize($criteria['name']);
         }
         $query = Party::query()->with('aliases');
@@ -119,7 +119,8 @@ class PartyController extends Controller
         DB::transaction(function () use ($party, $data) {
             $party->fill(collect($data)->except('aliases')->all())->save();
             $keep = collect($data['aliases'])->map(fn ($a) => PartyName::normalize($a))->all();
-            $party->aliases()->whereNotIn('alias_normalized', $keep)->delete();
+            // Delete per model so owen-it records a `deleted` audit per alias (M-8).
+            $party->aliases()->whereNotIn('alias_normalized', $keep)->get()->each->delete();
             foreach ($data['aliases'] as $alias) {
                 $party->aliases()->updateOrCreate(['alias_normalized' => PartyName::normalize($alias)], ['alias' => $alias]);
             }

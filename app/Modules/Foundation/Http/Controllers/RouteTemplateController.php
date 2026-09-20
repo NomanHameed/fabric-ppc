@@ -100,7 +100,8 @@ class RouteTemplateController extends Controller
     {
         DB::transaction(function () use ($template, $data) {
             $template->fill(collect($data)->except('steps')->all())->save();
-            $template->steps()->delete();
+            // Delete per model so owen-it records a `deleted` audit per step (M-8).
+            $template->steps()->get()->each->delete();
             foreach (array_values($data['steps']) as $i => $step) {
                 $template->steps()->create(['seq' => ($i + 1) * 10, 'operation_id' => $step['operation_id']]);
             }

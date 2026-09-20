@@ -23,12 +23,8 @@ class LovController extends Controller
             if (method_exists($def, 'applyExact')) {
                 $def->applyExact($query, $exact);
             } else {
-                $query->where(function ($q) use ($def, $exact) {
-                    $q->whereRaw('LOWER('.$def->exactColumn().') = ?', [mb_strtolower($exact)]);
-                    if (ctype_digit($exact)) {
-                        $q->orWhere($q->getModel()->getQualifiedKeyName(), (int) $exact);
-                    }
-                });
+                // Exact matches the code column only; a numeric needle must never match a primary key (M-13).
+                $query->whereRaw('LOWER('.$def->exactColumn().') = ?', [mb_strtolower($exact)]);
             }
         } elseif (($search = trim((string) $request->query('q'))) !== '') {
             $needle = $name === 'parties' ? PartyName::normalize($search) : $search;

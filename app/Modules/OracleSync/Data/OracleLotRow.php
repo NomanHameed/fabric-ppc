@@ -6,6 +6,12 @@ use Carbon\CarbonImmutable;
 
 final readonly class OracleLotRow
 {
+    /** Column limits from the contracts/lots/parties/qualities migrations; checked per row in the preview (M-6). */
+    public const LIMITS = [
+        'party_name' => 150, 'ref_no' => 60, 'quality_description' => 255, 'lot_no' => 10, 'design_code' => 20, 'design' => 60,
+        'colour_code' => 20, 'colour' => 80, 'po_type' => 40,
+    ];
+
     public function __construct(
         public string $partyName,
         public int $partyCode,
@@ -38,6 +44,14 @@ final readonly class OracleLotRow
             'colour' => $this->colour, 'g_width' => $this->gWidth, 'f_width' => $this->fWidth, 'po_type' => $this->poType,
             'greige_qty' => $this->greigeQty, 'contract_qty' => $this->contractQty,
         ];
+    }
+
+    /** @return list<string> field names whose value exceeds its column limit */
+    public function overlong(): array
+    {
+        $a = $this->toArray();
+
+        return array_values(array_filter(array_keys(self::LIMITS), fn ($f) => mb_strlen((string) ($a[$f] ?? '')) > self::LIMITS[$f]));
     }
 
     public static function fromArray(array $a): self

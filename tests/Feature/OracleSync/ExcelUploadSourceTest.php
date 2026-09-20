@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\OracleSync\Data\OracleLotRow;
+use App\Modules\OracleSync\Data\OracleRowError;
 use App\Modules\OracleSync\Exceptions\InvalidOracleFile;
 use App\Modules\OracleSync\Sources\ExcelUploadSource;
 use OpenSpout\Common\Entity\Row;
@@ -63,12 +65,24 @@ it('rejects a corrupt xlsx that is not a valid zip', function () {
     iterator_to_array((new ExcelUploadSource($path))->rows());
 })->throws(InvalidOracleFile::class);
 
-it('reports the row number of an unparseable value', function () {
+it('yields an error row, with its row number, for an unparseable value instead of aborting (M-6)', function () {
     $headers = ['PARTY', 'PARTY_CODE', 'CONTRACT_NUM', 'REF_NUM', 'DATED', 'QUALITY', 'Q_CODE', 'LOT_NUM1', 'GSM', 'DESIGN_CODE',
         'DESIGN', 'COLOUR_NAME', 'COLOUR_CODE', 'G_WIDTH', 'F_WIDTH', 'PROCESS_TYPE', 'PC_DTL_ID', 'QNTY', 'QNTY_CONT'];
     $good = ['P', 1, 260001, 'R', '01-SEP-26', 'Q', 1, 260001, '', 1, 'D', 'C', 1, 60, '55', 'DYED', 1, 100, 100];
     $bad = $good;
     $bad[4] = '31-XYZ-26';
-    $path = makeXlsx([$headers, $good, $bad]);
-    iterator_to_array((new ExcelUploadSource($path))->rows());
-})->throws(InvalidOracleFile::class, 'Row 3');
+    $bad[16] = 2;
+    $badQty = $good;
+    $badQty[17] = 'abc';
+    $badQty[16] = 'x';
+    $path = makeXlsx([$headers, $good, $bad, $badQty]);
+    $rows = iterator_to_array((new ExcelUploadSource($path))->rows());
+    expect($rows[2])->toBeInstanceOf(OracleLotRow::class)
+        ->and($rows[3])->toBeInstanceOf(OracleRowError::class)
+        ->and($rows[3]->rowNo)->toBe(3)
+        ->and($rows[3]->oracleLineId)->toBe(2)
+        ->and($rows[3]->message)->not->toBe('')
+        ->and($rows[4])->toBeInstanceOf(OracleRowError::class)
+        ->and($rows[4]->oracleLineId)->toBeNull()
+        ->and($rows[4]->message)->toContain('PC_DTL_ID');
+});

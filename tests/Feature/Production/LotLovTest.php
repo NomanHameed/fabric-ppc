@@ -31,6 +31,15 @@ it('resolves the last four digits to open lots only', function () {
     expect(collect($res->json('data'))->pluck('code')->all())->toBe(['265025']);
 });
 
+it('resolves a PO number to every open lot of that PO (M-13)', function () {
+    $res = $this->actingAs($this->user)->getJson('/lov/lots?exact=261072')->assertOk();
+    expect(collect($res->json('data'))->pluck('code')->sort()->values()->all())->toBe(['264899', '265025']);
+});
+
+it('returns nothing for a non-numeric exact needle (M-13)', function () {
+    expect($this->actingAs($this->user)->getJson('/lov/lots?exact=black')->assertOk()->json('data'))->toBe([]);
+});
+
 it('searches by design or PO', function () {
     expect($this->actingAs($this->user)->getJson('/lov/lots?q=olive')->json('data'))->toHaveCount(1)
         ->and($this->actingAs($this->user)->getJson('/lov/lots?q=261072')->json('data'))->toHaveCount(2);

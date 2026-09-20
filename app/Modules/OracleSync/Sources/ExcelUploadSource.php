@@ -4,6 +4,7 @@ namespace App\Modules\OracleSync\Sources;
 
 use App\Modules\OracleSync\Contracts\OracleLotSource;
 use App\Modules\OracleSync\Data\OracleLotRow;
+use App\Modules\OracleSync\Data\OracleRowError;
 use App\Modules\OracleSync\Exceptions\InvalidOracleFile;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -86,8 +87,12 @@ final class ExcelUploadSource implements OracleLotSource
         return true;
     }
 
-    /** @param callable(string): mixed $v */
-    private function toRow(int $rowNo, callable $v): OracleLotRow
+    /**
+     * A row whose values cannot be parsed becomes an OracleRowError so the preview records it instead of aborting (M-6).
+     *
+     * @param  callable(string): mixed  $v
+     */
+    private function toRow(int $rowNo, callable $v): OracleLotRow|OracleRowError
     {
         try {
             return new OracleLotRow(
@@ -111,10 +116,10 @@ final class ExcelUploadSource implements OracleLotSource
                 greigeQty: $this->float($v('QNTY'), 'QNTY'),
                 contractQty: $this->float($v('QNTY_CONT'), 'QNTY_CONT'),
             );
-        } catch (InvalidOracleFile $e) {
-            throw $e;
         } catch (Throwable $e) {
-            throw InvalidOracleFile::badRow($rowNo, $e->getMessage());
+            $line = $v('PC_DTL_ID');
+
+            return new OracleRowError($rowNo, is_numeric($line) ? (int) $line : null, $e->getMessage());
         }
     }
 

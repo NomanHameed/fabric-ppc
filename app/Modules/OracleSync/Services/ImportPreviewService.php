@@ -6,11 +6,13 @@ use App\Models\User;
 use App\Modules\Foundation\Models\Party;
 use App\Modules\OracleSync\Contracts\OracleLotSource;
 use App\Modules\OracleSync\Data\OracleLotRow;
+use App\Modules\OracleSync\Data\OracleRowError;
 use App\Modules\OracleSync\Models\OracleImport;
 use App\Modules\OracleSync\Models\OracleImportRow;
 use App\Modules\Production\Models\Lot;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class ImportPreviewService
@@ -42,6 +44,14 @@ final class ImportPreviewService
             $batch = [];
 
             foreach ($source->rows() as $rowNo => $row) {
+                if ($row instanceof OracleRowError) {
+                    // An unparseable source row is recorded, not fatal (M-6). `message` is 255 chars: keep the reason short.
+                    $batch[] = ['oracle_import_id' => $import->id, 'row_no' => $row->rowNo, 'oracle_line_id' => $row->oracleLineId, 'lot_id' => null,
+                        'party_code' => null, 'action' => 'error', 'payload' => null, 'diff' => null,
+                        'message' => 'bad_row:'.__('oracle.errors.bad_row', ['row' => $row->rowNo, 'reason' => Str::limit($row->message, 150)])];
+
+                    continue;
+                }
                 if (isset($seen[$row->oracleLineId])) {
                     $batch[] = $this->rowAttrs($import, $rowNo, $row, 'error', null, null,
                         'duplicate_line:'.__('oracle.errors.duplicate_line', ['line' => $row->oracleLineId]));
@@ -143,6 +153,10 @@ final class ImportPreviewService
 
     private function classify(OracleImport $import, ?int $rowNo, OracleLotRow $row, ?Lot $lot): array
     {
+        if (($fields = $row->overlong()) !== []) {
+            return $this->rowAttrs($import, $rowNo, $row, 'error', null, null,
+                'overlong:'.__('oracle.errors.overlong', ['fields' => implode(', ', $fields)]));
+        }
         $party = $this->parties->resolve($row->partyCode, $row->partyName);
 
         if ($party !== null && $party->oracle_code === null) {

@@ -47,12 +47,20 @@ class LotLov implements LovDefinition
         return 'lots.lot_no';
     }
 
-    /** Exact: full lot no., or the last 4 digits as written on floor sheets. */
+    /** Exact: the full lot no., the last 4 digits as written on floor sheets, or a PO number (spec §6.3). */
     public function applyExact(Builder $query, string $value): void
     {
-        strlen($value) <= 4 && ctype_digit($value)
-            ? $query->where('lots.lot_no', 'like', '%'.$value)
-            : $query->where('lots.lot_no', $value);
+        if (! ctype_digit($value)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+        if (strlen($value) <= 4) {
+            $query->where('lots.lot_no', 'like', '%'.$value);
+
+            return;
+        }
+        $query->where(fn ($q) => $q->where('lots.lot_no', $value)->orWhere('contracts.po_no', (int) $value));
     }
 
     public function row(Model $m): array

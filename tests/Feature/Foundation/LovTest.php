@@ -34,6 +34,12 @@ it('matches exact codes', function () {
     expect($res->json('data'))->toHaveCount(1);
 });
 
+it('never matches a numeric exact needle against the primary key (M-13)', function () {
+    $id = Department::query()->orderBy('id')->value('id');
+    $res = $this->actingAs($this->user)->getJson("/lov/departments?exact={$id}")->assertOk();
+    expect($res->json('data'))->toBe([]);
+});
+
 it('filters operations by department and kind', function () {
     $dept = Department::where('code', 'MERCERIZING')->first();
     $res = $this->actingAs($this->user)

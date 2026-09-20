@@ -19,6 +19,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class OracleImportController extends Controller
 {
@@ -112,7 +113,14 @@ class OracleImportController extends Controller
         if (! $this->commits->claim($import)) {
             throw ValidationException::withMessages(['import' => __('oracle.errors.not_previewed')]);
         }
-        CommitOracleImport::dispatch($import->id, $request->user()->id);
+        try {
+            CommitOracleImport::dispatch($import->id, $request->user()->id);
+        } catch (Throwable $e) {
+            // The claim above moved the import to committing; a dispatch failure (queue down) must not leave it stuck there.
+            OracleImport::query()->whereKey($import->id)->where('status', 'committing')->update(['status' => 'previewed']);
+            report($e);
+            throw ValidationException::withMessages(['import' => __('oracle.errors.queue_unavailable')]);
+        }
 
         Inertia::flash('toast', ['type' => 'info', 'message' => __('oracle.status.committing')]);
 

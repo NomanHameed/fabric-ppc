@@ -14,12 +14,15 @@ final class QueryCriteria
     private const DATE_FORMATS = ['d-m-Y', 'd/m/Y', 'Y-m-d'];
 
     /**
-     * @param  array<string, string|null>  $criteria
+     * @param  array<string, mixed>  $criteria  raw query input; an array value (`q[field][]=…`) is a validation error (M-5)
      * @param  array<string, array{column: string, type: string}>  $fields
      */
     public static function apply(Builder $query, array $criteria, array $fields): Builder
     {
         foreach ($criteria as $key => $raw) {
+            if (is_array($raw)) {
+                throw ValidationException::withMessages([$key => __('forms.invalid_criteria')]);
+            }
             $value = trim((string) $raw);
             if ($value === '' || ! isset($fields[$key])) {
                 continue;
