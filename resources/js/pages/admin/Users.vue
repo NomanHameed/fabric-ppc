@@ -77,17 +77,22 @@ watch(
     { immediate: true },
 );
 const flashSelect = useFlashSelect();
-watch([() => props.users, flashSelect.pending], () => {
-    // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
-    const wanted =
-        flashSelect.take((id) => props.users.some((u) => u.id === id)) ??
-        currentId.value;
-    load(
-        props.users.find((u) => u.id === wanted)?.id ??
-            props.users[0]?.id ??
-            null,
-    );
-});
+watch(
+    [() => props.users, flashSelect.pending],
+    ([, pending], [, wasPending]) => {
+        // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
+        // When the rows changed on their own (pending unchanged) and still lack the id, the flash is stale.
+        const wanted =
+            flashSelect.take((id) => props.users.some((u) => u.id === id), {
+                dropIfMissing: pending === wasPending,
+            }) ?? currentId.value;
+        load(
+            props.users.find((u) => u.id === wanted)?.id ??
+                props.users[0]?.id ??
+                null,
+        );
+    },
+);
 
 const showDepartments = computed(() =>
     (form.roles as string[]).includes('dept_incharge'),

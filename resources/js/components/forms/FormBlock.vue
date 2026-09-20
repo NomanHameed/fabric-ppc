@@ -1,18 +1,30 @@
 <script setup lang="ts">
 defineProps<{ title?: string }>();
 
-const FOCUSABLE =
-    'input:not([disabled]):not([type=hidden]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"])';
+/** Fields Enter can land on: inputs, selects, textareas and the checkbox/switch primitives (rendered as buttons). */
+const FOCUSABLE = [
+    'input:not([type=hidden])',
+    'select',
+    'textarea',
+    '[role=checkbox]',
+    '[role=switch]',
+]
+    .map((s) => `${s}:not([disabled]):not([tabindex="-1"])`)
+    .join(', ');
 
-/** Oracle Forms: Enter (like Tab) moves to the next field; textareas, grids, dialogs and buttons keep Enter. */
+/** Oracle Forms: Enter (like Tab) moves to the next field; textareas, grids, dialogs and plain buttons keep Enter. */
 function onKeydown(e: KeyboardEvent): void {
     const target = e.target as HTMLElement | null;
     if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || !target) {
         return;
     }
+    if (e.isComposing) {
+        return;
+    }
     if (
         target.tagName === 'TEXTAREA' ||
-        target.tagName === 'BUTTON' ||
+        (target.tagName === 'BUTTON' &&
+            !target.matches('[role=checkbox],[role=switch]')) ||
         target.closest('.ag-root-wrapper, [role=dialog]')
     ) {
         return;

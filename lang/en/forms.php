@@ -16,6 +16,7 @@ return [
     'discard' => 'Discard',
     'cancel' => 'Cancel',
     'saved' => 'Transaction complete: record saved.',
+    'nothing_to_save' => 'No changes to save.',
     'deleted' => 'Record deleted.',
     'confirm_delete' => 'Delete this record?',
     'invalid_criteria' => 'Invalid query criteria.',

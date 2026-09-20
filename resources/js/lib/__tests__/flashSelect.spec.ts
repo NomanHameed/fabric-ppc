@@ -45,6 +45,29 @@ describe('useFlashSelect', () => {
         wrapper.unmount();
     });
 
+    it('drops the id when the rows change without it (dropIfMissing), but not while still waiting', () => {
+        const { wrapper, api } = mountWithComposable();
+        flash({ selectedId: 7 });
+
+        // The flash arrived but the rows have not caught up yet: keep waiting.
+        expect(api.take((id) => [1, 2].includes(id))).toBeNull();
+        expect(api.pending.value).toBe(7);
+
+        // The rows were refreshed and still do not contain it: the flash is stale.
+        expect(
+            api.take((id) => [1, 2].includes(id), { dropIfMissing: true }),
+        ).toBeNull();
+        expect(api.pending.value).toBeNull();
+
+        // A refresh that does contain the id still hands it out with the option set.
+        flash({ selectedId: 9 });
+        expect(
+            api.take((id) => [9].includes(id), { dropIfMissing: true }),
+        ).toBe(9);
+        expect(api.pending.value).toBeNull();
+        wrapper.unmount();
+    });
+
     it('ignores flashes without a numeric selectedId and stops listening after unmount', () => {
         const { wrapper, api } = mountWithComposable();
 

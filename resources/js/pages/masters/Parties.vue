@@ -104,17 +104,22 @@ watch(
     { immediate: true },
 );
 const flashSelect = useFlashSelect();
-watch([() => props.parties, flashSelect.pending], () => {
-    // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
-    const wanted =
-        flashSelect.take((id) => props.parties.some((p) => p.id === id)) ??
-        currentId.value;
-    load(
-        props.parties.find((p) => p.id === wanted)?.id ??
-            props.parties[0]?.id ??
-            null,
-    );
-});
+watch(
+    [() => props.parties, flashSelect.pending],
+    ([, pending], [, wasPending]) => {
+        // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
+        // When the rows changed on their own (pending unchanged) and still lack the id, the flash is stale.
+        const wanted =
+            flashSelect.take((id) => props.parties.some((p) => p.id === id), {
+                dropIfMissing: pending === wasPending,
+            }) ?? currentId.value;
+        load(
+            props.parties.find((p) => p.id === wanted)?.id ??
+                props.parties[0]?.id ??
+                null,
+        );
+    },
+);
 
 const inQuery = computed(() => query.mode.value === 'enterQuery');
 const editable = computed(() => props.canEdit && !inQuery.value);

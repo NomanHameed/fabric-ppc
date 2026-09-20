@@ -23,11 +23,22 @@ export function useFlashSelect() {
 
     /**
      * Returns and clears the pending id when `has(id)` accepts it (it is among the loaded rows);
-     * otherwise keeps it for the next call and returns null.
+     * otherwise returns null and keeps it for the next call — unless `dropIfMissing` is set, which
+     * a page passes when the rows themselves were just refreshed without the id (the record was
+     * filtered out or deleted), so a stale flash cannot hijack a later refresh.
      */
-    function take(has: (id: number) => boolean = () => true): number | null {
+    function take(
+        has: (id: number) => boolean = () => true,
+        { dropIfMissing = false }: { dropIfMissing?: boolean } = {},
+    ): number | null {
         const id = pending.value;
-        if (id === null || !has(id)) {
+        if (id === null) {
+            return null;
+        }
+        if (!has(id)) {
+            if (dropIfMissing) {
+                pending.value = null;
+            }
             return null;
         }
         pending.value = null;

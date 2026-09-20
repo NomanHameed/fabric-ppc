@@ -67,6 +67,11 @@ return [
             'back' => 'Back',
             'confirm' => 'Confirm',
         ],
+        'errors' => [
+            'qr_code' => 'Failed to fetch QR code',
+            'setup_key' => 'Failed to fetch a setup key',
+            'recovery_codes' => 'Failed to fetch recovery codes',
+        ],
         'recovery' => [
             'title' => '2FA recovery codes',
             'description' => 'Recovery codes let you regain access if you lose your 2FA device. Store them in a secure password manager.',
@@ -86,6 +91,7 @@ return [
         'name' => 'Passkey name',
         'name_placeholder' => 'e.g., MacBook Pro, iPhone',
         'name_hint' => 'A name helps you identify this passkey later.',
+        'default_name' => ':browser on :os',
         'registering' => 'Registering...',
         'register' => 'Register passkey',
         'cancel' => 'Cancel',

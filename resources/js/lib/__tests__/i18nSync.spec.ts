@@ -75,6 +75,33 @@ describe('locale sync on navigate', () => {
         off();
     });
 
+    it('discards a late response after reverting to the already-loaded locale (A→B→A)', async () => {
+        setTranslations('en', 'ltr', { app: { name: 'Fabric PPC' } }, 'v-en');
+        let resolveUr!: (dict: unknown) => void;
+        const fetchMock = vi.fn(
+            () =>
+                new Promise((resolve) => {
+                    resolveUr = (dict) =>
+                        resolve({ ok: true, json: async () => dict });
+                }),
+        );
+        vi.stubGlobal('fetch', fetchMock);
+        const off = initializeLocaleSync();
+
+        navigate({ locale: 'ur', dir: 'rtl', i18nVersion: 'v-ur' });
+        navigate({ locale: 'en', dir: 'ltr', i18nVersion: 'v-en' });
+        await flush();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        resolveUr({ app: { name: 'فیبرک' } });
+        await flush();
+
+        expect(useI18n().locale.value).toBe('en');
+        expect(document.documentElement.dir).toBe('ltr');
+        expect(t('app.name')).toBe('Fabric PPC');
+        off();
+    });
+
     it('reloads the dictionary when only the translation version changes', async () => {
         setTranslations('en', 'ltr', {}, 'v1');
         const fetchMock = vi

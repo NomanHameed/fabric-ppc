@@ -67,17 +67,22 @@ watch(
     { immediate: true },
 );
 const flashSelect = useFlashSelect();
-watch([() => props.rows, flashSelect.pending], () => {
-    // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
-    const wanted =
-        flashSelect.take((id) => props.rows.some((r) => r.id === id)) ??
-        currentId.value;
-    load(
-        props.rows.find((r) => r.id === wanted)?.id ??
-            props.rows[0]?.id ??
-            null,
-    );
-});
+watch(
+    [() => props.rows, flashSelect.pending],
+    ([, pending], [, wasPending]) => {
+        // A just-saved record (flashed selectedId) wins over the current one once it is in the rows.
+        // When the rows changed on their own (pending unchanged) and still lack the id, the flash is stale.
+        const wanted =
+            flashSelect.take((id) => props.rows.some((r) => r.id === id), {
+                dropIfMissing: pending === wasPending,
+            }) ?? currentId.value;
+        load(
+            props.rows.find((r) => r.id === wanted)?.id ??
+                props.rows[0]?.id ??
+                null,
+        );
+    },
+);
 
 const columns = computed<ColumnDef<MasterRow>[]>(() =>
     props.resource.fields

@@ -88,18 +88,19 @@ let latestKey: string | null = null;
 /** Load the page's locale if it differs from the loaded dictionary (locale or translation version). */
 export function syncLocale(props: LocaleProps): Promise<void> {
     const { locale, i18nVersion: version } = props;
-    if (
-        !locale ||
-        !version ||
-        (locale === state.locale && version === state.version)
-    ) {
+    if (!locale || !version) {
         return Promise.resolve();
     }
     const key = `${locale}|${version}`;
+    // Even when this locale is already loaded, it is now the wanted one: a fetch still in flight for
+    // another locale (A→B→A) must not install its dictionary when it finally arrives.
+    latestKey = key;
+    if (locale === state.locale && version === state.version) {
+        return Promise.resolve();
+    }
     if (inFlight?.key === key) {
         return inFlight.promise;
     }
-    latestKey = key;
     const promise = loadLocale(
         locale,
         props.dir ?? 'ltr',

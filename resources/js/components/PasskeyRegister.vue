@@ -30,7 +30,10 @@ const getDefaultPasskeyName = () => {
         { pattern: /Windows/, name: 'Windows' },
     ].find(({ pattern }) => pattern.test(ua))?.name;
 
-    return [browser, os].filter(Boolean).join(' on ') || '';
+    if (browser && os) {
+        return t('settings.passkeys.default_name', { browser, os });
+    }
+    return browser ?? os ?? '';
 };
 
 const name = ref(getDefaultPasskeyName());

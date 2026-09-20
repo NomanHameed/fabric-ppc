@@ -10,9 +10,9 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -48,20 +48,15 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $isExpected = fn (Throwable $e): bool => $e instanceof HttpExceptionInterface
+            || $e instanceof HttpResponseException
             || $e instanceof ValidationException
             || $e instanceof AuthenticationException;
 
         // Every unexpected error gets a reference id the user can quote; the same id is in the log line (spec §9).
-        $exceptions->report(function (Throwable $e) use ($isExpected) {
-            if ($isExpected($e)) {
-                return;
-            }
-            Log::error($e->getMessage(), ['ref' => ErrorReference::for($e), 'exception' => $e]);
-
-            return false;
-        });
+        // Laravel's default reporter keeps its context (userId, exception) and dedupe; only the ref is added.
+        $exceptions->context(fn (Throwable $e) => ['ref' => ErrorReference::for($e)]);
         $exceptions->render(function (Throwable $e, Request $request) use ($isExpected) {
-            if (config('app.debug') || $isExpected($e) || $request->expectsJson() || ! $request->header('X-Inertia')) {
+            if (config('app.debug') || $isExpected($e) || $request->expectsJson()) {
                 return null;
             }
 

@@ -74,6 +74,42 @@ describe('FormBlock', () => {
         wrapper.unmount();
     });
 
+    it('moves on from a select and lands on checkbox/switch buttons, skipping plain buttons', () => {
+        const wrapper = mount(
+            defineComponent({
+                render: () =>
+                    h(FormBlock, null, {
+                        default: () => [
+                            h('select', { id: 'sel' }, [h('option', 'x')]),
+                            h('input', { id: 'p' }),
+                            h(
+                                'button',
+                                { id: 'chk', type: 'button', role: 'checkbox' },
+                                'Active',
+                            ),
+                            h('input', { id: 'q' }),
+                            h('button', { id: 'plain', type: 'button' }, 'Go'),
+                            h('input', { id: 'r' }),
+                        ],
+                    }),
+            }),
+            { attachTo: document.body },
+        );
+        const sel = document.getElementById('sel')!;
+        sel.focus();
+        expect(press(sel, {})).toBe(false);
+        expect(document.activeElement?.id).toBe('p');
+
+        expect(press(document.getElementById('p')!, {})).toBe(false);
+        expect(document.activeElement?.id).toBe('chk');
+        expect(press(document.getElementById('chk')!, {})).toBe(false);
+        expect(document.activeElement?.id).toBe('q');
+
+        expect(press(document.getElementById('q')!, {})).toBe(false);
+        expect(document.activeElement?.id).toBe('r');
+        wrapper.unmount();
+    });
+
     it('does nothing on the last field', () => {
         const wrapper = mount(
             defineComponent({

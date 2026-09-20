@@ -121,6 +121,10 @@ watch(isDirty, (d) => statusLine.setDirty(d), { immediate: true });
 function onAction(action: FormsAction): void {
     switch (action) {
         case 'save':
+            if (!isDirty()) {
+                statusLine.setMessage(t('forms.nothing_to_save'));
+                break;
+            }
             void save();
             break;
         case 'clear':

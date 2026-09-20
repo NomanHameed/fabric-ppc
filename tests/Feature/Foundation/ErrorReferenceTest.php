@@ -26,6 +26,23 @@ it('shows a reference id for unexpected errors and logs the same id', function (
     Log::shouldHaveReceived('error')->withArgs(fn ($msg, $ctx) => $msg === 'kaboom' && ($ctx['ref'] ?? null) === $ref)->once();
 });
 
+it('renders the Error page with the same reference on a full-page (non-Inertia) request', function () {
+    config(['app.debug' => false]);
+    Route::middleware('web')->get('/boom', fn () => throw new RuntimeException('kaboom'));
+    Log::spy();
+
+    $res = $this->actingAs(User::factory()->create())->get('/boom');
+
+    $res->assertStatus(500);
+    $res->assertViewIs('app');
+    $page = $res->viewData('page');
+    expect($page['component'])->toBe('Error');
+    $ref = $page['props']['reference'];
+    expect($ref)->toMatch('/^[0-9A-F]{10}$/')
+        ->and($page['props']['status'])->toBe(500);
+    Log::shouldHaveReceived('error')->withArgs(fn ($msg, $ctx) => $msg === 'kaboom' && ($ctx['ref'] ?? null) === $ref)->once();
+});
+
 it('leaves expected errors (404, validation, auth) to the default handlers', function () {
     config(['app.debug' => false]);
     Log::spy();
