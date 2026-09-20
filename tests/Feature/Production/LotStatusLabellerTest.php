@@ -75,10 +75,33 @@ it('becomes RF-INSP when all metres are finished, and processFlag stays pending 
     expect($this->labeller->processFlag($lot->fresh()))->toBe('complete');
 });
 
+it('is RF-INSP once nothing is on the floor and some metres are finished, even with stock left', function () {
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 40, 40);
+    foreach ($this->lot->routeSteps as $step) {
+        ($this->through)($step, 40);
+    }
+    $lot = $this->lot->fresh();
+    expect($lot->current_label)->toBe('RF-INSP/')->and($lot->stock_qty)->toBe('60.00')->and($lot->wip_qty)->toBe('0.00');
+});
+
 it('reports a closed lot as complete whatever remains, and an untouched one as pending', function () {
     expect($this->labeller->processFlag($this->lot->fresh()))->toBe('pending');
     $this->lot->update(['state' => 'closed']);
     expect($this->labeller->processFlag($this->lot->fresh()))->toBe('complete');
+});
+
+it('reports a cancelled lot as complete even with metres left in stock', function () {
+    $this->ledger->post($this->lot, 'loss', Position::stock(), Position::loss(), 50, 50);
+    $this->lot->update(['state' => 'cancelled']);
+    $this->ledger->relabel($this->lot);
+    $lot = $this->lot->fresh();
+    expect($lot->stock_qty)->toBe('50.00')->and($lot->current_label)->toBe('CANCELLED/')->and($this->labeller->processFlag($lot))->toBe('complete');
+});
+
+it('reports an open lot that has not received any greige yet as pending', function () {
+    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 0]);
+    expect($lot->movements()->count())->toBe(0)->and((float) $lot->stock_qty)->toBe(0.0)
+        ->and($this->labeller->processFlag($lot))->toBe('pending');
 });
 
 // ---- rule 3 ---------------------------------------------------------------------------------------------------
@@ -90,6 +113,19 @@ it('shows DISP dd-mm-yy while finished or WIP metres remain after a dispatch', f
     }
     $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 40, 40, ['movedAt' => now()->parse('2026-09-11 10:00:00')]);
     expect($this->lot->fresh()->current_label)->toBe('DISP 11-09-26/');
+});
+
+it('keeps DISP dd-mm-yy after everything was dispatched until the lot is closed', function () {
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    foreach ($this->lot->routeSteps as $step) {
+        ($this->through)($step, 100);
+    }
+    $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 100, 100, ['movedAt' => now()->parse('2026-09-11 10:00:00')]);
+    $lot = $this->lot->fresh();
+    expect($lot->current_label)->toBe('DISP 11-09-26/')->and($lot->finished_qty)->toBe('0.00')->and($lot->wip_qty)->toBe('0.00');
+    $this->lot->update(['state' => 'closed']);
+    $this->ledger->relabel($this->lot);
+    expect($this->lot->fresh()->current_label)->toBe('DISPATCHED/');
 });
 
 it('dates the label from the last dispatch that still stands', function () {

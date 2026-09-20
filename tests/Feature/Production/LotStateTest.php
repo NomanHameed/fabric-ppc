@@ -106,6 +106,11 @@ it('attributes the audit to the given user outside a request', function () {
     expect($this->lot->audits()->latest('id')->first()->user_id)->toBe($this->ppc->id);
 });
 
+it('returns 404 for an unknown or malformed lot id', function () {
+    $this->actingAs($this->ppc)->post('/production/lots/999999/hold', ['reason' => 'OTHER'])->assertNotFound();
+    $this->actingAs($this->ppc)->post('/production/lots/abc/hold', ['reason' => 'OTHER'])->assertNotFound();
+});
+
 it('requires production.hold', function () {
     $this->post("/production/lots/{$this->lot->id}/hold", ['reason' => 'OTHER'])->assertRedirect('/login');
     $this->actingAs($this->viewer)->post("/production/lots/{$this->lot->id}/hold", ['reason' => 'OTHER'])->assertForbidden();

@@ -239,6 +239,29 @@ it('parks kept steps on small temporary seqs whatever their ids', function () {
         ->and($lot->routeSteps()->pluck('id')->all())->toBe([60000, $steps[1]->id]);
 });
 
+it('re-derives the status label after a skip, a replace and a re-assign move the next step', function () {
+    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $this->routes->assign($lot);
+    [$s1, $s2, $s3, $s4, $s5] = $lot->routeSteps->all();
+    $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
+    $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    expect($lot->fresh()->current_label)->toBe('SINGEING/');
+
+    $this->routes->setSkipped($s1, true); // takes the step, so it is $s1->lot that is relabelled, not this instance
+    expect($lot->fresh()->current_label)->toBe('BLEACHING/');
+
+    $this->routes->replace($lot, [
+        ['id' => $s5->id, 'operation_id' => $s5->operation_id],
+        ['id' => $s2->id, 'operation_id' => $s2->operation_id],
+        ['id' => $s3->id, 'operation_id' => $s3->operation_id],
+        ['id' => $s4->id, 'operation_id' => $s4->operation_id],
+    ]);
+    expect($lot->fresh()->current_label)->toBe('SANFO/CAL')->and($lot->current_label)->toBe('SANFO/CAL');
+
+    $this->routes->assign($lot, RouteTemplate::where('name', 'Half Bleach')->first(), replace: true);
+    expect($lot->fresh()->current_label)->toBe('SINGEING/')->and($lot->current_label)->toBe('SINGEING/');
+});
+
 it('applies a template to a PO, skipping lots with progress', function () {
     $a = Lot::factory()->create(['po_type' => 'DYED', 'greige_qty' => 10]);
     $b = Lot::factory()->create(['po_type' => 'DYED', 'contract_id' => $a->contract_id, 'greige_qty' => 10]);

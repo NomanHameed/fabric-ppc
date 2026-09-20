@@ -54,7 +54,6 @@ final class LotStatusLabeller
             return self::HOLD;                                                             // rule 1
         }
 
-        $stock = (float) ($balances[Position::STOCK] ?? 0.0);
         $finished = (float) ($balances[Position::FINISHED] ?? 0.0);
         $dispatched = (float) ($balances[Position::DISPATCHED] ?? 0.0);
         $wip = [];
@@ -67,18 +66,18 @@ final class LotStatusLabeller
         if ($lot->state === 'closed') {
             return $dispatched > 0 ? self::DISPATCHED : self::CLOSED;                      // rule 2
         }
-        if ($dispatched > 0 && ($finished > 0 || $wip !== [])) {                           // rule 3
+        if ($dispatched > 0) {                                                             // rule 3: a dispatch on an open lot, whatever remains (rule 2 handled closed lots)
             $last = $this->lastDispatchAt($lot);
 
             return $last === null ? self::DISPATCHED : 'DISP '.$last->format('d-m-y').'/';
         }
         if ($wip !== []) {                                                                 // rule 4
-            arsort($wip);
+            arsort($wip); // stable sort over balance-row id order, so a tie goes to the earliest position
             $largest = Position::from((string) array_key_first($wip));
 
             return $this->nextStepAfter($lot, $largest)?->operation->stage_label ?? self::WIP;
         }
-        if ($finished > 0 && $stock <= 0) {                                                // rule 5 (RF-DISP once P3 records an inspection)
+        if ($finished > 0) {                                                               // rule 5: nothing on the floor, some finished; STOCK may remain (RF-DISP once P3 records an inspection)
             return self::READY_FOR_INSPECTION;
         }
 
@@ -87,17 +86,20 @@ final class LotStatusLabeller
 
     /**
      * The report's Pending / Complete column (spec §5.3 "Process flag"): Complete when the lot is closed or
-     * when STOCK + WIP + FINISHED = 0, from the lot's derived totals.
+     * cancelled (nothing more will happen to it, whatever remains in STOCK), or when STOCK + WIP + FINISHED = 0
+     * on a lot that did receive greige (an open lot that has not received any yet is still pending), from the
+     * lot's derived totals.
      *
      * @return self::FLAG_PENDING|self::FLAG_COMPLETE
      */
     public function processFlag(Lot $lot): string
     {
-        if ($lot->state === 'closed') {
+        if (in_array($lot->state, ['closed', 'cancelled'], true)) {
             return self::FLAG_COMPLETE;
         }
 
-        return round((float) $lot->stock_qty + (float) $lot->wip_qty + (float) $lot->finished_qty, 2) <= 0
+        return (float) $lot->greige_qty > 0
+            && round((float) $lot->stock_qty + (float) $lot->wip_qty + (float) $lot->finished_qty, 2) <= 0
             ? self::FLAG_COMPLETE
             : self::FLAG_PENDING;
     }

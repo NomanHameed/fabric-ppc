@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\DB;
  *
  * Task 9's sheet service must post its process movements from previousPosition() to targetPosition(): the
  * "processed through" detection that drives step statuses relies on exactly that pair.
+ *
+ * Lock order (every Production service): the lot row first, then its balance rows, then its movements, then its
+ * route steps. Every route edit here takes the lot row lock before anything else, so it is serialised with the
+ * ledger's writes on the same lot, and the reads that decide the edit see the latest committed state. A route
+ * edit can move the next step of the metres on the floor, so it ends by having the ledger re-derive the label.
  */
 final class LotRouteService
 {
@@ -34,6 +39,7 @@ final class LotRouteService
     public function assign(Lot $lot, ?RouteTemplate $template = null, bool $replace = false): int
     {
         return DB::transaction(function () use ($lot, $template, $replace): int {
+            $this->lockLot($lot);
             $current = $lot->routeSteps()->lockForUpdate()->get(); // a locking read: it decides whether steps are inserted
             if (! $replace && $current->isNotEmpty()) {
                 return 0;
@@ -54,6 +60,9 @@ final class LotRouteService
                 $n++;
             }
             $lot->unsetRelation('routeSteps');
+            if ($current->isNotEmpty()) {
+                $this->ledger->relabel($lot); // metres at ISSUED now wait for a different first step
+            }
 
             return $n;
         });
@@ -73,6 +82,7 @@ final class LotRouteService
     public function replace(Lot $lot, array $steps): void
     {
         DB::transaction(function () use ($lot, $steps): void {
+            $this->lockLot($lot);
             $existing = $lot->routeSteps()->get()->keyBy('id');
             $keptIds = array_values(array_filter(array_map(fn (array $s) => $s['id'] ?? null, $steps)));
             $locked = $existing->filter(fn (LotRouteStep $s) => $this->hasProgress($lot, $s, $existing))->map(fn (LotRouteStep $s): int => $s->id)->values()->all();
@@ -119,6 +129,7 @@ final class LotRouteService
                 throw new DomainException(__('production.errors.route_step_position_locked'));
             }
             $this->refreshStatuses($lot);
+            $this->ledger->relabel($lot);
         });
     }
 
@@ -186,6 +197,7 @@ final class LotRouteService
     {
         DB::transaction(function () use ($step, $skipped): void {
             $lot = $step->lot;
+            $this->lockLot($lot);
             $steps = $this->stepsOf($step);
             if ($this->hasProgress($lot, $step, $steps)) {
                 throw new DomainException(__('production.errors.route_step_in_progress'));
@@ -200,10 +212,17 @@ final class LotRouteService
                 throw new DomainException(__('production.errors.route_step_position_locked'));
             }
             $this->refreshStatuses($lot);
+            $this->ledger->relabel($lot);
         });
     }
 
     // ---- internals -------------------------------------------------------------------------------------------
+
+    /** The lot row lock, taken first in every route edit (see the class docblock on lock order). */
+    private function lockLot(Lot $lot): void
+    {
+        Lot::query()->whereKey($lot->getKey())->lockForUpdate()->firstOrFail();
+    }
 
     private function defaultTemplate(): ?RouteTemplate
     {

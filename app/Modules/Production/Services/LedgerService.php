@@ -32,6 +32,10 @@ use InvalidArgumentException;
  * committed since - even though the lot row itself is locked. Locking reads always see the latest committed
  * state. The public read-only methods (balances, available, assertInvariant) keep plain reads.
  *
+ * Lock order (every Production service): the lot row first, then its balance rows, then its movements, then its
+ * route steps. Whoever writes to a lot (this ledger, LotRouteService, LotStateService, LotIntakeService) takes
+ * the lot row lock before anything else, so per-lot writers are serialised by that one lock.
+ *
  * Quantities are decimal(12,2). Every figure is normalised to a 2-dp string on entry and all arithmetic and
  * comparisons run through bcmath, so no float drift can reach the ledger.
  *
@@ -163,8 +167,9 @@ final class LedgerService
     {
         DB::transaction(function () use ($lot): void {
             $locked = $this->lock($lot);
+            $balances = $this->lockBalances($locked);
             $lastMovedAt = LotMovement::query()->where('lot_id', $locked->getKey())->lockForUpdate()->max('moved_at');
-            $this->refreshTotals($locked, $lot, $this->lockBalances($locked), $lastMovedAt === null ? null : (string) $lastMovedAt);
+            $this->refreshTotals($locked, $lot, $balances, $lastMovedAt === null ? null : (string) $lastMovedAt);
         });
     }
 
@@ -173,9 +178,9 @@ final class LedgerService
     {
         DB::transaction(function () use ($lot): void {
             $locked = $this->lock($lot);
+            LotBalance::query()->where('lot_id', $locked->getKey())->delete();
             $expected = $this->expectedBalances($locked, true);
 
-            LotBalance::query()->where('lot_id', $locked->getKey())->delete();
             $rows = [];
             foreach ($expected as $position => $qty) {
                 $rows[$position] = LotBalance::query()->create(['lot_id' => $locked->getKey(), 'position' => $position, 'qty' => $qty]);
@@ -246,11 +251,11 @@ final class LedgerService
             if ($row['reversal_of_id'] === null && in_array($kind, self::NEEDS_OPEN_LOT, true) && $locked->state !== 'open') {
                 throw new LotNotOpen($locked);
             }
+            $balances = $this->lockBalances($locked);
             if ($row['reversal_of_id'] !== null && LotMovement::query()->where('reversal_of_id', $row['reversal_of_id'])->lockForUpdate()->exists()) {
                 throw new DomainException(__('production.errors.already_reversed', ['id' => $row['reversal_of_id']]));
             }
 
-            $balances = $this->lockBalances($locked);
             if ($from !== null) {
                 $available = isset($balances[$from->value()]) ? $balances[$from->value()]->qty : self::ZERO;
                 if (bccomp($out, $available, self::SCALE) > 0) {
