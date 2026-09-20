@@ -1135,12 +1135,6 @@ parameters:
 			path: app/Modules/OracleSync/Sources/ExcelUploadSource.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between Carbon\\CarbonImmutable\|null and false will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Modules/OracleSync/Sources/ExcelUploadSource.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
 			identifier: property.notFound
 			count: 1

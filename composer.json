@@ -70,10 +70,10 @@
             "npm run check",
             "npm run types:check",
             "@lint:check",
-            "@types:check",
+            "@stan",
             "@test"
         ],
-        "types:check": [
+        "stan": [
             "phpstan analyse"
         ],
         "test": [

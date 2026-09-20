@@ -81,8 +81,21 @@ it('yields an error row, with its row number, for an unparseable value instead o
         ->and($rows[3])->toBeInstanceOf(OracleRowError::class)
         ->and($rows[3]->rowNo)->toBe(3)
         ->and($rows[3]->oracleLineId)->toBe(2)
-        ->and($rows[3]->message)->not->toBe('')
+        ->and($rows[3]->message)->toBe(__('oracle.errors.bad_date', ['field' => 'DATED', 'value' => '31-XYZ-26']))
         ->and($rows[4])->toBeInstanceOf(OracleRowError::class)
         ->and($rows[4]->oracleLineId)->toBeNull()
-        ->and($rows[4]->message)->toContain('PC_DTL_ID');
+        ->and($rows[4]->message)->toBe(__('oracle.errors.not_a_number', ['field' => 'PC_DTL_ID']));
+});
+
+it('drops a line id that does not fit an unsigned integer from the error row', function () {
+    $headers = ['PARTY', 'PARTY_CODE', 'CONTRACT_NUM', 'REF_NUM', 'DATED', 'QUALITY', 'Q_CODE', 'LOT_NUM1', 'GSM', 'DESIGN_CODE',
+        'DESIGN', 'COLOUR_NAME', 'COLOUR_CODE', 'G_WIDTH', 'F_WIDTH', 'PROCESS_TYPE', 'PC_DTL_ID', 'QNTY', 'QNTY_CONT'];
+    $row = fn (mixed $line) => ['P', 1, 260001, 'R', '01-SEP-26', 'Q', 1, 260001, '', 1, 'D', 'C', 1, 60, '55', 'DYED', $line, 'abc', 100];
+    $path = makeXlsx([$headers, $row(-5), $row('1e12'), $row(4294967296), $row(7)]);
+    $rows = iterator_to_array((new ExcelUploadSource($path))->rows());
+    expect($rows[2]->oracleLineId)->toBeNull()
+        ->and($rows[3]->oracleLineId)->toBeNull()
+        ->and($rows[4]->oracleLineId)->toBeNull()
+        ->and($rows[5]->oracleLineId)->toBe(7)
+        ->and($rows[5]->message)->toBe(__('oracle.errors.not_a_number', ['field' => 'QNTY']));
 });

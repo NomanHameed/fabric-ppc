@@ -34,6 +34,8 @@ return [
         'party_claimed' => 'This party is already matched to Oracle code :code in this file. Create a new party for this code instead.',
         'no_cli_user' => 'No user found to record as uploader. Create an admin user or pass --user=<id>.',
         'bad_row' => 'Row :row could not be read: :reason',
+        'not_a_number' => ':field is not a number',
+        'bad_date' => ":field ':value' is not dd-MON-yy",
         'overlong' => 'Value too long for: :fields',
         'commit_in_progress' => 'Another import is being committed. Try again in a moment.',
         'queue_unavailable' => 'The import could not be queued. Check the queue service and try again.',

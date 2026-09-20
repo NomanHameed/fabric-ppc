@@ -69,4 +69,6 @@ it('rejects array-valued criteria with a validation error (M-5)', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     $ppc = User::factory()->create()->assignRole('ppc');
     $this->actingAs($ppc)->get('/masters/departments?q[code][]=x')->assertSessionHasErrors('code');
+    $this->actingAs($ppc)->get('/masters/parties?q[name][]=x')->assertSessionHasErrors('name');
+    $this->actingAs($ppc)->get('/masters/route-templates?q[name][]=x')->assertSessionHasErrors('name');
 });

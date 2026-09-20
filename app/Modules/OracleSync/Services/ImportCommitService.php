@@ -12,6 +12,7 @@ use App\Modules\Production\Models\Contract;
 use App\Modules\Production\Models\Lot;
 use Closure;
 use DomainException;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,9 @@ use Throwable;
 
 final class ImportCommitService
 {
+    /** Seconds a commit waits for another one to finish before giving up (must stay below the job timeout). */
+    public const LOCK_WAIT = 300;
+
     public function __construct(private readonly PartyResolver $parties) {}
 
     /**
@@ -81,12 +85,15 @@ final class ImportCommitService
     /**
      * Commit a previewed import (CLI path, claimed here) or one the commit screen already moved to committing.
      */
-    public function commit(OracleImport $import, User $user): void
+    public function commit(OracleImport $import, User $user, int $waitSeconds = self::LOCK_WAIT): void
     {
         // One commit at a time, whichever preview it comes from: the stale check is not atomic across imports (M-7).
-        // The TTL matches the job timeout margin (REDIS_QUEUE_RETRY_AFTER >= 660, see config/queue.php).
+        // The TTL matches the job timeout margin (REDIS_QUEUE_RETRY_AFTER >= 660, see config/queue.php). The wait is
+        // deducted from the job's 600 s timeout; retry_after 660 still covers LOCK_WAIT + the commit itself.
         $lock = Cache::lock('oracle-import-commit', 660);
-        if (! $lock->get()) {
+        try {
+            $lock->block($waitSeconds);
+        } catch (LockTimeoutException) {
             throw new DomainException(__('oracle.errors.commit_in_progress'));
         }
 
@@ -173,7 +180,7 @@ final class ImportCommitService
                     ->whereDoesntHave('lots', fn ($q) => $q->whereIn('state', ['open', 'hold'])->whereNull('oracle_missing_at'))
                     ->update(['oracle_missing_at' => now()]);
                 Contract::query()->whereNotNull('oracle_missing_at')
-                    ->whereHas('lots', fn ($q) => $q->whereNull('oracle_missing_at'))
+                    ->whereHas('lots', fn ($q) => $q->whereIn('state', ['open', 'hold'])->whereNull('oracle_missing_at'))
                     ->update(['oracle_missing_at' => null]);
 
                 $import->update(['status' => 'committed', 'committed_at' => now()]);

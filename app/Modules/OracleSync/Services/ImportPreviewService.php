@@ -49,6 +49,10 @@ final class ImportPreviewService
                     $batch[] = ['oracle_import_id' => $import->id, 'row_no' => $row->rowNo, 'oracle_line_id' => $row->oracleLineId, 'lot_id' => null,
                         'party_code' => null, 'action' => 'error', 'payload' => null, 'diff' => null,
                         'message' => 'bad_row:'.__('oracle.errors.bad_row', ['row' => $row->rowNo, 'reason' => Str::limit($row->message, 150)])];
+                    if ($row->oracleLineId !== null) {
+                        // The line is in the file, just unreadable: do not also report its lot as missing.
+                        $seen[$row->oracleLineId] = true;
+                    }
 
                     continue;
                 }

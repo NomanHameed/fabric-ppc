@@ -117,9 +117,10 @@ final class ExcelUploadSource implements OracleLotSource
                 contractQty: $this->float($v('QNTY_CONT'), 'QNTY_CONT'),
             );
         } catch (Throwable $e) {
-            $line = $v('PC_DTL_ID');
+            $line = trim((string) $v('PC_DTL_ID'));
 
-            return new OracleRowError($rowNo, is_numeric($line) ? (int) $line : null, $e->getMessage());
+            // oracle_line_id is an unsigned INT: anything else (negative, float, exponent, too large) is reported without a line id.
+            return new OracleRowError($rowNo, ctype_digit($line) && (int) $line <= 4294967295 ? (int) $line : null, $e->getMessage());
         }
     }
 
@@ -133,7 +134,7 @@ final class ExcelUploadSource implements OracleLotSource
     private function int(mixed $value, string $field): int
     {
         if (! is_numeric($value)) {
-            throw new \InvalidArgumentException("{$field} is not a number");
+            throw new \InvalidArgumentException(__('oracle.errors.not_a_number', ['field' => $field]));
         }
 
         return (int) $value;
@@ -147,7 +148,7 @@ final class ExcelUploadSource implements OracleLotSource
     private function float(mixed $value, string $field): float
     {
         if (! is_numeric($value)) {
-            throw new \InvalidArgumentException("{$field} is not a number");
+            throw new \InvalidArgumentException(__('oracle.errors.not_a_number', ['field' => $field]));
         }
 
         return (float) $value;
@@ -164,9 +165,13 @@ final class ExcelUploadSource implements OracleLotSource
             return CarbonImmutable::instance($value)->startOfDay();
         }
         $s = ucfirst(strtolower(trim((string) $value))); // "20-AUG-26" -> "20-aug-26"; month names parse case-insensitively
-        $date = CarbonImmutable::createFromFormat('!d-M-y', $s);
-        if ($date === false || strtolower($date->format('d-M-y')) !== strtolower($s)) {
-            throw new \InvalidArgumentException("DATED '{$value}' is not dd-MON-yy");
+        try {
+            $date = CarbonImmutable::createFromFormat('!d-M-y', $s);
+        } catch (Throwable) {
+            $date = null; // Carbon throws on e.g. an unknown month name: same reason as a non-round-tripping date
+        }
+        if ($date === null || strtolower($date->format('d-M-y')) !== strtolower($s)) {
+            throw new \InvalidArgumentException(__('oracle.errors.bad_date', ['field' => 'DATED', 'value' => (string) $value]));
         }
 
         return $date;
