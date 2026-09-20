@@ -28,9 +28,12 @@ class ContractLov implements LovDefinition
         ];
     }
 
+    /** With the open lots' count and greige in stock as subselects, so the PO block can show what a bulk issue covers. */
     public function query(array $filters): Builder
     {
-        return Contract::query()->with('party');
+        return Contract::query()->with('party')
+            ->withCount(['lots as open_lots' => fn ($q) => $q->where('state', 'open')->where('stock_qty', '>', 0)])
+            ->withSum(['lots as open_stock_qty' => fn ($q) => $q->where('state', 'open')], 'stock_qty');
     }
 
     public function searchColumns(): array
@@ -45,6 +48,9 @@ class ContractLov implements LovDefinition
 
     public function row(Model $m): array
     {
-        return ['id' => $m->id, 'code' => (string) $m->po_no, 'label' => (string) $m->po_no, 'ref_no' => $m->ref_no, 'party' => $m->party->name];
+        return [
+            'id' => $m->id, 'code' => (string) $m->po_no, 'label' => (string) $m->po_no, 'ref_no' => $m->ref_no, 'party' => $m->party->name,
+            'open_lots' => (int) $m->getAttribute('open_lots'), 'stock_qty' => (float) ($m->getAttribute('open_stock_qty') ?? 0),
+        ];
     }
 }

@@ -46,7 +46,7 @@ class IssueController extends Controller
     {
         $data = $request->validate([
             'lot_id' => ['required', 'integer', 'exists:lots,id'],
-            'qty' => ['required', 'numeric', 'gt:0', 'max:9999999999.99'],
+            'qty' => ['required', 'numeric', 'decimal:0,2', 'min:0.01', 'max:9999999999.99'],
             'issued_on' => ['required', 'date_format:d-m-Y', 'before_or_equal:today'],
             'remarks' => ['nullable', 'string', 'max:200'],
         ]);
@@ -92,6 +92,6 @@ class IssueController extends Controller
     /** A validated `d-m-Y` date as the day's start, in the app timezone (stored as given, never shifted). */
     private static function day(string $dmy): CarbonImmutable
     {
-        return CarbonImmutable::createFromFormat('!d-m-Y', $dmy) ?? CarbonImmutable::today();
+        return CarbonImmutable::createFromFormat('!d-m-Y', $dmy);
     }
 }

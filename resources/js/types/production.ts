@@ -20,13 +20,15 @@ export type LotSummary = {
     contract_id: number;
 };
 
-/** A row of the `contracts` LOV (ContractLov::row). */
+/** A row of the `contracts` LOV (ContractLov::row): open lots with greige in stock, and the open lots' stock in metres. */
 export type ContractSummary = {
     id: number;
     code: string;
     label: string;
     ref_no: string | null;
     party: string;
+    open_lots: number;
+    stock_qty: number;
 };
 
 /** One `issue` movement as the Issue to Floor screen lists it (IssueController::index). */

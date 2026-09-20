@@ -32,10 +32,12 @@ class LotLov implements LovDefinition
         ];
     }
 
+    /** Open lots; `in_stock=1` keeps only those with greige still in stock (Issue to Floor). */
     public function query(array $filters): Builder
     {
         return Lot::query()->open()->with(['contract.party', 'quality'])
-            ->join('contracts', 'contracts.id', '=', 'lots.contract_id')->select('lots.*');
+            ->join('contracts', 'contracts.id', '=', 'lots.contract_id')->select('lots.*')
+            ->when(filter_var($filters['in_stock'] ?? false, FILTER_VALIDATE_BOOL), fn ($q) => $q->where('lots.stock_qty', '>', 0));
     }
 
     public function searchColumns(): array

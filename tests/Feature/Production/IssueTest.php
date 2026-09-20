@@ -119,6 +119,14 @@ it('validates the request before touching the ledger', function () {
     expect($this->lot->movements()->where('kind', 'issue')->count())->toBe(0);
 });
 
+it('refuses quantities below 0.01 m or with more than two decimals', function () {
+    foreach ([0.004, 120.505] as $qty) {
+        $this->actingAs($this->ppc)->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => $qty, 'issued_on' => '11-09-2026'])
+            ->assertSessionHasErrors('qty');
+    }
+    expect($this->lot->movements()->where('kind', 'issue')->count())->toBe(0)->and((float) $this->lot->fresh()->stock_qty)->toBe(500.0);
+});
+
 it('issues every open lot of a PO in one go from the screen and toasts the count', function () {
     $contract = $this->lot->contract;
     $held = receivedLot($this->ledger, ['contract_id' => $contract->id, 'state' => 'hold'], 10);
@@ -137,11 +145,22 @@ it('issues every open lot of a PO in one go from the screen and toasts the count
         ->assertSessionHas('inertia.flash_data.toast', ['type' => 'info', 'message' => __('production.issue.nothing_to_issue', ['n' => 0, 'po' => $contract->po_no])]);
 });
 
+it('reports nothing to issue when the PO was emptied between the pick and the confirm', function () {
+    $this->issues->issue($this->lot, 500, $this->ppc);
+
+    $this->actingAs($this->ppc)->post('/production/issue/contract', ['contract_id' => $this->lot->contract_id, 'issued_on' => '12-09-2026'])
+        ->assertRedirect()->assertSessionHasNoErrors()
+        ->assertSessionHas('inertia.flash_data.toast', ['type' => 'info', 'message' => __('production.issue.nothing_to_issue', ['n' => 0, 'po' => $this->lot->contract->po_no])]);
+    expect($this->lot->movements()->where('kind', 'issue')->count())->toBe(1);
+});
+
 it('requires production.issue', function () {
-    $viewer = User::factory()->create()->assignRole('viewer');
-    $this->actingAs($viewer)->get('/production/issue')->assertForbidden();
-    $this->actingAs($viewer)->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => 1, 'issued_on' => '11-09-2026'])->assertForbidden();
-    $this->actingAs($viewer)->post('/production/issue/contract', ['contract_id' => $this->lot->contract_id, 'issued_on' => '11-09-2026'])->assertForbidden();
+    foreach (['viewer', 'dept_incharge', 'colour_lab', 'dispatch'] as $role) {
+        $user = User::factory()->create()->assignRole($role);
+        $this->actingAs($user)->get('/production/issue')->assertForbidden();
+        $this->actingAs($user)->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => 1, 'issued_on' => '11-09-2026'])->assertForbidden();
+        $this->actingAs($user)->post('/production/issue/contract', ['contract_id' => $this->lot->contract_id, 'issued_on' => '11-09-2026'])->assertForbidden();
+    }
     expect((float) $this->lot->fresh()->stock_qty)->toBe(500.0);
 
     $manager = User::factory()->create()->assignRole('manager');
@@ -153,4 +172,29 @@ it('carries the balances and state on the lots LOV row', function () {
     $row = $this->actingAs($this->ppc)->getJson('/lov/lots?exact='.$this->lot->lot_no)->assertOk()->json('data.0');
     expect($row)->toMatchArray(['stock_qty' => 400.0, 'wip_qty' => 100.0, 'finished_qty' => 0.0, 'state' => 'open', 'contract_id' => $this->lot->contract_id])
         ->and($row['label'])->toContain(' · E1143/119 · 520 PLUM');
+});
+
+it('carries the open lots and their stock on the contracts LOV row', function () {
+    $contract = $this->lot->contract;
+    $partly = receivedLot($this->ledger, ['contract_id' => $contract->id], 300);
+    $this->issues->issue($partly, 100, $this->ppc);
+    receivedLot($this->ledger, ['contract_id' => $contract->id, 'state' => 'hold'], 10);
+    receivedLot($this->ledger, ['contract_id' => $contract->id], 0);
+    receivedLot($this->ledger, [], 40);
+
+    $row = $this->actingAs($this->ppc)->getJson('/lov/contracts?exact='.$contract->po_no)->assertOk()->json('data.0');
+    expect($row)->toMatchArray(['id' => $contract->id, 'open_lots' => 2, 'stock_qty' => 700.0]);
+
+    $rows = $this->actingAs($this->ppc)->getJson('/lov/contracts?q='.$contract->po_no)->assertOk()->json('data');
+    expect(collect($rows)->firstWhere('id', $contract->id))->toMatchArray(['open_lots' => 2, 'stock_qty' => 700.0]);
+});
+
+it('keeps only lots with greige in stock on the lots LOV when in_stock is set', function () {
+    $empty = receivedLot($this->ledger, ['contract_id' => $this->lot->contract_id], 0);
+
+    $all = collect($this->actingAs($this->ppc)->getJson('/lov/lots?exact='.$this->lot->contract->po_no)->assertOk()->json('data'))->pluck('id');
+    $inStock = collect($this->actingAs($this->ppc)->getJson('/lov/lots?exact='.$this->lot->contract->po_no.'&filters[in_stock]=1')->assertOk()->json('data'))->pluck('id');
+
+    expect($all->all())->toContain($this->lot->id, $empty->id)
+        ->and($inStock->all())->toBe([$this->lot->id]);
 });

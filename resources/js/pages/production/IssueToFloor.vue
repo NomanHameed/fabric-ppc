@@ -87,6 +87,7 @@ function load(id: number | null): void {
         ? `${row.lot_no} · ${row.po_no} · ${row.design ?? ''} · ${row.colour ?? ''}`
         : '';
     statusLine.setMessage(row ? t('production.issue.viewing') : '', 'info');
+    statusLine.setHint('');
 }
 
 watch(
@@ -117,6 +118,14 @@ watch(
 function onLot(row: LovRow): void {
     const picked = row as unknown as LotSummary;
     lot.value = picked;
+    form.clearErrors('lot_id');
+    if (picked.stock_qty <= 0) {
+        // The LOV filters these out, but a stale row must still not pre-fill a quantity nobody can issue.
+        form.qty = '';
+        form.setError('lot_id', t('production.issue.no_stock'));
+        statusLine.setHint('');
+        return;
+    }
     form.qty = picked.stock_qty;
     statusLine.setHint(
         t('production.issue.available_hint', {
@@ -160,6 +169,8 @@ function issueContract(): void {
         !window.confirm(
             t('production.issue.confirm_all', {
                 po: contract.value?.code ?? '',
+                n: String(contract.value?.open_lots ?? 0),
+                qty: formatQty(contract.value?.stock_qty ?? 0),
             }),
         )
     ) {
@@ -265,6 +276,7 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
                     v-model="form.lot_id"
                     v-model:display="lotDisplay"
                     name="lots"
+                    :filters="{ in_stock: 1 }"
                     :disabled="viewing"
                     @selected="onLot"
                 />
@@ -352,6 +364,20 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
             </FormField>
             <FormField :label="t('production.fields.ref_no')" :span="2">
                 <Input :model-value="contract?.ref_no ?? ''" disabled />
+            </FormField>
+            <FormField :label="t('production.issue.open_lots')" :span="1">
+                <Input
+                    :model-value="contract ? String(contract.open_lots) : ''"
+                    disabled
+                    class="text-end tabular-nums"
+                />
+            </FormField>
+            <FormField :label="t('production.issue.available')" :span="3">
+                <Input
+                    :model-value="contract ? formatQty(contract.stock_qty) : ''"
+                    disabled
+                    class="text-end tabular-nums"
+                />
             </FormField>
             <FormField
                 :label="t('production.fields.date')"
