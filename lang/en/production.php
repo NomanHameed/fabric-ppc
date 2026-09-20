@@ -12,6 +12,7 @@ return [
     ],
     'states' => ['open' => 'Open', 'hold' => 'On hold', 'closed' => 'Closed', 'cancelled' => 'Cancelled'],
     'reasons' => ['greige_changed' => 'Oracle greige changed from :old to :new'],
+    'state' => ['held' => 'Lot :lot is on hold.', 'released' => 'Lot :lot is open again.', 'cancelled' => 'Lot :lot is cancelled.'],
     'errors' => [
         'insufficient_quantity' => 'Lot :lot has only :available m at :position; :requested m requested.',
         'lot_not_open' => 'Lot :lot is :state; no production can be recorded on it.',
@@ -23,5 +24,8 @@ return [
         'route_step_order' => 'Steps that already have production must keep their order.',
         'route_step_position_locked' => 'Adding or skipping a step here would move metres already at a completed step; add a reprocess line instead.',
         'no_cli_user' => 'No user found to record as uploader. Create an admin user or pass --user=<id>.',
+        'cancel_has_wip' => 'Lot :lot has metres in process or finished; close it with a loss instead of cancelling.',
+        'invalid_state_change' => 'Lot :lot is :state; this change is not allowed.',
+        'unknown_reason' => 'Unknown reason code :code.',
     ],
 ];

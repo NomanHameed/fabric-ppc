@@ -39,6 +39,7 @@ class Lot extends Model implements Auditable
     protected $casts = [
         'oracle_line_id' => 'integer', 'gsm' => 'integer', 'g_width' => 'decimal:2', 'f_width' => 'decimal:2',
         'greige_qty' => 'decimal:2', 'loss_qty' => 'decimal:2', 'closed_at' => 'datetime', 'oracle_missing_at' => 'datetime',
+        'state_changed_at' => 'datetime',
         // derived by the ledger (LedgerService is their only writer)
         'stock_qty' => 'decimal:2', 'issued_qty' => 'decimal:2', 'wip_qty' => 'decimal:2', 'finished_qty' => 'decimal:2',
         'dispatched_qty' => 'decimal:2', 'last_movement_at' => 'datetime',

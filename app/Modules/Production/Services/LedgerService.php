@@ -9,6 +9,7 @@ use App\Modules\Production\Ledger\Position;
 use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Models\LotBalance;
 use App\Modules\Production\Models\LotMovement;
+use App\Modules\Production\Status\LotStatusLabeller;
 use Carbon\CarbonInterface;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -50,7 +51,9 @@ final class LedgerService
     private const TOTAL_COLUMNS = ['stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty'];
 
     /** Every lot column the ledger owns. */
-    private const DERIVED_COLUMNS = [...self::TOTAL_COLUMNS, 'last_movement_at'];
+    private const DERIVED_COLUMNS = [...self::TOTAL_COLUMNS, 'current_label', 'last_movement_at'];
+
+    public function __construct(private readonly LotStatusLabeller $labeller) {}
 
     /**
      * Post one movement: $qtyOut leaves $from (if any) and $qtyIn arrives at $to (if any).
@@ -150,6 +153,19 @@ final class LedgerService
     public function available(Lot $lot, Position $position): float
     {
         return (float) $this->availableQty($lot, $position);
+    }
+
+    /**
+     * Re-derive the totals and the status label without a movement: after a state change (hold / release /
+     * cancel / close), or after a route edit moved the next step. The caller's instance gets the new values.
+     */
+    public function relabel(Lot $lot): void
+    {
+        DB::transaction(function () use ($lot): void {
+            $locked = $this->lock($lot);
+            $lastMovedAt = LotMovement::query()->where('lot_id', $locked->getKey())->lockForUpdate()->max('moved_at');
+            $this->refreshTotals($locked, $lot, $this->lockBalances($locked), $lastMovedAt === null ? null : (string) $lastMovedAt);
+        });
     }
 
     /** Recompute balances and totals from the movement rows (repair / backfill). */
@@ -460,17 +476,18 @@ final class LedgerService
     }
 
     /**
-     * Write the totals with a query-builder update so the Lot's audit trail records user edits only; these
-     * columns are derived from the ledger, which is its own audit trail. The caller's instance gets the new
-     * values too, so it stays current after the call.
+     * Write the totals and the status label with a query-builder update so the Lot's audit trail records user
+     * edits only; these columns are derived from the ledger, which is its own audit trail. The label is derived
+     * here, from the balances just written and the locked lot's state, so it can never disagree with them.
+     * The caller's instance gets the new values too, so it stays current after the call.
      *
      * @param  array<string, LotBalance>  $balances
      */
     private function refreshTotals(Lot $locked, Lot $callerInstance, array $balances, CarbonInterface|string|null $lastMovementAt): void
     {
-        $totals = $this->totalsFrom(array_map(fn (LotBalance $row): string => $row->qty, $balances), $this->issuedQty($locked, true))
-            + ['last_movement_at' => $lastMovementAt];
-        // current_label: Task 6 (LotStatusLabeller)
+        $qtyByPosition = array_map(fn (LotBalance $row): string => $row->qty, $balances);
+        $totals = $this->totalsFrom($qtyByPosition, $this->issuedQty($locked, true))
+            + ['current_label' => $this->labeller->label($locked, $qtyByPosition), 'last_movement_at' => $lastMovementAt];
 
         Lot::query()->whereKey($locked->getKey())->update($totals);
 
