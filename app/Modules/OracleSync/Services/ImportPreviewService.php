@@ -181,6 +181,15 @@ final class ImportPreviewService
             return $this->rowAttrs($import, $rowNo, $row, 'new');
         }
         $diff = $this->diff($this->snapshot($lot), $this->incoming($row));
+        if (isset($diff['greige_qty']) && $lot->movements()->where('kind', 'import')->exists()) {
+            // The commit posts the difference as a STOCK adjustment, which can never overdraw STOCK: a reduction
+            // below what already left STOCK (greige − STOCK, the spec's "Qty Issued") is an error row, not a failed commit.
+            $issued = round((float) $lot->greige_qty - (float) $lot->stock_qty, 2);
+            if ((float) $diff['greige_qty'][1] < $issued) {
+                return $this->rowAttrs($import, $rowNo, $row, 'error', $lot->id, $diff,
+                    'greige_below_issued:'.__('oracle.errors.greige_below_issued', ['lot' => $lot->lot_no, 'issued' => number_format($issued, 2)]));
+            }
+        }
 
         return $this->rowAttrs($import, $rowNo, $row, $diff === [] ? 'unchanged' : 'changed', $lot->id, $diff === [] ? null : $diff);
     }

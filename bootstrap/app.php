@@ -6,6 +6,7 @@ use App\Modules\Foundation\Http\Middleware\EnsureUserIsActive;
 use App\Modules\Foundation\Http\Middleware\SetLocale;
 use App\Modules\Foundation\Support\ErrorReference;
 use App\Modules\OracleSync\Console\ImportOracleFile;
+use App\Modules\Production\Console\BackfillLedger;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -25,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([ImportOracleFile::class])
+    ->withCommands([ImportOracleFile::class, BackfillLedger::class])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 

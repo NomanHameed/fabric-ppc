@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Modules\Foundation\Models\Department;
+use App\Modules\Foundation\Models\RouteTemplate;
 use App\Modules\Foundation\Models\Setting;
 use Database\Seeders\FoundationSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -83,4 +84,17 @@ it('stops a non-admin with admin.users.manage from granting or touching the admi
 it('updates settings', function () {
     $this->actingAs($this->admin)->put('/admin/settings', ['company_name' => 'Albeen Textiles', 'idle_lot_alert_days' => 5])->assertRedirect();
     expect(Setting::get('company_name'))->toBe('Albeen Textiles')->and(Setting::get('idle_lot_alert_days'))->toBe(5);
+});
+
+it('stores and clears the default route template', function () {
+    $t = RouteTemplate::create(['name' => 'Fallback', 'po_type' => null, 'priority' => 0]);
+    $put = fn ($id) => $this->actingAs($this->admin)->put('/admin/settings', ['company_name' => 'A', 'idle_lot_alert_days' => 5, 'default_route_template_id' => $id]);
+    $put($t->id)->assertRedirect()->assertSessionHasNoErrors();
+    expect(Setting::get('default_route_template_id'))->toBe($t->id);
+    $put($t->id + 1)->assertSessionHasErrors('default_route_template_id');
+    $put(null)->assertRedirect()->assertSessionHasNoErrors();
+    expect(Setting::get('default_route_template_id'))->toBeNull();
+    $this->actingAs($this->admin)->get('/admin/settings')->assertInertia(fn ($page) => $page
+        ->where('settings.default_route_template_id', null)
+        ->where('routeTemplates', [['value' => $t->id, 'label' => 'Fallback']]));
 });

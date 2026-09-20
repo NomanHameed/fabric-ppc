@@ -13,6 +13,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
+/**
+ * Derived columns (LedgerService is their only writer):
+ *
+ * @property numeric-string $stock_qty
+ * @property numeric-string $issued_qty
+ * @property numeric-string $wip_qty
+ * @property numeric-string $finished_qty
+ * @property numeric-string $dispatched_qty
+ * @property numeric-string $loss_qty
+ */
 #[UseFactory(LotFactory::class)]
 class Lot extends Model implements Auditable
 {
@@ -42,6 +52,12 @@ class Lot extends Model implements Auditable
     public function quality(): BelongsTo
     {
         return $this->belongsTo(Quality::class);
+    }
+
+    /** @return HasMany<LotRouteStep, $this> */
+    public function routeSteps(): HasMany
+    {
+        return $this->hasMany(LotRouteStep::class)->orderBy('seq');
     }
 
     /** @return HasMany<LotMovement, $this> */

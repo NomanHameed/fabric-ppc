@@ -10,6 +10,7 @@ use App\Modules\OracleSync\Events\LotImported;
 use App\Modules\OracleSync\Models\OracleImport;
 use App\Modules\Production\Models\Contract;
 use App\Modules\Production\Models\Lot;
+use App\Modules\Production\Services\LotIntakeService;
 use Closure;
 use DomainException;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -23,7 +24,7 @@ final class ImportCommitService
     /** Seconds a commit waits for another one to finish before giving up (must stay below the job timeout). */
     public const LOCK_WAIT = 300;
 
-    public function __construct(private readonly PartyResolver $parties) {}
+    public function __construct(private readonly PartyResolver $parties, private readonly LotIntakeService $intake) {}
 
     /**
      * Run $callback with model auditing switched on and $user as the audit user, then restore both.
@@ -98,7 +99,7 @@ final class ImportCommitService
         }
 
         try {
-            $events = $this->commitLocked($import);
+            $events = $this->commitLocked($import, $user);
         } finally {
             $lock->release();
         }
@@ -110,11 +111,13 @@ final class ImportCommitService
     }
 
     /**
-     * The body of commit(), run while the commit lock is held.
+     * The body of commit(), run while the commit lock is held. Production's intake runs inside the same
+     * transaction (route + `import` movement for a new lot, a STOCK adjustment for a greige change), so a lot
+     * never exists without its STOCK balance; $user is recorded on those movements.
      *
      * @return list<object> the LotImported/LotChanged events to fire once the lock is released
      */
-    private function commitLocked(OracleImport $import): array
+    private function commitLocked(OracleImport $import, User $user): array
     {
         $import->refresh();
         $claimed = $import->status === 'committing';
@@ -135,7 +138,7 @@ final class ImportCommitService
         $events = [];
 
         try {
-            DB::transaction(function () use ($import, &$events) {
+            DB::transaction(function () use ($import, $user, &$events) {
                 $qualities = [];
                 $contracts = [];
 
@@ -161,10 +164,13 @@ final class ImportCommitService
 
                     if ($r->action === 'new') {
                         $lot = Lot::query()->create($attrs + ['oracle_line_id' => $row->oracleLineId]);
+                        $this->intake->receive($lot, $user->id, $r);
                         $events[] = new LotImported($lot);
                     } else {
-                        $lot = Lot::query()->findOrFail($r->lot_id);
+                        $lot = Lot::query()->whereKey($r->lot_id)->firstOrFail();
+                        $oldGreige = (float) $lot->greige_qty;
                         $lot->fill($attrs)->save();
+                        $this->intake->adjustGreige($lot, $oldGreige, (float) $lot->greige_qty, $user->id, $r);
                         $events[] = new LotChanged($lot, $r->diff ?? []);
                     }
                 }

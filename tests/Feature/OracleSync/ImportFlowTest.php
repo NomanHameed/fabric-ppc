@@ -11,6 +11,8 @@ use App\Modules\OracleSync\Services\ImportPreviewService;
 use App\Modules\OracleSync\Sources\ExcelUploadSource;
 use App\Modules\Production\Models\Contract;
 use App\Modules\Production\Models\Lot;
+use App\Modules\Production\Models\LotBalance;
+use App\Modules\Production\Models\LotMovement;
 use Database\Seeders\PartySeeder;
 use Illuminate\Support\Facades\Event;
 
@@ -71,8 +73,13 @@ it('commits contracts, qualities and lots and fires LotImported after commit', f
         ->and(Contract::count())->toBe(167)
         ->and(Quality::count())->toBe(111)
         ->and(Lot::where('oracle_line_id', 47090)->first()->greige_qty)->toBe('3650.00')
-        ->and(Lot::where('lot_no', '264899')->count())->toBe(2);
+        ->and(Lot::where('lot_no', '264899')->count())->toBe(2)
+        // every imported lot has its STOCK balance and import movement from the same transaction
+        ->and(LotBalance::count())->toBe(623)->and(LotMovement::where('kind', 'import')->count())->toBe(623)
+        ->and(Lot::where('oracle_line_id', 47090)->first()->stock_qty)->toBe('3650.00')
+        ->and(LotMovement::whereNull('user_id')->count())->toBe(0);
     Event::assertDispatchedTimes(LotImported::class, 623);
+    Event::assertDispatched(LotImported::class, fn ($e) => $e->lot->oracle_line_id === 47090 && $e->lot->stock_qty === '3650.00');
 });
 
 it('detects unchanged, changed and missing lots on re-import', function () {
@@ -90,7 +97,10 @@ it('detects unchanged, changed and missing lots on re-import', function () {
 
     $this->commit->commit($second, $this->user);
     expect(Lot::where('oracle_line_id', 47090)->first()->greige_qty)->toBe('3650.00')
-        ->and($extra->fresh()->oracle_missing_at)->not->toBeNull();
+        ->and($extra->fresh()->oracle_missing_at)->not->toBeNull()
+        // the greige change (1 → 3650, edited outside the ledger) was posted as one STOCK adjustment
+        ->and(LotMovement::where('kind', 'adjustment')->count())->toBe(1)
+        ->and(LotMovement::where('kind', 'adjustment')->value('qty_into_to'))->toBe('3649.00');
     Event::assertDispatched(LotChanged::class, fn ($e) => $e->lot->oracle_line_id === 47090 && $e->diff === ['greige_qty' => [1.0, 3650.0]]);
 });
 

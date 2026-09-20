@@ -39,6 +39,7 @@ return [
         'overlong' => 'Value too long for: :fields',
         'commit_in_progress' => 'Another import is being committed. Try again in a moment.',
         'queue_unavailable' => 'The import could not be queued. Check the queue service and try again.',
+        'greige_below_issued' => 'Oracle now reports less greige for lot :lot than the :issued m already issued to the floor. Close or adjust the lot in the app, then upload again.',
     ],
     'committed' => 'Import committed: :new new, :changed changed, :missing missing.',
 ];

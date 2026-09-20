@@ -5,6 +5,7 @@ return [
     'name' => 'نام', 'email' => 'ای میل', 'password' => 'پاس ورڈ', 'password_hint' => 'موجودہ پاس ورڈ رکھنے کے لیے خالی چھوڑیں',
     'active' => 'فعال', 'locale' => 'زبان', 'role_list' => 'رولز', 'departments' => 'شعبے',
     'permission' => 'اجازت', 'company_name' => 'کمپنی کا نام (رپورٹ ہیڈر)', 'idle_lot_alert_days' => 'رکے ہوئے لاٹ کا الرٹ (دن)',
+    'default_route_template' => 'ڈیفالٹ روٹ ٹیمپلیٹ', 'no_default_template' => '— کوئی نہیں (صرف ٹیمپلیٹ میچنگ) —',
     'cannot_deactivate_self' => 'آپ اپنا اکاؤنٹ غیر فعال نہیں کر سکتے۔',
     'cannot_drop_own_admin' => 'آپ اپنا ایڈمن رول نہیں ہٹا سکتے۔',
     'admin_permissions_admin_only' => 'انتظامی اجازتیں صرف ایڈمنسٹریٹر دے سکتا ہے۔',

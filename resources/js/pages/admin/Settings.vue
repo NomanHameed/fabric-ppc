@@ -11,13 +11,19 @@ import type { FormsAction } from '@/forms/keymap';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 
-type Settings = { company_name: string; idle_lot_alert_days: number };
+type Settings = {
+    company_name: string;
+    idle_lot_alert_days: number;
+    default_route_template_id: number | null;
+};
+type Option = { value: number; label: string };
 
-const props = defineProps<{ settings: Settings }>();
+const props = defineProps<{ settings: Settings; routeTemplates: Option[] }>();
 
 const form = useForm<Record<string, any>>({
     company_name: props.settings.company_name,
     idle_lot_alert_days: props.settings.idle_lot_alert_days,
+    default_route_template_id: props.settings.default_route_template_id,
 });
 
 watch(
@@ -100,6 +106,29 @@ function onAction(action: FormsAction): void {
                     min="1"
                     max="60"
                 />
+            </FormField>
+            <FormField
+                :label="t('admin.default_route_template')"
+                for="f-default_route_template_id"
+                :span="6"
+                :error="form.errors.default_route_template_id"
+            >
+                <select
+                    id="f-default_route_template_id"
+                    v-model="form.default_route_template_id"
+                    class="bg-background h-9 rounded-md border px-2 text-sm"
+                >
+                    <option :value="null">
+                        {{ t('admin.no_default_template') }}
+                    </option>
+                    <option
+                        v-for="o in routeTemplates"
+                        :key="o.value"
+                        :value="o.value"
+                    >
+                        {{ o.label }}
+                    </option>
+                </select>
             </FormField>
         </FormBlock>
         <ConfirmSaveDialog
