@@ -16,5 +16,6 @@ return [
         'lot_not_open' => 'Lot :lot is :state; no production can be recorded on it.',
         'invariant' => 'Ledger balances for lot :lot do not match its movements at: :positions.',
         'already_reversed' => 'Movement #:id has already been reversed.',
+        'cannot_reverse_reversal' => 'Movement #:id is itself a reversal and cannot be reversed; post the original movement again instead.',
     ],
 ];

@@ -1,11 +1,14 @@
 <?php
 
+use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature');
+// Concurrency: two real connections need committed rows, so no wrapping transaction (MySQL only; skipped on SQLite)
+pest()->extend(TestCase::class)->use(DatabaseTruncation::class)->in('Concurrency');
 
 const ORACLE_HEADERS = [
     'PARTY', 'PARTY_CODE', 'CONTRACT_NUM', 'REF_NUM', 'DATED', 'QUALITY', 'Q_CODE', 'LOT_NUM1', 'GSM', 'DESIGN_CODE',

@@ -12,6 +12,7 @@ use App\Modules\Production\Models\LotMovement;
 use Carbon\CarbonInterface;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -23,6 +24,12 @@ use InvalidArgumentException;
  * balance rows, and leaves balances and totals consistent with the movements when it returns. Balances never
  * go negative: a movement that would overdraw its source position throws InsufficientQuantity; the override
  * path (postWithOverride) posts an explicit `adjustment` into that position first, as spec §5.3 requires.
+ *
+ * Every read that feeds a write is a locking read (FOR UPDATE). Under InnoDB REPEATABLE READ a plain select
+ * inside a transaction returns the snapshot fixed by the transaction's first read, so when a caller opens a
+ * transaction, reads something, and then posts, a plain read here would miss rows another connection has
+ * committed since - even though the lot row itself is locked. Locking reads always see the latest committed
+ * state. The public read-only methods (balances, available, assertInvariant) keep plain reads.
  *
  * Quantities are decimal(12,2). Every figure is normalised to a 2-dp string on entry and all arithmetic and
  * comparisons run through bcmath, so no float drift can reach the ledger.
@@ -88,7 +95,7 @@ final class LedgerService
             $adjustment = null;
             if ($from !== null) {
                 $locked = $this->lock($lot);
-                $shortfall = bcsub(self::qty($qtyOut), $this->availableQty($locked, $from), self::SCALE);
+                $shortfall = bcsub(self::qty($qtyOut), $this->availableQty($locked, $from, true), self::SCALE);
                 if (bccomp($shortfall, self::ZERO, self::SCALE) > 0) {
                     $adjustment = $this->post($lot, 'adjustment', null, $from, 0, (float) $shortfall, $opts);
                 }
@@ -103,10 +110,15 @@ final class LedgerService
      * same kind, reversal_of_id set, the original's source kept even if that model is gone by now.
      * A reversal is allowed on a held or closed lot (it undoes what was recorded, it records nothing new).
      * Throws InsufficientQuantity when the metres have already moved on, and DomainException when the
-     * movement was already reversed (checked under the lot lock; the unique index on reversal_of_id backstops it).
+     * movement was already reversed (checked under the lot lock; the unique index on reversal_of_id backstops it)
+     * or is itself a reversal (undoing an undo is re-posting the original, which the caller does explicitly).
      */
     public function reverse(LotMovement $movement, ?int $userId, ?string $reason = null): LotMovement
     {
+        if ($movement->reversal_of_id !== null) {
+            throw new DomainException(__('production.errors.cannot_reverse_reversal', ['id' => $movement->id]));
+        }
+
         $from = $movement->toPosition();
         $to = $movement->fromPosition();
         $out = self::qty((float) $movement->qty_into_to);
@@ -145,7 +157,7 @@ final class LedgerService
     {
         DB::transaction(function () use ($lot): void {
             $locked = $this->lock($lot);
-            $expected = $this->expectedBalances($locked);
+            $expected = $this->expectedBalances($locked, true);
 
             LotBalance::query()->where('lot_id', $locked->getKey())->delete();
             $rows = [];
@@ -153,7 +165,7 @@ final class LedgerService
                 $rows[$position] = LotBalance::query()->create(['lot_id' => $locked->getKey(), 'position' => $position, 'qty' => $qty]);
             }
 
-            $lastMovedAt = LotMovement::query()->where('lot_id', $locked->getKey())->max('moved_at');
+            $lastMovedAt = LotMovement::query()->where('lot_id', $locked->getKey())->lockForUpdate()->max('moved_at');
             $this->refreshTotals($locked, $lot, $rows, $lastMovedAt === null ? null : (string) $lastMovedAt);
         });
     }
@@ -218,7 +230,7 @@ final class LedgerService
             if ($row['reversal_of_id'] === null && in_array($kind, self::NEEDS_OPEN_LOT, true) && $locked->state !== 'open') {
                 throw new LotNotOpen($locked);
             }
-            if ($row['reversal_of_id'] !== null && LotMovement::query()->where('reversal_of_id', $row['reversal_of_id'])->exists()) {
+            if ($row['reversal_of_id'] !== null && LotMovement::query()->where('reversal_of_id', $row['reversal_of_id'])->lockForUpdate()->exists()) {
                 throw new DomainException(__('production.errors.already_reversed', ['id' => $row['reversal_of_id']]));
             }
 
@@ -230,14 +242,22 @@ final class LedgerService
                 }
             }
 
-            $movement = LotMovement::query()->create($row + [
-                'lot_id' => $locked->getKey(),
-                'kind' => $kind,
-                'from_position' => $from?->value(),
-                'to_position' => $to?->value(),
-                'qty_out_of_from' => $from === null ? self::ZERO : $out,
-                'qty_into_to' => $to === null ? self::ZERO : $in,
-            ]);
+            try {
+                $movement = LotMovement::query()->create($row + [
+                    'lot_id' => $locked->getKey(),
+                    'kind' => $kind,
+                    'from_position' => $from?->value(),
+                    'to_position' => $to?->value(),
+                    'qty_out_of_from' => $from === null ? self::ZERO : $out,
+                    'qty_into_to' => $to === null ? self::ZERO : $in,
+                ]);
+            } catch (UniqueConstraintViolationException $e) {
+                // reversal_of_id is the table's only unique column: the check above lost a race it should not be able to lose
+                if ($row['reversal_of_id'] !== null) {
+                    throw new DomainException(__('production.errors.already_reversed', ['id' => $row['reversal_of_id']]), 0, $e);
+                }
+                throw $e;
+            }
 
             if ($from !== null) {
                 $this->applyDelta($locked, $balances, $from, bcsub(self::ZERO, $out, self::SCALE));
@@ -300,6 +320,7 @@ final class LedgerService
      */
     private function assertShape(string $kind, ?Position $from, ?Position $to, bool $isReversal): void
     {
+        $posted = ($from?->value() ?? 'none').' → '.($to?->value() ?? 'none');
         if ($isReversal) {
             [$from, $to] = [$to, $from];
         }
@@ -322,8 +343,7 @@ final class LedgerService
         };
 
         if (! $ok) {
-            $pair = ($from?->value() ?? 'none').' → '.($to?->value() ?? 'none');
-            throw new InvalidArgumentException(($isReversal ? 'A reversal of ' : 'A ')."'{$kind}' movement cannot go {$pair}.");
+            throw new InvalidArgumentException(($isReversal ? 'A reversal of ' : 'A ')."'{$kind}' movement cannot go {$posted}.");
         }
     }
 
@@ -356,20 +376,32 @@ final class LedgerService
         $row->save();
     }
 
-    /** @return numeric-string */
-    private function availableQty(Lot $lot, Position $position): string
+    /**
+     * @param  bool  $locked  a locking read (only under the lot lock; feeds a write)
+     * @return numeric-string
+     */
+    private function availableQty(Lot $lot, Position $position, bool $locked = false): string
     {
-        $qty = LotBalance::query()->where('lot_id', $lot->getKey())->where('position', $position->value())->value('qty');
+        $query = LotBalance::query()->where('lot_id', $lot->getKey())->where('position', $position->value());
+        if ($locked) {
+            $query->lockForUpdate();
+        }
 
         // null: the lot has never had metres at this position (the column itself is a non-null decimal)
-        return is_numeric($qty) ? bcadd((string) $qty, self::ZERO, self::SCALE) : self::ZERO;
+        return self::decimal($query->value('qty'));
     }
 
-    /** @return array<string, numeric-string> position => Σ into − Σ out over the lot's movements */
-    private function expectedBalances(Lot $lot): array
+    /**
+     * @param  bool  $locked  a locking read (only under the lot lock; feeds a write)
+     * @return array<string, numeric-string> position => Σ into − Σ out over the lot's movements
+     */
+    private function expectedBalances(Lot $lot, bool $locked = false): array
     {
         $expected = [];
         $query = LotMovement::query()->where('lot_id', $lot->getKey())->orderBy('id');
+        if ($locked) {
+            $query->lockForUpdate();
+        }
         foreach ($query->cursor() as $m) {
             if ($m->from_position !== null) {
                 $expected[$m->from_position] = bcsub($expected[$m->from_position] ?? self::ZERO, $m->qty_out_of_from, self::SCALE);
@@ -386,13 +418,17 @@ final class LedgerService
      * Net metres issued to the floor: Σ taken out of STOCK by `issue` movements, less Σ put back by their
      * reversals. Unlike greige − STOCK it is not disturbed by adjustments or losses posted against STOCK.
      *
+     * @param  bool  $locked  a locking read (only under the lot lock; feeds a write)
      * @return numeric-string
      */
-    private function issuedQty(Lot $lot): string
+    private function issuedQty(Lot $lot, bool $locked = false): string
     {
         $issues = LotMovement::query()->where('lot_id', $lot->getKey())->where('kind', 'issue');
-        $issued = self::qty((float) (clone $issues)->whereNull('reversal_of_id')->sum('qty_out_of_from'));
-        $reversed = self::qty((float) (clone $issues)->whereNotNull('reversal_of_id')->sum('qty_into_to'));
+        if ($locked) {
+            $issues->lockForUpdate();
+        }
+        $issued = self::decimal((clone $issues)->whereNull('reversal_of_id')->sum('qty_out_of_from'));
+        $reversed = self::decimal((clone $issues)->whereNotNull('reversal_of_id')->sum('qty_into_to'));
 
         return bcsub($issued, $reversed, self::SCALE);
     }
@@ -432,7 +468,7 @@ final class LedgerService
      */
     private function refreshTotals(Lot $locked, Lot $callerInstance, array $balances, CarbonInterface|string|null $lastMovementAt): void
     {
-        $totals = $this->totalsFrom(array_map(fn (LotBalance $row): string => $row->qty, $balances), $this->issuedQty($locked))
+        $totals = $this->totalsFrom(array_map(fn (LotBalance $row): string => $row->qty, $balances), $this->issuedQty($locked, true))
             + ['last_movement_at' => $lastMovementAt];
         // current_label: Task 6 (LotStatusLabeller)
 
@@ -456,6 +492,21 @@ final class LedgerService
 
         /** @var numeric-string */
         return number_format(round($value, self::SCALE), self::SCALE, '.', '');
+    }
+
+    /**
+     * A DECIMAL value as the database returned it (a string on MySQL, which is passed to bcmath untouched;
+     * SQLite sums its REAL storage and returns a float, which is rounded once) as a 2-dp string; null → 0.
+     *
+     * @return numeric-string
+     */
+    private static function decimal(mixed $value): string
+    {
+        if (is_float($value)) {
+            return self::qty($value);
+        }
+
+        return is_numeric($value) ? bcadd((string) $value, self::ZERO, self::SCALE) : self::ZERO;
     }
 
     private static function currentUserId(): ?int

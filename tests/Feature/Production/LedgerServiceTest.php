@@ -266,13 +266,16 @@ it('rejects a from/to pair the kind does not allow', function (string $kind, ?Po
     'import into ISSUED' => ['import', null, Position::issued()],
     'import out of a position' => ['import', Position::stock(), Position::stock()],
     'issue backwards' => ['issue', Position::issued(), Position::stock()],
+    'issue in place' => ['issue', Position::issued(), Position::issued()],
     'process straight from STOCK' => ['process', Position::stock(), Position::finished()],
+    'process from STOCK to a step' => ['process', Position::stock(), Position::step(3)],
     'process backwards' => ['process', Position::finished(), Position::issued()],
     'process in place at STOCK' => ['process', Position::stock(), Position::stock()],
     'reprocess that advances' => ['reprocess', Position::issued(), Position::finished()],
     'reprocess at STOCK' => ['reprocess', Position::stock(), Position::stock()],
     'reprocess at a terminal position' => ['reprocess', Position::dispatched(), Position::dispatched()],
     'dispatch from the floor' => ['dispatch', Position::issued(), Position::dispatched()],
+    'dispatch from a step' => ['dispatch', Position::step(3), Position::dispatched()],
     'loss that is not a loss' => ['loss', Position::stock(), Position::issued()],
     'loss out of a terminal position' => ['loss', Position::dispatched(), Position::loss()],
     'two-sided adjustment' => ['adjustment', Position::stock(), Position::issued()],
@@ -290,9 +293,13 @@ it('accepts the mirror of every allowed shape as a reversal', function (string $
     $rev = $this->ledger->reverse($m, $this->user->id);
     $after = $this->ledger->balances($this->lot);
 
-    expect($rev->reversal_of_id)->toBe($m->id)->and($rev->from_position)->toBe($m->to_position)->and($rev->to_position)->toBe($m->from_position);
+    expect($rev->reversal_of_id)->toBe($m->id)->and($rev->from_position)->toBe($m->to_position)->and($rev->to_position)->toBe($m->from_position)
+        ->and(array_sum($after))->toBe(array_sum($before));
     foreach ($before as $position => $qty) {
         expect($after[$position])->toBe($qty);
+    }
+    foreach (array_diff_key($after, $before) as $position => $qty) {
+        expect($qty)->toBe(0.0, "position {$position} created by the movement is back at 0");
     }
     $this->ledger->assertInvariant($this->lot);
 })->with([
@@ -311,6 +318,31 @@ it('accepts the mirror of every allowed shape as a reversal', function (string $
     'adjustment in' => ['adjustment', null, Position::stock(), 0, 10],
     'adjustment out' => ['adjustment', Position::finished(), null, 10, 0],
 ]);
+
+it('refuses to reverse a reversal', function () {
+    ($this->import)($this->lot);
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 500, 500);
+    $issue = $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    $reprocess = $this->ledger->post($this->lot, 'reprocess', Position::issued(), Position::issued(), 50, 48);
+    $issueRev = $this->ledger->reverse($issue, $this->user->id);
+    $reprocessRev = $this->ledger->reverse($reprocess, $this->user->id);
+    $count = LotMovement::count();
+    $before = $this->ledger->balances($this->lot);
+
+    expect(fn () => $this->ledger->reverse($issueRev, $this->user->id))->toThrow(DomainException::class, "#{$issueRev->id} is itself a reversal")
+        ->and(fn () => $this->ledger->reverse($reprocessRev, $this->user->id))->toThrow(DomainException::class, "#{$reprocessRev->id} is itself a reversal")
+        ->and(LotMovement::count())->toBe($count)
+        ->and($this->ledger->balances($this->lot))->toBe($before);
+});
+
+it('names the pair as posted when a reversal has the wrong shape', function () {
+    try {
+        $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 10, 10, ['reversalOf' => 1]);
+        $this->fail('expected InvalidArgumentException');
+    } catch (InvalidArgumentException $e) {
+        expect($e->getMessage())->toBe("A reversal of 'issue' movement cannot go STOCK → ISSUED.");
+    }
+});
 
 it('refuses to update or delete a movement row through the model', function () {
     $m = ($this->import)($this->lot);
