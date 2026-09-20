@@ -12,7 +12,9 @@ it('logs the lots whose balances disagree with their movements', function () {
     $ledger = app(LedgerService::class);
     $ok = Lot::factory()->create();
     $bad = Lot::factory()->create();
-    Lot::factory()->create(); // never moved: skipped
+    Lot::factory()->create(); // never moved: zero balances and zero totals agree
+    $stale = Lot::factory()->create(); // never moved, but a total was set outside the ledger
+    Lot::whereKey($stale->id)->update(['stock_qty' => 5]);
     $ledger->post($ok, 'import', null, Position::stock(), 0, 10);
     $ledger->post($bad, 'import', null, Position::stock(), 0, 10);
     LotBalance::where('lot_id', $bad->id)->update(['qty' => 1]);
@@ -21,10 +23,13 @@ it('logs the lots whose balances disagree with their movements', function () {
     $job = new CheckLedgerInvariant;
     $job->handle($ledger);
 
-    expect($job->violations)->toBe([$bad->id]);
-    Log::shouldHaveReceived('error')->once()->withArgs(fn (string $message, array $context) => $context['lot_id'] === $bad->id
+    expect($job->violations)->toBe([$bad->id, $stale->id]);
+    Log::shouldHaveReceived('error')->twice();
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => $context['lot_id'] === $bad->id
         && $context['lot_no'] === $bad->lot_no
-        && $context['differences'] === ['STOCK' => ['balance' => 1.0, 'expected' => 10.0]]);
+        && $context['differences'] === ['STOCK' => ['balance' => 1.0, 'expected' => 10.0]])->once();
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => $context['lot_id'] === $stale->id
+        && $context['differences'] === ['lots.stock_qty' => ['balance' => 5.0, 'expected' => 0.0]])->once();
 });
 
 it('is scheduled daily', function () {

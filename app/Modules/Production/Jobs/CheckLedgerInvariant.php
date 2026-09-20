@@ -9,7 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-/** Nightly: verify every lot's balances against its movements (spec §5.3 "Invariant"); log violations. */
+/** Nightly: verify every lot's balances and totals against its movements (spec §5.3 "Invariant"); log violations. */
 class CheckLedgerInvariant implements ShouldQueue
 {
     use Queueable;
@@ -19,7 +19,7 @@ class CheckLedgerInvariant implements ShouldQueue
 
     public function handle(LedgerService $ledger): void
     {
-        Lot::query()->whereHas('movements')->select(['id', 'lot_no'])->chunkById(200, function ($lots) use ($ledger): void {
+        Lot::query()->chunkById(200, function ($lots) use ($ledger): void {
             foreach ($lots as $lot) {
                 try {
                     $ledger->assertInvariant($lot);

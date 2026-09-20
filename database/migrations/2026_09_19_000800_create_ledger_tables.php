@@ -17,9 +17,9 @@ return new class extends Migration
             $t->decimal('qty_out_of_from', 12, 2)->default(0);
             $t->decimal('qty_into_to', 12, 2)->default(0);
             $t->nullableMorphs('source');
-            $t->timestamp('moved_at');
+            $t->dateTime('moved_at'); // stored as given (a TIMESTAMP would get MariaDB's implicit ON UPDATE)
             $t->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
-            $t->foreignId('reversal_of_id')->nullable()->constrained('lot_movements')->restrictOnDelete();
+            $t->foreignId('reversal_of_id')->nullable()->unique()->constrained('lot_movements')->restrictOnDelete(); // unique: a movement is reversed at most once
             $t->string('reason', 200)->nullable();
             $t->timestamps();
             $t->index(['lot_id', 'moved_at']);

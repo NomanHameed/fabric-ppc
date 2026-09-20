@@ -15,5 +15,6 @@ return [
         'insufficient_quantity' => 'لاٹ :lot کے پاس :position پر صرف :available میٹر ہیں؛ :requested میٹر درکار ہیں۔',
         'lot_not_open' => 'لاٹ :lot :state ہے؛ اس پر پروڈکشن درج نہیں کی جا سکتی۔',
         'invariant' => 'لاٹ :lot کے لیجر بیلنس اس کی موومنٹس سے مطابقت نہیں رکھتے: :positions۔',
+        'already_reversed' => 'موومنٹ #:id پہلے ہی واپس کی جا چکی ہے۔',
     ],
 ];

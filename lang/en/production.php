@@ -15,5 +15,6 @@ return [
         'insufficient_quantity' => 'Lot :lot has only :available m at :position; :requested m requested.',
         'lot_not_open' => 'Lot :lot is :state; no production can be recorded on it.',
         'invariant' => 'Ledger balances for lot :lot do not match its movements at: :positions.',
+        'already_reversed' => 'Movement #:id has already been reversed.',
     ],
 ];

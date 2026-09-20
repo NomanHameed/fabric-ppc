@@ -10,6 +10,7 @@ use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Models\LotBalance;
 use App\Modules\Production\Models\LotMovement;
 use Carbon\CarbonInterface;
+use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,7 @@ use InvalidArgumentException;
  * comparisons run through bcmath, so no float drift can reach the ledger.
  *
  * @phpstan-type Opts array{source?: Model|null, movedAt?: CarbonInterface|null, userId?: int|null, reason?: string|null, reversalOf?: int|null}
+ * @phpstan-type Totals array{stock_qty: numeric-string, issued_qty: numeric-string, wip_qty: numeric-string, finished_qty: numeric-string, dispatched_qty: numeric-string, loss_qty: numeric-string}
  */
 final class LedgerService
 {
@@ -38,7 +40,10 @@ final class LedgerService
     private const NEEDS_OPEN_LOT = ['issue', 'process', 'reprocess'];
 
     /** Lot columns derived from the balances (spec §5.3 "Derived lot values"). */
-    private const DERIVED_COLUMNS = ['stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty', 'last_movement_at'];
+    private const TOTAL_COLUMNS = ['stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty'];
+
+    /** Every lot column the ledger owns. */
+    private const DERIVED_COLUMNS = [...self::TOTAL_COLUMNS, 'last_movement_at'];
 
     /**
      * Post one movement: $qtyOut leaves $from (if any) and $qtyIn arrives at $to (if any).
@@ -47,7 +52,7 @@ final class LedgerService
      *
      * @throws InsufficientQuantity when $from holds less than $qtyOut
      * @throws LotNotOpen for issue/process/reprocess on a lot whose state is not `open`
-     * @throws InvalidArgumentException for a malformed movement (unknown kind, no positions, negative quantities, leaving a terminal position)
+     * @throws InvalidArgumentException for a malformed movement (unknown kind, a from/to pair the kind does not allow, negative or non-finite quantities)
      */
     public function post(Lot $lot, string $kind, ?Position $from, ?Position $to, float $qtyOut, float $qtyIn, array $opts = []): LotMovement
     {
@@ -96,14 +101,12 @@ final class LedgerService
     /**
      * Undo a movement with a new row (never an update or delete): from/to swapped, quantities swapped,
      * same kind, reversal_of_id set, the original's source kept even if that model is gone by now.
-     * Throws InsufficientQuantity when the metres have already moved on.
+     * A reversal is allowed on a held or closed lot (it undoes what was recorded, it records nothing new).
+     * Throws InsufficientQuantity when the metres have already moved on, and DomainException when the
+     * movement was already reversed (checked under the lot lock; the unique index on reversal_of_id backstops it).
      */
     public function reverse(LotMovement $movement, ?int $userId, ?string $reason = null): LotMovement
     {
-        if (LotMovement::query()->where('reversal_of_id', $movement->getKey())->exists()) {
-            throw new InvalidArgumentException("Movement #{$movement->getKey()} has already been reversed.");
-        }
-
         $from = $movement->toPosition();
         $to = $movement->fromPosition();
         $out = self::qty((float) $movement->qty_into_to);
@@ -157,26 +160,43 @@ final class LedgerService
 
     /**
      * Spec §5.3 invariant: per position, balance = Σ qty_into_to − Σ qty_out_of_from over all movements
-     * (which implies the whole-lot sum identity).
+     * (which implies the whole-lot sum identity), and the denormalised lots.*_qty columns equal the totals
+     * derived from those movements (reported as `lots.<column>`). Everything is read from the database in one
+     * transaction, so the check sees a consistent snapshot rather than the caller's instance.
      *
      * @throws LedgerInvariantViolation
      */
     public function assertInvariant(Lot $lot): void
     {
-        $expected = $this->expectedBalances($lot);
-        $actual = [];
-        foreach (LotBalance::query()->where('lot_id', $lot->getKey())->get(['position', 'qty']) as $row) {
-            $actual[$row->position] = $row->qty;
-        }
-
-        $diff = [];
-        foreach (array_unique(array_merge(array_keys($expected), array_keys($actual))) as $position) {
-            $e = $expected[$position] ?? self::ZERO;
-            $a = $actual[$position] ?? self::ZERO;
-            if (bccomp($e, $a, self::SCALE) !== 0) {
-                $diff[$position] = ['balance' => (float) $a, 'expected' => (float) $e];
+        $diff = DB::transaction(function () use ($lot): array {
+            $expected = $this->expectedBalances($lot);
+            $actual = [];
+            foreach (LotBalance::query()->where('lot_id', $lot->getKey())->get(['position', 'qty']) as $row) {
+                $actual[$row->position] = $row->qty;
             }
-        }
+
+            $diff = [];
+            foreach (array_unique(array_merge(array_keys($expected), array_keys($actual))) as $position) {
+                $e = $expected[$position] ?? self::ZERO;
+                $a = $actual[$position] ?? self::ZERO;
+                if (bccomp($e, $a, self::SCALE) !== 0) {
+                    $diff[$position] = ['balance' => (float) $a, 'expected' => (float) $e];
+                }
+            }
+
+            $expectedTotals = $this->totalsFrom($expected, $this->issuedQty($lot));
+            /** @var array<string, string|null> $stored */
+            $stored = (array) DB::table('lots')->where('id', $lot->getKey())->first(self::TOTAL_COLUMNS);
+            foreach ($expectedTotals as $column => $e) {
+                $a = is_numeric($stored[$column] ?? null) ? self::qty((float) $stored[$column]) : self::ZERO;
+                if (bccomp($e, $a, self::SCALE) !== 0) {
+                    $diff['lots.'.$column] = ['balance' => (float) $a, 'expected' => (float) $e];
+                }
+            }
+
+            return $diff;
+        });
+
         if ($diff !== []) {
             throw new LedgerInvariantViolation($lot, $diff);
         }
@@ -195,8 +215,11 @@ final class LedgerService
     {
         return DB::transaction(function () use ($lot, $kind, $from, $to, $out, $in, $row): LotMovement {
             $locked = $this->lock($lot);
-            if (in_array($kind, self::NEEDS_OPEN_LOT, true) && $locked->state !== 'open') {
+            if ($row['reversal_of_id'] === null && in_array($kind, self::NEEDS_OPEN_LOT, true) && $locked->state !== 'open') {
                 throw new LotNotOpen($locked);
+            }
+            if ($row['reversal_of_id'] !== null && LotMovement::query()->where('reversal_of_id', $row['reversal_of_id'])->exists()) {
+                throw new DomainException(__('production.errors.already_reversed', ['id' => $row['reversal_of_id']]));
             }
 
             $balances = $this->lockBalances($locked);
@@ -241,9 +264,8 @@ final class LedgerService
         if (! in_array($kind, LotMovement::KINDS, true)) {
             throw new InvalidArgumentException("Unknown movement kind '{$kind}'.");
         }
-        if ($from === null && $to === null) {
-            throw new InvalidArgumentException('A movement needs a from or a to position.');
-        }
+        $this->assertShape($kind, $from, $to, $isReversal);
+
         $outSign = bccomp($out, self::ZERO, self::SCALE);
         $inSign = bccomp($in, self::ZERO, self::SCALE);
         if ($outSign < 0 || $inSign < 0) {
@@ -256,13 +278,52 @@ final class LedgerService
             throw new InvalidArgumentException('A one-sided movement needs a positive quantity.');
         }
         if ($isReversal) {
-            return; // a reversal mirrors its original: it may re-enter from a terminal position or take 0 back from a total-loss step
+            return; // a reversal mirrors its original: it may take 0 back from a total-loss step
         }
         if ($from !== null && $outSign <= 0) {
             throw new InvalidArgumentException('A movement out of a position must take a positive quantity; use an adjustment to add metres.');
         }
-        if ($from?->isTerminal()) {
-            throw new InvalidArgumentException('Metres cannot leave a terminal position except by reversal.');
+    }
+
+    /**
+     * The from/to pairs each kind may carry (spec §5.3 "Ledger rules"). A reversal carries the mirrored pair,
+     * so its (to, from) is checked against the rules for the original.
+     *
+     * - import:     none → STOCK
+     * - issue:      STOCK → ISSUED
+     * - process:    ISSUED|STEP:* → STEP:*|FINISHED (different positions), or in place at a non-terminal
+     *               position other than STOCK (an unplanned operation that does not advance the route)
+     * - reprocess:  in place at a non-terminal position other than STOCK (FINISHED → FINISHED included)
+     * - dispatch:   FINISHED → DISPATCHED
+     * - loss:       any non-terminal position → LOSS
+     * - adjustment: exactly one side, and it is non-terminal
+     */
+    private function assertShape(string $kind, ?Position $from, ?Position $to, bool $isReversal): void
+    {
+        if ($isReversal) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $inPlace = fn (): bool => $from !== null && $to !== null && $from->equals($to) && ! $from->isTerminal() && $from->value() !== Position::STOCK;
+        $onlySide = ($from === null) !== ($to === null) ? ($from ?? $to) : null;
+
+        $ok = match ($kind) {
+            'import' => $from === null && $to?->value() === Position::STOCK,
+            'issue' => $from?->value() === Position::STOCK && $to?->value() === Position::ISSUED,
+            'process' => ($from !== null && $to !== null && ! $from->equals($to)
+                    && ($from->value() === Position::ISSUED || $from->isStep())
+                    && ($to->isStep() || $to->value() === Position::FINISHED))
+                || $inPlace(),
+            'reprocess' => $inPlace(),
+            'dispatch' => $from?->value() === Position::FINISHED && $to?->value() === Position::DISPATCHED,
+            'loss' => $from !== null && ! $from->isTerminal() && $to?->value() === Position::LOSS,
+            'adjustment' => $onlySide !== null && ! $onlySide->isTerminal(),
+            default => false,
+        };
+
+        if (! $ok) {
+            $pair = ($from?->value() ?? 'none').' → '.($to?->value() ?? 'none');
+            throw new InvalidArgumentException(($isReversal ? 'A reversal of ' : 'A ')."'{$kind}' movement cannot go {$pair}.");
         }
     }
 
@@ -322,34 +383,58 @@ final class LedgerService
     }
 
     /**
-     * Denormalised totals (spec §5.3 "Derived lot values"), written with a query-builder update so the
-     * Lot's audit trail records user edits only; these columns are derived from the ledger, which is its own
-     * audit trail. The caller's instance gets the new values too, so it stays current after the call.
+     * Net metres issued to the floor: Σ taken out of STOCK by `issue` movements, less Σ put back by their
+     * reversals. Unlike greige − STOCK it is not disturbed by adjustments or losses posted against STOCK.
+     *
+     * @return numeric-string
+     */
+    private function issuedQty(Lot $lot): string
+    {
+        $issues = LotMovement::query()->where('lot_id', $lot->getKey())->where('kind', 'issue');
+        $issued = self::qty((float) (clone $issues)->whereNull('reversal_of_id')->sum('qty_out_of_from'));
+        $reversed = self::qty((float) (clone $issues)->whereNotNull('reversal_of_id')->sum('qty_into_to'));
+
+        return bcsub($issued, $reversed, self::SCALE);
+    }
+
+    /**
+     * The denormalised totals (spec §5.3 "Derived lot values") for a set of balances.
+     *
+     * @param  array<string, numeric-string>  $qtyByPosition
+     * @param  numeric-string  $issuedQty
+     * @return Totals
+     */
+    private function totalsFrom(array $qtyByPosition, string $issuedQty): array
+    {
+        $wip = self::ZERO;
+        foreach ($qtyByPosition as $position => $qty) {
+            if (Position::from($position)->isWip()) {
+                $wip = bcadd($wip, $qty, self::SCALE);
+            }
+        }
+
+        return [
+            'stock_qty' => $qtyByPosition[Position::STOCK] ?? self::ZERO,
+            'issued_qty' => $issuedQty,
+            'wip_qty' => $wip,
+            'finished_qty' => $qtyByPosition[Position::FINISHED] ?? self::ZERO,
+            'dispatched_qty' => $qtyByPosition[Position::DISPATCHED] ?? self::ZERO,
+            'loss_qty' => $qtyByPosition[Position::LOSS] ?? self::ZERO,
+        ];
+    }
+
+    /**
+     * Write the totals with a query-builder update so the Lot's audit trail records user edits only; these
+     * columns are derived from the ledger, which is its own audit trail. The caller's instance gets the new
+     * values too, so it stays current after the call.
      *
      * @param  array<string, LotBalance>  $balances
      */
     private function refreshTotals(Lot $locked, Lot $callerInstance, array $balances, CarbonInterface|string|null $lastMovementAt): void
     {
-        $qtyAt = fn (string $position): string => isset($balances[$position]) ? $balances[$position]->qty : self::ZERO;
-
-        $stock = $qtyAt(Position::STOCK);
-        $wip = self::ZERO;
-        foreach ($balances as $position => $row) {
-            if (Position::from($position)->isWip()) {
-                $wip = bcadd($wip, $row->qty, self::SCALE);
-            }
-        }
-
-        $totals = [
-            'stock_qty' => $stock,
-            'issued_qty' => bcsub(self::qty((float) $locked->greige_qty), $stock, self::SCALE),
-            'wip_qty' => $wip,
-            'finished_qty' => $qtyAt(Position::FINISHED),
-            'dispatched_qty' => $qtyAt(Position::DISPATCHED),
-            'loss_qty' => $qtyAt(Position::LOSS),
-            'last_movement_at' => $lastMovementAt,
-            // current_label: Task 6 (LotStatusLabeller)
-        ];
+        $totals = $this->totalsFrom(array_map(fn (LotBalance $row): string => $row->qty, $balances), $this->issuedQty($locked))
+            + ['last_movement_at' => $lastMovementAt];
+        // current_label: Task 6 (LotStatusLabeller)
 
         Lot::query()->whereKey($locked->getKey())->update($totals);
 
@@ -365,6 +450,10 @@ final class LedgerService
      */
     private static function qty(float $value): string
     {
+        if (! is_finite($value)) {
+            throw new InvalidArgumentException('A quantity must be a finite number.');
+        }
+
         /** @var numeric-string */
         return number_format(round($value, self::SCALE), self::SCALE, '.', '');
     }

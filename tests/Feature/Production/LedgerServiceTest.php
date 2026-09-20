@@ -10,6 +10,7 @@ use App\Modules\Production\Models\LotBalance;
 use App\Modules\Production\Models\LotMovement;
 use App\Modules\Production\Services\LedgerService;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -120,7 +121,20 @@ it('posts an adjustment first on an override, so the ledger never goes negative'
     expect($adj->kind)->toBe('adjustment')->and((float) $adj->qty_into_to)->toBe(50.0)->and($adj->reason)->toBe('Oracle qty short')
         ->and($adj->from_position)->toBeNull()->and($adj->to_position)->toBe('STOCK')->and($adj->user_id)->toBe($this->user->id)
         ->and($issue->kind)->toBe('issue')->and($issue->reason)->toBe('Oracle qty short')->and($issue->id)->toBe($adj->id + 1)
-        ->and($this->ledger->balances($this->lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 150.0]);
+        ->and($this->ledger->balances($this->lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 150.0])
+        ->and((float) $this->lot->fresh()->issued_qty)->toBe(150.0); // net issued, not greige − STOCK
+    $this->ledger->assertInvariant($this->lot);
+});
+
+it('reverses an override pair in reverse order: the issue first, then the adjustment', function () {
+    ($this->import)($this->lot, 100);
+    [$adj, $issue] = $this->ledger->postWithOverride($this->lot, 'issue', Position::stock(), Position::issued(), 150, 150, 'Oracle qty short');
+    expect(fn () => $this->ledger->reverse($adj, $this->user->id))->toThrow(InsufficientQuantity::class); // STOCK holds 0
+    $this->ledger->reverse($issue, $this->user->id);
+    expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 150.0, 'ISSUED' => 0.0]);
+    $this->ledger->reverse($adj, $this->user->id);
+    expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 100.0, 'ISSUED' => 0.0])
+        ->and((float) $this->lot->fresh()->issued_qty)->toBe(0.0);
     $this->ledger->assertInvariant($this->lot);
 });
 
@@ -165,7 +179,30 @@ it('reverses a movement only once', function () {
     ($this->import)($this->lot);
     $issue = $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 400, 400);
     $this->ledger->reverse($issue, $this->user->id);
-    expect(fn () => $this->ledger->reverse($issue, $this->user->id))->toThrow(InvalidArgumentException::class)
+    expect(fn () => $this->ledger->reverse($issue, $this->user->id))->toThrow(DomainException::class, 'already been reversed')
+        ->and(LotMovement::count())->toBe(3)
+        ->and((float) $this->lot->fresh()->issued_qty)->toBe(0.0); // the reversal nets the issue out
+});
+
+it('backstops the single-reversal rule with a unique index on reversal_of_id', function () {
+    $unique = collect(Schema::getIndexes('lot_movements'))->first(fn (array $i) => $i['columns'] === ['reversal_of_id'] && $i['unique']);
+    expect($unique)->not->toBeNull();
+});
+
+it('reverses a floor movement on a lot that is no longer open', function () {
+    ($this->import)($this->lot);
+    $issue = $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 400, 400);
+    $this->lot->update(['state' => 'hold']);
+    $this->ledger->reverse($issue, $this->user->id, 'issued by mistake');
+    expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 1000.0, 'ISSUED' => 0.0]);
+});
+
+it('still refuses a reversal on a held lot when it would overdraw', function () {
+    ($this->import)($this->lot);
+    $issue = $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 400, 400);
+    $this->ledger->post($this->lot, 'process', Position::issued(), Position::finished(), 400, 400);
+    $this->lot->update(['state' => 'hold']);
+    expect(fn () => $this->ledger->reverse($issue, $this->user->id))->toThrow(InsufficientQuantity::class)
         ->and(LotMovement::count())->toBe(3);
 });
 
@@ -185,7 +222,7 @@ it('rejects floor movements on a lot that is not open', function () {
     $this->lot->update(['state' => 'hold']);
     expect(fn () => $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 10, 10))->toThrow(LotNotOpen::class);
     try {
-        $this->ledger->post($this->lot, 'process', Position::stock(), Position::finished(), 10, 10);
+        $this->ledger->post($this->lot, 'process', Position::issued(), Position::finished(), 10, 10);
         $this->fail('expected LotNotOpen');
     } catch (LotNotOpen $e) {
         expect($e->getMessage())->toContain('On hold');
@@ -194,6 +231,15 @@ it('rejects floor movements on a lot that is not open', function () {
     $this->ledger->post($this->lot, 'adjustment', null, Position::stock(), 0, 5);
     $this->ledger->post($this->lot, 'loss', Position::stock(), Position::loss(), 5, 5, ['reason' => 'DAMAGED']);
     expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 1000.0, 'LOSS' => 5.0]);
+});
+
+it('leaves issued_qty alone when metres are lost straight from STOCK', function () {
+    ($this->import)($this->lot);
+    $this->lot->update(['state' => 'hold']);
+    $this->ledger->post($this->lot, 'loss', Position::stock(), Position::loss(), 5, 5, ['reason' => 'DAMAGED']);
+    $lot = $this->lot->fresh();
+    expect((float) $lot->stock_qty)->toBe(995.0)->and((float) $lot->loss_qty)->toBe(5.0)->and((float) $lot->issued_qty)->toBe(0.0);
+    $this->ledger->assertInvariant($lot);
 });
 
 it('rejects malformed movements before touching the database', function (string $kind, ?Position $from, ?Position $to, float $out, float $in) {
@@ -207,7 +253,63 @@ it('rejects malformed movements before touching the database', function (string 
     'negative in' => ['issue', Position::stock(), Position::issued(), 1, -1],
     'nothing moves' => ['issue', Position::stock(), Position::issued(), 0, 0],
     'one-sided zero' => ['adjustment', null, Position::stock(), 0, 0],
-    'nothing leaves the from position' => ['process', Position::stock(), Position::finished(), 0, 10],
+    'nothing leaves the from position' => ['process', Position::issued(), Position::finished(), 0, 10],
+    'NaN' => ['issue', Position::stock(), Position::issued(), NAN, NAN],
+    'infinite' => ['import', null, Position::stock(), 0, INF],
+]);
+
+it('rejects a from/to pair the kind does not allow', function (string $kind, ?Position $from, ?Position $to) {
+    ($this->import)($this->lot);
+    expect(fn () => $this->ledger->post($this->lot, $kind, $from, $to, 10, 10))->toThrow(InvalidArgumentException::class)
+        ->and(LotMovement::count())->toBe(1);
+})->with([
+    'import into ISSUED' => ['import', null, Position::issued()],
+    'import out of a position' => ['import', Position::stock(), Position::stock()],
+    'issue backwards' => ['issue', Position::issued(), Position::stock()],
+    'process straight from STOCK' => ['process', Position::stock(), Position::finished()],
+    'process backwards' => ['process', Position::finished(), Position::issued()],
+    'process in place at STOCK' => ['process', Position::stock(), Position::stock()],
+    'reprocess that advances' => ['reprocess', Position::issued(), Position::finished()],
+    'reprocess at STOCK' => ['reprocess', Position::stock(), Position::stock()],
+    'reprocess at a terminal position' => ['reprocess', Position::dispatched(), Position::dispatched()],
+    'dispatch from the floor' => ['dispatch', Position::issued(), Position::dispatched()],
+    'loss that is not a loss' => ['loss', Position::stock(), Position::issued()],
+    'loss out of a terminal position' => ['loss', Position::dispatched(), Position::loss()],
+    'two-sided adjustment' => ['adjustment', Position::stock(), Position::issued()],
+    'adjustment into a terminal position' => ['adjustment', null, Position::loss()],
+]);
+
+it('accepts the mirror of every allowed shape as a reversal', function (string $kind, ?Position $from, ?Position $to, float $out, float $in) {
+    ($this->import)($this->lot);
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 500, 500);
+    $this->ledger->post($this->lot, 'process', Position::issued(), Position::step(1), 200, 200);
+    $this->ledger->post($this->lot, 'process', Position::step(1), Position::finished(), 100, 100);
+    $before = $this->ledger->balances($this->lot);
+
+    $m = $this->ledger->post($this->lot, $kind, $from, $to, $out, $in);
+    $rev = $this->ledger->reverse($m, $this->user->id);
+    $after = $this->ledger->balances($this->lot);
+
+    expect($rev->reversal_of_id)->toBe($m->id)->and($rev->from_position)->toBe($m->to_position)->and($rev->to_position)->toBe($m->from_position);
+    foreach ($before as $position => $qty) {
+        expect($after[$position])->toBe($qty);
+    }
+    $this->ledger->assertInvariant($this->lot);
+})->with([
+    'import' => ['import', null, Position::stock(), 0, 10],
+    'issue' => ['issue', Position::stock(), Position::issued(), 10, 10],
+    'process ISSUED → STEP' => ['process', Position::issued(), Position::step(1), 10, 11],
+    'process STEP → STEP' => ['process', Position::step(1), Position::step(2), 10, 9],
+    'process STEP → FINISHED' => ['process', Position::step(1), Position::finished(), 10, 10],
+    'process ISSUED → FINISHED' => ['process', Position::issued(), Position::finished(), 10, 10],
+    'process in place (unplanned operation)' => ['process', Position::issued(), Position::issued(), 10, 10],
+    'reprocess at a step' => ['reprocess', Position::step(1), Position::step(1), 10, 9],
+    'reprocess at FINISHED' => ['reprocess', Position::finished(), Position::finished(), 10, 10],
+    'dispatch' => ['dispatch', Position::finished(), Position::dispatched(), 10, 10],
+    'loss from STOCK' => ['loss', Position::stock(), Position::loss(), 10, 10],
+    'loss from a step' => ['loss', Position::step(1), Position::loss(), 10, 10],
+    'adjustment in' => ['adjustment', null, Position::stock(), 0, 10],
+    'adjustment out' => ['adjustment', Position::finished(), null, 10, 0],
 ]);
 
 it('refuses to update or delete a movement row through the model', function () {
@@ -225,7 +327,7 @@ it('adds and subtracts two-decimal quantities without float drift', function () 
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 0.2, 0.2);
     expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 0.3]);
     expect(fn () => $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 0.01, 0.01))->toThrow(InsufficientQuantity::class);
-    $this->ledger->post($this->lot, 'issue', Position::issued(), Position::issued(), 0.3, 0.3); // exactly what is there is fine
+    $this->ledger->post($this->lot, 'reprocess', Position::issued(), Position::issued(), 0.3, 0.3); // exactly what is there is fine
     $this->ledger->assertInvariant($this->lot);
     expect($this->lot->fresh()->wip_qty)->toBe('0.30');
 });
@@ -284,8 +386,11 @@ it('detects a tampered balance and rebuilds from the movements', function () {
         $this->ledger->assertInvariant($this->lot);
         $this->fail('expected LedgerInvariantViolation');
     } catch (LedgerInvariantViolation $e) {
-        expect($e->differences)->toBe(['STOCK' => ['balance' => 999.0, 'expected' => 900.0]])
-            ->and($e->getMessage())->toContain('STOCK');
+        expect($e->differences)->toBe([
+            'STOCK' => ['balance' => 999.0, 'expected' => 900.0],
+            'lots.stock_qty' => ['balance' => 1.0, 'expected' => 900.0],
+            'lots.wip_qty' => ['balance' => 1.0, 'expected' => 100.0],
+        ])->and($e->getMessage())->toContain('STOCK');
     }
     $this->ledger->rebuild($this->lot);
     $this->ledger->assertInvariant($this->lot);
@@ -294,6 +399,28 @@ it('detects a tampered balance and rebuilds from the movements', function () {
         ->and((float) $lot->stock_qty)->toBe(900.0)->and((float) $lot->wip_qty)->toBe(100.0)->and((float) $lot->issued_qty)->toBe(100.0)
         ->and($lot->last_movement_at)->not->toBeNull()
         ->and($this->lot->stock_qty)->toBe('900.00');
+});
+
+it('detects a tampered lot total even when the balances are right', function () {
+    ($this->import)($this->lot);
+    $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
+    $this->ledger->post($this->lot, 'process', Position::issued(), Position::finished(), 100, 100);
+    Lot::whereKey($this->lot->id)->update(['finished_qty' => 99]);
+    try {
+        $this->ledger->assertInvariant($this->lot);
+        $this->fail('expected LedgerInvariantViolation');
+    } catch (LedgerInvariantViolation $e) {
+        expect($e->differences)->toBe(['lots.finished_qty' => ['balance' => 99.0, 'expected' => 100.0]])
+            ->and($e->getMessage())->toContain('lots.finished_qty');
+    }
+    $this->ledger->rebuild($this->lot);
+    $this->ledger->assertInvariant($this->lot);
+    expect((float) $this->lot->fresh()->finished_qty)->toBe(100.0);
+});
+
+it('passes a lot with no movements, no balances and zero totals', function () {
+    $this->ledger->assertInvariant($this->lot);
+    expect(true)->toBeTrue();
 });
 
 it('detects a balance row with no movements behind it', function () {
