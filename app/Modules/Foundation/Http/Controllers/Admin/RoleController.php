@@ -7,6 +7,7 @@ use App\Modules\Foundation\Access\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
@@ -31,6 +32,10 @@ class RoleController extends Controller
             'permissions' => ['array'],
             'permissions.*' => [Rule::in(Permissions::ALL)],
         ]);
+        $adminPerms = array_values(array_filter($data['permissions'] ?? [], fn (string $p) => str_starts_with($p, 'admin.')));
+        if ($adminPerms !== [] && ! $request->user()->hasRole(Permissions::ROLE_ADMIN)) {
+            throw ValidationException::withMessages(['permissions' => __('admin.admin_permissions_admin_only')]);
+        }
         $model->syncPermissions($data['permissions'] ?? []);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('forms.saved')]);

@@ -21,7 +21,7 @@ class UserLov implements LovDefinition
 
     public function columns(): array
     {
-        return [['key' => 'label', 'label' => __('masters.fields.name')], ['key' => 'code', 'label' => __('masters.fields.email')]];
+        return [['key' => 'label', 'label' => __('masters.fields.name')]];
     }
 
     public function query(array $filters): Builder
@@ -31,16 +31,17 @@ class UserLov implements LovDefinition
 
     public function searchColumns(): array
     {
-        return ['name', 'email'];
+        return ['name'];
     }
 
     public function exactColumn(): string
     {
-        return 'email';
+        return 'name';
     }
 
+    /** @param User $m */
     public function row(Model $m): array
     {
-        return ['id' => $m->id, 'code' => $m->email, 'label' => $m->name];
+        return ['id' => $m->id, 'code' => $m->name, 'label' => $m->name];
     }
 }

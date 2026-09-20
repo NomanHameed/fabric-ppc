@@ -63,7 +63,7 @@ class UserController extends Controller
             if (! ($data['is_active'] ?? true)) {
                 $errors['is_active'] = __('admin.cannot_deactivate_self');
             }
-            if (! in_array(Permissions::ROLE_ADMIN, $data['roles'], true)) {
+            if ($user->hasRole(Permissions::ROLE_ADMIN) && ! in_array(Permissions::ROLE_ADMIN, $data['roles'], true)) {
                 $errors['roles'] = __('admin.cannot_drop_own_admin');
             }
             if ($errors !== []) {

@@ -409,24 +409,6 @@ parameters:
 			path: app/Modules/Foundation/Lov/Definitions/ShiftLov.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Foundation/Lov/Definitions/UserLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Foundation/Lov/Definitions/UserLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Foundation/Lov/Definitions/UserLov.php
-
-		-
 			message: '#^Method App\\Modules\\Foundation\\Lov\\Definitions\\UserLov\:\:query\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
