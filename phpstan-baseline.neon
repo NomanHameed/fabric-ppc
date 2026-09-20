@@ -829,12 +829,6 @@ parameters:
 			path: app/Modules/OracleSync/Http/Controllers/OracleImportController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Http/Controllers/OracleImportController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$diff\.$#'
 			identifier: property.notFound
 			count: 1
@@ -871,19 +865,7 @@ parameters:
 			path: app/Modules/OracleSync/Http/Controllers/OracleImportController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$party\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Http/Controllers/OracleImportController.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$payload\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Http/Controllers/OracleImportController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$po_no\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Modules/OracleSync/Http/Controllers/OracleImportController.php
@@ -1003,31 +985,7 @@ parameters:
 			path: app/Modules/OracleSync/Services/ImportCommitService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$contract_qty\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$oracle_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$oracle_line_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$party\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Modules/OracleSync/Services/ImportPreviewService.php
@@ -1036,24 +994,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$payload\.$#'
 			identifier: property.notFound
 			count: 2
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$po_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$po_no\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/OracleSync/Services/ImportPreviewService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ref_no\.$#'
-			identifier: property.notFound
-			count: 1
 			path: app/Modules/OracleSync/Services/ImportPreviewService.php
 
 		-
@@ -1153,54 +1093,6 @@ parameters:
 			path: app/Modules/Production/Lov/ContractLov.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$colour\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$contract\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$design\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$f_width\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$g_width\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lot_no\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quality\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Modules/Production/Lov/LotLov.php
-
-		-
 			message: '#^Method App\\Modules\\Production\\Lov\\LotLov\:\:applyExact\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
@@ -1219,31 +1111,7 @@ parameters:
 			path: app/Modules/Production/Models/Contract.php
 
 		-
-			message: '#^Method App\\Modules\\Production\\Models\\Contract\:\:lots\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Modules/Production/Models/Contract.php
-
-		-
-			message: '#^Method App\\Modules\\Production\\Models\\Contract\:\:party\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Modules/Production/Models/Contract.php
-
-		-
 			message: '#^Class App\\Modules\\Production\\Models\\Lot uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Modules/Production/Models/Lot.php
-
-		-
-			message: '#^Method App\\Modules\\Production\\Models\\Lot\:\:contract\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Modules/Production/Models/Lot.php
-
-		-
-			message: '#^Method App\\Modules\\Production\\Models\\Lot\:\:quality\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
 			identifier: missingType.generics
 			count: 1
 			path: app/Modules/Production/Models/Lot.php

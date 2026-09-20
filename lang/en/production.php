@@ -11,6 +11,20 @@ return [
         'dispatch' => 'Dispatch', 'loss' => 'Loss', 'adjustment' => 'Adjustment',
     ],
     'states' => ['open' => 'Open', 'hold' => 'On hold', 'closed' => 'Closed', 'cancelled' => 'Cancelled'],
+    'fields' => [
+        'lot_no' => 'Lot #', 'po_no' => 'PO #', 'party' => 'Party', 'quality' => 'Quality', 'design' => 'Design', 'colour' => 'Colour / Shade',
+        'ref_no' => 'Ref.', 'qty' => 'Metres', 'date' => 'Date', 'user' => 'User', 'remarks' => 'Remarks', 'reversal' => 'Reversed',
+    ],
+    'issue' => [
+        'title' => 'Issue to Floor', 'per_lot' => 'Issue a lot', 'per_po' => 'Issue a whole PO', 'issue_all' => 'Issue all stock of this PO',
+        'recent' => 'Recent issues', 'lot_hint' => 'Full lot no., last 4 digits, or a PO no. (F9 for the list)',
+        'po_hint' => 'PO no. (F9 for the list); every open lot with greige in stock is issued in full',
+        'available_hint' => ':qty m in stock', 'available' => 'In stock (m)', 'viewing' => 'Viewing a recorded issue; New record (Ctrl+↓) to issue again',
+        'confirm_all' => 'Issue the whole remaining greige of every open lot on PO :po?',
+        'issued' => 'Issued :qty m of lot :lot to the floor.',
+        'issued_contract' => 'Issued :n lot(s) of PO :po to the floor.',
+        'nothing_to_issue' => 'PO :po has no open lot with greige in stock.',
+    ],
     'reasons' => ['greige_changed' => 'Oracle greige changed from :old to :new'],
     'state' => ['held' => 'Lot :lot is on hold.', 'released' => 'Lot :lot is open again.', 'cancelled' => 'Lot :lot is cancelled.'],
     'errors' => [

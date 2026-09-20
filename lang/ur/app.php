@@ -6,6 +6,8 @@ return [
         'dashboard' => 'ڈیش بورڈ',
         'oracle' => 'اوریکل',
         'oracle_import' => 'اوریکل امپورٹ',
+        'production' => 'پروڈکشن',
+        'issue' => 'فلور کو اجرا',
         'masters' => 'ماسٹرز',
         'departments' => 'شعبے',
         'machines' => 'مشینیں',

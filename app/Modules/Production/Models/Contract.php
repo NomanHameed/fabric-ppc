@@ -21,11 +21,13 @@ class Contract extends Model implements Auditable
 
     protected $casts = ['po_no' => 'integer', 'po_date' => 'date', 'contract_qty' => 'decimal:2', 'oracle_missing_at' => 'datetime'];
 
+    /** @return BelongsTo<Party, $this> */
     public function party(): BelongsTo
     {
         return $this->belongsTo(Party::class);
     }
 
+    /** @return HasMany<Lot, $this> */
     public function lots(): HasMany
     {
         return $this->hasMany(Lot::class);

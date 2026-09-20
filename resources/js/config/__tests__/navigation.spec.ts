@@ -10,6 +10,18 @@ describe('visibleNavigation', () => {
         expect(keys).toContain('masters');
         expect(keys).not.toContain('admin');
         expect(keys).not.toContain('oracle');
+        expect(keys).not.toContain('production');
+    });
+
+    it('shows the production group only with production.issue', () => {
+        const allowed = new Set(['production.issue']);
+        const groups = visibleNavigation(NAVIGATION, (p) => allowed.has(p));
+        expect(
+            groups
+                .find((g) => g.key === 'production')
+                ?.items.map((i) => i.href),
+        ).toEqual(['/production/issue']);
+        expect(groups.map((g) => g.key)).not.toContain('masters');
     });
 
     it('shows everything for a full permission set', () => {

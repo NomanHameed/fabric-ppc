@@ -45,11 +45,13 @@ class Lot extends Model implements Auditable
         'dispatched_qty' => 'decimal:2', 'last_movement_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<Contract, $this> */
     public function contract(): BelongsTo
     {
         return $this->belongsTo(Contract::class);
     }
 
+    /** @return BelongsTo<Quality, $this> */
     public function quality(): BelongsTo
     {
         return $this->belongsTo(Quality::class);

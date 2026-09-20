@@ -6,6 +6,7 @@ use App\Modules\Foundation\Lov\LovDefinition;
 use App\Modules\Production\Models\Lot;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 class LotLov implements LovDefinition
 {
@@ -63,14 +64,21 @@ class LotLov implements LovDefinition
         $query->where(fn ($q) => $q->where('lots.lot_no', $value)->orWhere('contracts.po_no', (int) $value));
     }
 
+    /** Beyond the columns(): the balances and state a picking screen needs (Issue to Floor shows what is in stock). */
     public function row(Model $m): array
     {
+        if (! $m instanceof Lot) {
+            throw new InvalidArgumentException('LotLov rows are lots.');
+        }
+
         return [
             'id' => $m->id, 'code' => $m->lot_no,
             'label' => "{$m->lot_no} · {$m->contract->po_no} · {$m->design} · {$m->colour}",
             'po_no' => $m->contract->po_no, 'party' => $m->contract->party->name, 'design' => $m->design,
             'colour' => $m->colour, 'quality' => $m->quality->description,
-            'g_width' => $m->g_width, 'f_width' => $m->f_width,
+            'g_width' => $m->g_width === null ? null : (float) $m->g_width, 'f_width' => $m->f_width === null ? null : (float) $m->f_width,
+            'stock_qty' => (float) $m->stock_qty, 'wip_qty' => (float) $m->wip_qty, 'finished_qty' => (float) $m->finished_qty,
+            'state' => $m->state, 'current_label' => $m->current_label, 'contract_id' => $m->contract_id,
         ];
     }
 }

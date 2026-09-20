@@ -8,6 +8,7 @@ import {
     Factory,
     LayoutGrid,
     ListTree,
+    PackageOpen,
     Route,
     Settings,
     Shield,
@@ -48,6 +49,19 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/oracle/imports',
                 icon: DatabaseZap,
                 permission: 'oracle.import.view',
+            },
+        ],
+    },
+    {
+        key: 'production',
+        titleKey: 'app.nav.production',
+        items: [
+            {
+                key: 'issue',
+                titleKey: 'app.nav.issue',
+                href: '/production/issue',
+                icon: PackageOpen,
+                permission: 'production.issue',
             },
         ],
     },

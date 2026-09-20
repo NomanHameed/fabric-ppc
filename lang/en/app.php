@@ -7,6 +7,8 @@ return [
         'dashboard' => 'Dashboard',
         'oracle' => 'Oracle',
         'oracle_import' => 'Oracle Import',
+        'production' => 'Production',
+        'issue' => 'Issue to Floor',
         'masters' => 'Masters',
         'departments' => 'Departments',
         'machines' => 'Machines',

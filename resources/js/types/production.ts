@@ -1,0 +1,48 @@
+export type LotState = 'open' | 'hold' | 'closed' | 'cancelled';
+
+/** A row of the `lots` LOV (LotLov::row): the columns shown plus what a picking screen fills from it. */
+export type LotSummary = {
+    id: number;
+    code: string;
+    label: string;
+    po_no: number;
+    party: string;
+    design: string | null;
+    colour: string | null;
+    quality: string;
+    g_width: number | null;
+    f_width: number | null;
+    stock_qty: number;
+    wip_qty: number;
+    finished_qty: number;
+    state: LotState;
+    current_label: string | null;
+    contract_id: number;
+};
+
+/** A row of the `contracts` LOV (ContractLov::row). */
+export type ContractSummary = {
+    id: number;
+    code: string;
+    label: string;
+    ref_no: string | null;
+    party: string;
+};
+
+/** One `issue` movement as the Issue to Floor screen lists it (IssueController::index). */
+export type IssueRow = {
+    id: number;
+    lot_id: number;
+    lot_no: string;
+    po_no: number;
+    party: string;
+    design: string | null;
+    colour: string | null;
+    quality: string | null;
+    stock_qty: number;
+    qty: number;
+    reversal: boolean;
+    moved_at: string;
+    user: string | null;
+    remarks: string | null;
+};
