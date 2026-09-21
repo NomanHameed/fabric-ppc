@@ -75,6 +75,12 @@ class Lot extends Model implements Auditable
         return $this->hasMany(LotBalance::class)->orderBy('id');
     }
 
+    /** @return HasMany<ProductionLine, $this> */
+    public function productionLines(): HasMany
+    {
+        return $this->hasMany(ProductionLine::class);
+    }
+
     public function scopeOpen(Builder $q): Builder
     {
         return $q->where('state', 'open');

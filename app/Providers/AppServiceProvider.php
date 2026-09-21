@@ -23,6 +23,8 @@ use App\Modules\OracleSync\Services\PartyResolver;
 use App\Modules\Production\Lov\ContractLov;
 use App\Modules\Production\Lov\LotLov;
 use App\Modules\Production\Lov\RouteTemplateLov;
+use App\Modules\Production\Models\ProductionSheet;
+use App\Modules\Production\Policies\ProductionSheetPolicy;
 use App\Modules\Production\Services\LedgerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -52,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(
             fn ($user) => $user->hasRole(Permissions::ROLE_ADMIN) ? true : null
         );
+        Gate::policy(ProductionSheet::class, ProductionSheetPolicy::class);
 
         $lovs = $this->app->make(LovRegistry::class);
         foreach ([

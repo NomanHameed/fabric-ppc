@@ -3,6 +3,7 @@
 use App\Modules\Production\Http\Controllers\IssueController;
 use App\Modules\Production\Http\Controllers\LotRouteController;
 use App\Modules\Production\Http\Controllers\LotStateController;
+use App\Modules\Production\Http\Controllers\ProductionSheetController;
 use Illuminate\Support\Facades\Route;
 
 // One `production` group; later tasks add their controllers' routes inside it (there is no catch-all here).
@@ -25,5 +26,16 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         Route::post('lots/{lot}/hold', [LotStateController::class, 'hold'])->whereNumber('lot')->name('lots.hold');
         Route::post('lots/{lot}/release', [LotStateController::class, 'release'])->whereNumber('lot')->name('lots.release');
         Route::post('lots/{lot}/cancel', [LotStateController::class, 'cancel'])->whereNumber('lot')->name('lots.cancel');
+    });
+
+    // Viewing needs production.sheet.view; the writes are authorised per department by ProductionSheetPolicy.
+    // Explicit paths (split-batch, lot-context) sit above the parameterised {sheet} routes.
+    Route::middleware('permission:production.sheet.view')->group(function () {
+        Route::post('sheets/split-batch', [ProductionSheetController::class, 'splitBatch'])->name('sheets.split');
+        Route::get('sheets/lot-context/{lot}', [ProductionSheetController::class, 'lotContext'])->whereNumber('lot')->name('sheets.lot-context');
+        Route::post('sheets', [ProductionSheetController::class, 'store'])->name('sheets.store');
+        Route::get('sheets/{sheet}/totals', [ProductionSheetController::class, 'totals'])->whereNumber('sheet')->name('sheets.totals');
+        Route::put('sheets/{sheet}', [ProductionSheetController::class, 'update'])->whereNumber('sheet')->name('sheets.update');
+        Route::delete('sheets/{sheet}', [ProductionSheetController::class, 'destroy'])->whereNumber('sheet')->name('sheets.destroy');
     });
 });

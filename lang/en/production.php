@@ -14,6 +14,15 @@ return [
     'fields' => [
         'lot_no' => 'Lot #', 'po_no' => 'PO #', 'party' => 'Party', 'quality' => 'Quality', 'design' => 'Design', 'colour' => 'Colour / Shade',
         'ref_no' => 'Ref.', 'qty' => 'Metres', 'date' => 'Date', 'user' => 'User', 'remarks' => 'Remarks', 'reversal' => 'Reversed',
+        'sheet_date' => 'Sheet date', 'shift' => 'Shift', 'department' => 'Department', 'machine' => 'Machine', 'downtime' => 'Downtime (min)',
+        'batch_no' => 'Batch', 'operation' => 'Operation', 'step' => 'Route step', 'reprocess' => 'Reprocess', 'reprocess_reason' => 'Reprocess reason',
+        'qty_in' => 'G/Mtrs in', 'qty_out' => 'F/Mtrs out', 'output_type' => 'Output', 'g_width' => 'G/W', 'f_width' => 'F/W',
+        'override_reason' => 'Override reason', 'colour_override_reason' => 'Colour override reason',
+    ],
+    'sheet' => [
+        'title' => 'Production Sheet', 'no_colour_status' => 'not set',
+        'output_types' => ['dyed' => 'Dyed', 'print' => 'Print', 'other' => 'Other'],
+        'totals' => ['fresh' => 'Fresh', 'reprocess' => 'Reprocess', 'stretching' => 'Stretching', 'total' => 'Total'],
     ],
     'issue' => [
         'title' => 'Issue to Floor', 'per_lot' => 'Issue a lot', 'per_po' => 'Issue a whole PO', 'issue_all' => 'Issue all stock of this PO',
@@ -42,7 +51,7 @@ return [
         'po_type' => 'PO type', 'state' => 'State',
     ],
     'step_status' => ['pending' => 'Pending', 'partial' => 'Partial', 'done' => 'Done', 'skipped' => 'Skipped'],
-    'reasons' => ['greige_changed' => 'Oracle greige changed from :old to :new'],
+    'reasons' => ['greige_changed' => 'Oracle greige changed from :old to :new', 'line_edited' => 'Production line edited or removed'],
     'state' => ['held' => 'Lot :lot is on hold.', 'released' => 'Lot :lot is open again.', 'cancelled' => 'Lot :lot is cancelled.'],
     'errors' => [
         'insufficient_quantity' => 'Lot :lot has only :available m at :position; :requested m requested.',
@@ -59,5 +68,15 @@ return [
         'cancel_has_wip' => 'Lot :lot has metres in process or finished; close it with a loss instead of cancelling.',
         'invalid_state_change' => 'Lot :lot is :state; this change is not allowed.',
         'unknown_reason' => 'Unknown reason code :code.',
+        'operation_department' => 'The operation does not belong to the sheet\'s department.',
+        'machine_department' => 'The machine does not belong to the selected department.',
+        'step_not_on_route' => 'That route step is not on this lot\'s route (or is skipped).',
+        'line_not_on_sheet' => 'That line is not on this sheet.',
+        'nothing_on_floor' => 'Lot :lot has no metres on the floor to process.',
+        'cannot_unpost' => 'Line :line of lot :lot cannot be changed: its metres have already moved on. Reverse the later production first.',
+        'colour_not_approved' => 'Colour of lot :lot is :status (not approved) — :operation needs a colour override with a reason from PPC/Manager.',
+        'colour_override_not_allowed' => 'You are not allowed to override the colour approval; ask PPC/Manager.',
+        'override_not_allowed' => 'You are not allowed to override the available metres; ask PPC/Manager.',
+        'reprocess_reason_required' => 'A reprocess line needs a reprocess reason.',
     ],
 ];

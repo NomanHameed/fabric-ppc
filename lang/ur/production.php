@@ -14,6 +14,15 @@ return [
     'fields' => [
         'lot_no' => 'لاٹ نمبر', 'po_no' => 'پی او نمبر', 'party' => 'پارٹی', 'quality' => 'کوالٹی', 'design' => 'ڈیزائن', 'colour' => 'رنگ / شیڈ',
         'ref_no' => 'حوالہ', 'qty' => 'میٹر', 'date' => 'تاریخ', 'user' => 'صارف', 'remarks' => 'ریمارکس', 'reversal' => 'واپس شدہ',
+        'sheet_date' => 'شیٹ کی تاریخ', 'shift' => 'شفٹ', 'department' => 'شعبہ', 'machine' => 'مشین', 'downtime' => 'بندش (منٹ)',
+        'batch_no' => 'بیچ', 'operation' => 'آپریشن', 'step' => 'روٹ مرحلہ', 'reprocess' => 'ری پروسیس', 'reprocess_reason' => 'ری پروسیس کی وجہ',
+        'qty_in' => 'گریج میٹر (ان)', 'qty_out' => 'فنش میٹر (آؤٹ)', 'output_type' => 'آؤٹ پٹ', 'g_width' => 'گریج چوڑائی', 'f_width' => 'فنش چوڑائی',
+        'override_reason' => 'اوور رائیڈ کی وجہ', 'colour_override_reason' => 'رنگ اوور رائیڈ کی وجہ',
+    ],
+    'sheet' => [
+        'title' => 'پروڈکشن شیٹ', 'no_colour_status' => 'درج نہیں',
+        'output_types' => ['dyed' => 'ڈائیڈ', 'print' => 'پرنٹ', 'other' => 'دیگر'],
+        'totals' => ['fresh' => 'تازہ', 'reprocess' => 'ری پروسیس', 'stretching' => 'اسٹریچنگ', 'total' => 'کل'],
     ],
     'issue' => [
         'title' => 'فلور کو اجرا', 'per_lot' => 'ایک لاٹ جاری کریں', 'per_po' => 'پورا پی او جاری کریں', 'issue_all' => 'اس پی او کا سارا اسٹاک جاری کریں',
@@ -42,7 +51,7 @@ return [
         'po_type' => 'پی او کی قسم', 'state' => 'حالت',
     ],
     'step_status' => ['pending' => 'زیرِ التوا', 'partial' => 'جزوی', 'done' => 'مکمل', 'skipped' => 'چھوڑا گیا'],
-    'reasons' => ['greige_changed' => 'اوریکل گریج :old سے :new ہو گیا'],
+    'reasons' => ['greige_changed' => 'اوریکل گریج :old سے :new ہو گیا', 'line_edited' => 'پروڈکشن لائن میں ترمیم ہوئی یا ہٹا دی گئی'],
     'state' => ['held' => 'لاٹ :lot روک دیا گیا ہے۔', 'released' => 'لاٹ :lot دوبارہ کھل گیا ہے۔', 'cancelled' => 'لاٹ :lot منسوخ کر دیا گیا ہے۔'],
     'errors' => [
         'insufficient_quantity' => 'لاٹ :lot کے پاس :position پر صرف :available میٹر ہیں؛ :requested میٹر درکار ہیں۔',
@@ -59,5 +68,15 @@ return [
         'cancel_has_wip' => 'لاٹ :lot کے میٹر پراسیس میں یا مکمل ہیں؛ منسوخ کرنے کے بجائے اسے نقصان کے ساتھ بند کریں۔',
         'invalid_state_change' => 'لاٹ :lot :state ہے؛ یہ تبدیلی ممکن نہیں۔',
         'unknown_reason' => 'نامعلوم وجہ کا کوڈ :code۔',
+        'operation_department' => 'یہ آپریشن شیٹ کے شعبے سے تعلق نہیں رکھتا۔',
+        'machine_department' => 'یہ مشین منتخب شعبے سے تعلق نہیں رکھتی۔',
+        'step_not_on_route' => 'یہ روٹ مرحلہ اس لاٹ کے روٹ پر نہیں ہے (یا چھوڑا گیا ہے)۔',
+        'line_not_on_sheet' => 'یہ لائن اس شیٹ پر نہیں ہے۔',
+        'nothing_on_floor' => 'لاٹ :lot کے کوئی میٹر فلور پر پراسیس کے لیے موجود نہیں۔',
+        'cannot_unpost' => 'لاٹ :lot کی لائن :line تبدیل نہیں ہو سکتی: اس کے میٹر آگے جا چکے ہیں۔ پہلے بعد کی پروڈکشن واپس کریں۔',
+        'colour_not_approved' => 'لاٹ :lot کا رنگ :status ہے (منظور نہیں) — :operation کے لیے پی پی سی/منیجر کی وجہ کے ساتھ رنگ اوور رائیڈ درکار ہے۔',
+        'colour_override_not_allowed' => 'آپ کو رنگ کی منظوری اوور رائیڈ کرنے کی اجازت نہیں؛ پی پی سی/منیجر سے رجوع کریں۔',
+        'override_not_allowed' => 'آپ کو دستیاب میٹر اوور رائیڈ کرنے کی اجازت نہیں؛ پی پی سی/منیجر سے رجوع کریں۔',
+        'reprocess_reason_required' => 'ری پروسیس لائن کے لیے ری پروسیس کی وجہ درکار ہے۔',
     ],
 ];
