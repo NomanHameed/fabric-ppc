@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             PartySeeder::class,
             RouteTemplateSeeder::class,
             AdminUserSeeder::class,
+            DemoUsersSeeder::class,
         ]);
     }
 }
