@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import ConfirmDialog from '@/components/forms/ConfirmDialog.vue';
 import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import FormBlock from '@/components/forms/FormBlock.vue';
@@ -9,6 +10,7 @@ import FormsToolbar from '@/components/forms/FormsToolbar.vue';
 import LovField from '@/components/forms/LovField.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/composables/useConfirm';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
@@ -163,16 +165,18 @@ function save(): Promise<boolean> {
     });
 }
 
-function issueContract(): void {
+const confirm = useConfirm();
+
+async function issueContract(): Promise<void> {
     if (
         bulk.contract_id === null ||
-        !window.confirm(
+        !(await confirm.ask(
             t('production.issue.confirm_all', {
                 po: contract.value?.code ?? '',
                 n: String(contract.value?.open_lots ?? 0),
                 qty: formatQty(contract.value?.stock_qty ?? 0),
             }),
-        )
+        ))
     ) {
         return;
     }
@@ -418,6 +422,13 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
         <ConfirmSaveDialog
             :open="guard.dialogOpen.value"
             @choose="guard.choose"
+        />
+        <ConfirmDialog
+            :open="confirm.open.value"
+            :message="confirm.message.value"
+            v-bind="confirm.options.value"
+            @confirm="confirm.choose(true)"
+            @cancel="confirm.choose(false)"
         />
     </div>
 </template>

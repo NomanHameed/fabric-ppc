@@ -15,8 +15,10 @@ use App\Modules\Production\Models\LotBalance;
 use App\Modules\Production\Models\LotRouteStep;
 use App\Modules\Production\Models\ProductionLine;
 use App\Modules\Production\Models\ProductionSheet;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,26 +27,34 @@ use Illuminate\Validation\ValidationException;
  *
  * Every line is posted through LedgerService, from LotRouteService::previousPosition() to targetPosition() of its
  * route step (that exact pair is what drives the step statuses):
- * - a planned line advances the route (`process`, previous → target);
- * - a reprocess line keeps the metres where they are (`reprocess`, in place at the step's target, or at the largest
- *   floor position when no step is named);
- * - an unplanned line (operation not on the route) is `process` in place at the largest floor position, step null.
+ * - a planned line advances the route (`process`, previous → target); its step is the one named in the payload, or
+ *   the next pending step of the sheet's department (the step of the line's own operation when there is one);
+ * - a reprocess line keeps the metres where they are (`reprocess`, in place at the step's target; without a step,
+ *   at the department's step holding the most metres, else at the largest floor position);
+ * - an unplanned line (nothing pending for the department) is `process` in place at the largest floor position, step null.
  * An edited or removed line is never corrected by touching its ledger rows: its movements are reversed (latest first,
  * so an override adjustment is undone after the movement it enabled) and the new version is posted afresh. Removed
  * and changed lines are unposted from the last line of the sheet upwards before anything is re-posted, so a later
- * line that consumed an earlier line's output does not block the edit.
+ * line that consumed an earlier line's output does not block the edit; every later line of the sheet on the same lot
+ * counts as changed for that reason (it may have consumed the edited line's output), and a change of the sheet date
+ * re-posts every line, since the movement date is the sheet date. Fields the ledger never sees (batch no., widths,
+ * output type, remarks) are updated in place.
  *
- * Lock order (every Production service): the lot row first. A save locks the sheet row, then every lot it touches
- * in id order, before reading anything that decides a posting, so two saves on the same lot are serialised and the
- * second one sees the first one's rows. Callers get ValidationException with `lines.<row>.<field>` keys for every
- * refusal the user can act on (insufficient metres carry the available figure; the colour gate names the lot,
- * status and operation), so the controller never has to map a domain exception itself.
+ * Lock order (every Production service): the lot row first, then its balance rows, then its route steps. A save locks
+ * the sheet row and its lines, then every lot it touches in id order, before any plain read — under InnoDB
+ * REPEATABLE READ the first plain read fixes the transaction's snapshot, so taking the lot locks first guarantees
+ * every later read sees the rows of whoever held the lot before us. Two saves on the same lot are therefore
+ * serialised and the second sees the first one's rows. resolve() then locks the balances before the route steps.
+ * Callers get ValidationException with `lines.<row>.<field>` keys for every refusal the user can act on (insufficient
+ * metres carry the available figure, plus an `override_reason` hint when the user may override; the colour gate names
+ * the lot, status and operation), so the controller never has to map a domain exception itself.
  *
  * @phpstan-type Header array{sheet_date: string, shift_id: int, department_id: int, machine_id: int, downtime_minutes?: int, remarks?: string|null}
  * @phpstan-type LinePayload array{id?: int|null, batch_no?: string|null, lot_id: int, lot_route_step_id?: int|null, operation_id: int, is_reprocess?: bool,
  *     reprocess_reason?: string|null, qty_in: float|int|string, qty_out: float|int|string, output_type?: string|null, g_width?: float|null, f_width?: float|null,
  *     remarks?: string|null, override_reason?: string|null, colour_override_reason?: string|null}
  * @phpstan-type Buckets array{fresh: float, reprocess: float, stretching: float, total: float}
+ * @phpstan-type Totals array{all: Buckets, dyed: Buckets, print: Buckets, other: Buckets}
  */
 final class ProductionSheetService
 {
@@ -55,7 +65,13 @@ final class ProductionSheetService
 
     public const COLOUR_STATUS_LIST = 'colour_status';
 
-    /** @var list<string>|null colour_status codes flagged approved, cached per save */
+    /** @var list<string> the totals buckets, in footer order */
+    public const BUCKETS = ['fresh', 'reprocess', 'stretching', 'total'];
+
+    /** @var list<string> the totals columns: the whole sheet, then per output type */
+    public const OUTPUT_GROUPS = ['all', 'dyed', 'print', 'other'];
+
+    /** @var array<int, string>|null colour_status codes flagged approved, cached per save */
     private ?array $approvedCodes = null;
 
     public function __construct(private readonly LedgerService $ledger, private readonly LotRouteService $routes) {}
@@ -72,19 +88,25 @@ final class ProductionSheetService
     public function save(?ProductionSheet $sheet, array $header, array $lines, User $user): ProductionSheet
     {
         $sheetId = $sheet?->getKey();
-        $lines = array_values($lines);
         $this->approvedCodes = null;
 
         return DB::transaction(function () use ($sheetId, $header, $lines, $user): ProductionSheet {
-            // a fresh, row-locked instance per attempt (a deadlock retry re-runs this closure from the top)
+            // Locks first (a deadlock retry re-runs this closure from the top, so every instance is fresh per attempt):
+            // the sheet row, its lines, then the lots — all locking reads, so the snapshot is fixed only afterwards.
             $sheet = $sheetId === null
                 ? new ProductionSheet(['entered_by' => $user->getKey()])
                 : ProductionSheet::query()->whereKey($sheetId)->lockForUpdate()->firstOrFail();
-            $existing = $sheet->exists ? $sheet->lines()->get()->keyBy('id') : new EloquentCollection;
-            $lots = $this->lockLots(array_merge(array_column($lines, 'lot_id'), $existing->pluck('lot_id')->all()));
+            /** @var EloquentCollection<int, ProductionLine> $existing */
+            $existing = $sheet->exists ? $sheet->lines()->lockForUpdate()->get()->keyBy('id') : new EloquentCollection;
+            $lots = $this->lockLots(array_merge(
+                array_map(fn (array $l): int => (int) $l['lot_id'], $lines),
+                $existing->map(fn (ProductionLine $l): int => $l->lot_id)->all(),
+            ));
 
             $this->assertMachineInDepartment((int) $header['machine_id'], (int) $header['department_id']);
-            $sheet->fill($header)->save();
+            // the movement date is the sheet date: a new date re-posts every existing line
+            $dateChanged = $sheet->exists && $sheet->sheet_date->toDateString() !== CarbonImmutable::parse((string) $header['sheet_date'])->toDateString();
+            $this->saveHeader($sheet, $header);
 
             // 1. Which existing line each payload row is, and whether it has to go through the ledger again.
             $rows = [];
@@ -96,9 +118,10 @@ final class ProductionSheetService
                         ?? throw ValidationException::withMessages(["lines.{$i}.id" => __('production.errors.line_not_on_sheet')]);
                     $keptIds[] = $line->id;
                 }
-                $rows[$i] = ['line' => $line, 'changed' => $line === null || ! $this->unchanged($line, $payload, (int) $sheet->department_id)];
+                $rows[$i] = ['line' => $line, 'changed' => $line === null || $dateChanged || ! $this->unchanged($line, $payload, (int) $sheet->department_id)];
             }
             $removed = $existing->reject(fn (ProductionLine $l) => in_array($l->id, $keptIds, true));
+            $this->markLaterLinesOnSameLot($rows, $removed);
 
             // 2. Unpost removed and changed lines, last line of the sheet first.
             $unpost = $removed->map(fn (ProductionLine $l) => ['line' => $l, 'row' => null])->values()->all();
@@ -116,11 +139,11 @@ final class ProductionSheetService
                 $line->delete();
             }
 
-            // 3. Post the new and changed lines in sheet order; renumber the unchanged ones in place.
+            // 3. Post the new and changed lines in sheet order; update the unchanged ones in place.
             foreach ($rows as $i => $row) {
                 $payload = $lines[$i];
                 if (! $row['changed'] && $row['line'] !== null) {
-                    $row['line']->update(['line_no' => $i + 1, 'batch_no' => $payload['batch_no'] ?? null, 'remarks' => $payload['remarks'] ?? null]);
+                    $row['line']->update(['line_no' => $i + 1] + $this->plainAttributes($payload, $lots[$row['line']->lot_id], $row['line']->operation));
 
                     continue;
                 }
@@ -141,8 +164,8 @@ final class ProductionSheetService
         $sheetId = $sheet->getKey();
         DB::transaction(function () use ($sheetId, $user): void {
             $sheet = ProductionSheet::query()->whereKey($sheetId)->lockForUpdate()->firstOrFail();
-            $lines = $sheet->lines()->get();
-            $lots = $this->lockLots($lines->pluck('lot_id')->all());
+            $lines = $sheet->lines()->lockForUpdate()->get();
+            $lots = $this->lockLots($lines->map(fn (ProductionLine $l): int => $l->lot_id)->all());
             foreach ($lines->sortByDesc('line_no') as $line) {
                 $this->unpost($line, $lots[$line->lot_id], $user, null);
             }
@@ -159,7 +182,7 @@ final class ProductionSheetService
      * sheet and per output type. A reprocess line counts as reprocess whatever its operation; a stretch operation
      * counts as stretching, not fresh (ruling).
      *
-     * @return array{all: Buckets, dyed: Buckets, print: Buckets, other: Buckets}
+     * @return Totals
      */
     public function totals(ProductionSheet $sheet): array
     {
@@ -168,22 +191,28 @@ final class ProductionSheetService
 
     /**
      * @param  iterable<ProductionLine>  $lines  with their operation loaded
-     * @return array{all: Buckets, dyed: Buckets, print: Buckets, other: Buckets}
+     * @return Totals
      */
     public static function totalsOf(iterable $lines): array
     {
-        $buckets = ['fresh' => 0.0, 'reprocess' => 0.0, 'stretching' => 0.0, 'total' => 0.0];
-        $out = ['all' => $buckets, 'dyed' => $buckets, 'print' => $buckets, 'other' => $buckets];
+        /** @var array<string, array<string, float>> $sum */
+        $sum = [];
         foreach ($lines as $line) {
             $bucket = $line->is_reprocess ? 'reprocess' : ($line->operation->is_stretch ? 'stretching' : 'fresh');
             $type = $line->output_type ?? 'other';
-            foreach (['all', $type] as $k) {
-                $out[$k][$bucket] = round($out[$k][$bucket] + (float) $line->qty_out, 2);
-                $out[$k]['total'] = round($out[$k]['total'] + (float) $line->qty_out, 2);
+            foreach (['all', $type] as $group) {
+                foreach ([$bucket, 'total'] as $b) {
+                    $sum[$group][$b] = round(($sum[$group][$b] ?? 0.0) + (float) $line->qty_out, 2);
+                }
             }
         }
 
-        return $out;
+        return [
+            'all' => self::buckets($sum['all'] ?? []),
+            'dyed' => self::buckets($sum['dyed'] ?? []),
+            'print' => self::buckets($sum['print'] ?? []),
+            'other' => self::buckets($sum['other'] ?? []),
+        ];
     }
 
     /**
@@ -197,8 +226,12 @@ final class ProductionSheetService
     {
         $lot->loadMissing(['contract.party', 'quality']);
         $balances = $this->ledger->balances($lot);
+        // one read of the route: positions, the default and next steps and the metres at each source all come from it
         $steps = $lot->routeSteps()->with('operation.department')->get();
-        $default = $this->routes->nextPendingStep($lot, $departmentId);
+        $positions = $this->routes->stepPositions($steps);
+        $pending = fn (?int $dept) => $steps->first(fn (LotRouteStep $s) => in_array($s->status, ['pending', 'partial'], true)
+            && ($dept === null || $s->operation->department_id === $dept));
+        $default = $pending($departmentId);
         $floor = $this->floorPosition($balances);
 
         return [
@@ -209,18 +242,18 @@ final class ProductionSheetService
             'balances' => $balances,
             'g_width' => $lot->g_width === null ? null : (float) $lot->g_width, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
             'default_step_id' => $default?->id,
-            'next_step_id' => $this->routes->nextPendingStep($lot)?->id,
+            'next_step_id' => $pending(null)?->id,
             'floor_position' => $floor?->value(),
             'floor_available' => $floor === null ? 0.0 : (float) ($balances[$floor->value()] ?? 0.0),
-            'steps' => $steps->map(function (LotRouteStep $s) use ($lot): array {
-                $from = $s->isActive() ? $this->routes->previousPosition($s) : null;
+            'steps' => $steps->map(function (LotRouteStep $s) use ($positions, $balances): array {
+                [$from, $to] = $positions[$s->id] ?? [null, null];
 
                 return [
                     'id' => $s->id, 'seq' => $s->seq, 'operation_id' => $s->operation_id, 'operation' => $s->operation->name,
                     'department_id' => $s->operation->department_id, 'department' => $s->operation->department->getAttribute('name'),
                     'status' => $s->status, 'is_added' => $s->is_added,
-                    'from_position' => $from?->value(), 'to_position' => $s->isActive() ? $this->routes->targetPosition($s)->value() : null,
-                    'available' => $from === null ? 0.0 : $this->ledger->available($lot, $from),
+                    'from_position' => $from?->value(), 'to_position' => $to?->value(),
+                    'available' => $from === null ? 0.0 : (float) ($balances[$from->value()] ?? 0.0),
                 ];
             })->values()->all(),
         ];
@@ -244,13 +277,11 @@ final class ProductionSheetService
         [$step, $from, $to] = $this->resolve($lot, $operation, isset($p['lot_route_step_id']) ? (int) $p['lot_route_step_id'] : null, $sheet->department_id, $isReprocess, $i);
 
         $attrs = [
-            'production_sheet_id' => $sheet->id, 'line_no' => $i + 1, 'batch_no' => $p['batch_no'] ?? null, 'lot_id' => $lot->id,
+            'production_sheet_id' => $sheet->id, 'line_no' => $i + 1, 'lot_id' => $lot->id,
             'lot_route_step_id' => $step?->id, 'operation_id' => $operation->id, 'is_reprocess' => $isReprocess,
             'reprocess_reason' => $reprocessReason,
             'qty_in' => round((float) $p['qty_in'], 2), 'qty_out' => round((float) $p['qty_out'], 2),
-            'output_type' => $p['output_type'] ?? $operation->finish_type,
-            'g_width' => $p['g_width'] ?? $lot->g_width, 'f_width' => $p['f_width'] ?? $lot->f_width, 'remarks' => $p['remarks'] ?? null,
-        ];
+        ] + $this->plainAttributes($p, $lot, $operation);
         $line = $line === null ? ProductionLine::query()->create($attrs) : tap($line)->update($attrs);
 
         $this->applyColourGate($line, $lot, $operation, $p, $i, $user);
@@ -269,7 +300,9 @@ final class ProductionSheetService
                 $this->ledger->post($lot, $kind, $from, $to, (float) $p['qty_in'], (float) $p['qty_out'], $opts);
             }
         } catch (InsufficientQuantity $e) {
-            throw ValidationException::withMessages(["lines.{$i}.qty_in" => $e->getMessage()]);
+            // a user who may override is told so on the reason field: the screen asks for the reason only on that hint
+            throw ValidationException::withMessages(["lines.{$i}.qty_in" => $e->getMessage()]
+                + ($user->can('production.override') ? ["lines.{$i}.override_reason" => __('production.errors.override_available')] : []));
         } catch (LotNotOpen $e) {
             throw ValidationException::withMessages(["lines.{$i}.lot_id" => $e->getMessage()]);
         }
@@ -295,7 +328,7 @@ final class ProductionSheetService
             }
             try {
                 $this->ledger->reverse($m, $user->getKey(), __('production.reasons.line_edited'));
-            } catch (DomainException $e) { // InsufficientQuantity (metres moved on) or already reversed
+            } catch (DomainException) { // InsufficientQuantity (metres moved on) or already reversed
                 throw ValidationException::withMessages([
                     $row === null ? 'lines' : "lines.{$row}.qty_in" => __('production.errors.cannot_unpost', ['lot' => $lot->lot_no, 'line' => $line->line_no]),
                 ]);
@@ -307,27 +340,34 @@ final class ProductionSheetService
     /**
      * Where the line acts on the route, and the from/to positions of its movement.
      *
-     * - explicit step: as picked (it must be an active step of this lot);
-     * - planned line: the first pending/partial step whose operation is the line's, else the last step of that
-     *   operation (a repeat of finished work: the ledger then reports what is left at its source), else the
-     *   operation is not on the route → unplanned, in place at the largest floor position, step null;
-     * - reprocess line: at the step's target when a step is given, else in place at the largest floor position,
-     *   recorded against the step that lands there when it belongs to the sheet's department.
+     * - explicit step: as picked (it must be an active step of this lot whose operation belongs to the sheet's department);
+     * - planned line: the pending/partial step of the line's operation, else the next pending step of the sheet's
+     *   department (the line's operation stands in for the planned one), else the last step of the line's operation
+     *   (a repeat of finished work: the ledger then reports what is left at its source), else nothing is pending for
+     *   the department → unplanned, in place at the largest floor position, step null;
+     * - reprocess line: at the step's target when a step is given; otherwise at the department's step holding the
+     *   most metres (recorded against that step), else in place at the largest floor position, step null.
      *
      * @return array{0: LotRouteStep|null, 1: Position, 2: Position}
      */
     private function resolve(Lot $lot, Operation $operation, ?int $stepId, int $departmentId, bool $isReprocess, int $i): array
     {
+        $balances = $this->lockedBalances($lot); // lock order: the lot's balance rows before its route steps
         $steps = $lot->routeSteps()->with('operation')->lockForUpdate()->get();
-        $step = null;
+        $active = $steps->filter(fn (LotRouteStep $s) => $s->isActive())->values();
+        $inDepartment = $active->filter(fn (LotRouteStep $s) => $s->operation->department_id === $departmentId);
+        $pending = fn (LotRouteStep $s): bool => in_array($s->status, ['pending', 'partial'], true);
+
         if ($stepId !== null) {
-            $step = $steps->firstWhere('id', $stepId);
-            if ($step === null || ! $step->isActive()) {
-                throw ValidationException::withMessages(["lines.{$i}.lot_route_step_id" => __('production.errors.step_not_on_route')]);
-            }
-        } elseif (! $isReprocess) {
-            $ofOperation = $steps->filter(fn (LotRouteStep $s) => $s->isActive() && $s->operation_id === $operation->id);
-            $step = $ofOperation->first(fn (LotRouteStep $s) => in_array($s->status, ['pending', 'partial'], true)) ?? $ofOperation->last();
+            $step = $inDepartment->firstWhere('id', $stepId)
+                ?? throw ValidationException::withMessages(["lines.{$i}.lot_route_step_id" => __($active->firstWhere('id', $stepId) === null
+                    ? 'production.errors.step_not_on_route' : 'production.errors.step_not_in_department')]);
+        } elseif ($isReprocess) {
+            $step = $inDepartment->sortByDesc(fn (LotRouteStep $s): float => $balances[$this->routes->targetPosition($s)->value()] ?? 0.0)
+                ->first(fn (LotRouteStep $s) => ($balances[$this->routes->targetPosition($s)->value()] ?? 0.0) > 0);
+        } else {
+            $ofOperation = $inDepartment->filter(fn (LotRouteStep $s) => $s->operation_id === $operation->id);
+            $step = $ofOperation->first($pending) ?? $inDepartment->first($pending) ?? $ofOperation->last();
         }
 
         if ($step !== null) {
@@ -336,38 +376,40 @@ final class ProductionSheetService
             return $isReprocess ? [$step, $target, $target] : [$step, $this->routes->previousPosition($step), $target];
         }
 
-        $position = $this->floorPosition($this->lockedBalances($lot))
+        $position = $this->floorPosition($balances)
             ?? throw ValidationException::withMessages(["lines.{$i}.qty_in" => __('production.errors.nothing_on_floor', ['lot' => $lot->lot_no])]);
-        if ($isReprocess) {
-            $active = $steps->filter(fn (LotRouteStep $s) => $s->isActive())->values();
-            $at = $position->isStep() ? $active->firstWhere('id', $position->stepId()) : ($position->value() === Position::FINISHED ? $active->last() : null);
-            $step = $at !== null && $at->operation->department_id === $departmentId ? $at : null;
-        }
 
-        return [$step, $position, $position];
+        return [null, $position, $position];
     }
 
     /**
      * Colour gate (spec §5.4): a gated operation on a lot whose colour is not approved needs a reason from a user
      * with `colour.override.approve`, logged as a colour_overrides row on the line. An override already logged on
-     * the line for the same lot stands through edits; it is dropped when the gate no longer applies.
+     * the line stands through edits (with or without the same reason repeated, whoever edits) and is kept once the
+     * colour is approved or the operation changes: it records a decision that was taken. It is dropped only when the
+     * line moves to another lot. A different reason is a new decision: it needs the permission and is re-stamped.
      *
      * @param  LinePayload  $p
      */
     private function applyColourGate(ProductionLine $line, Lot $lot, Operation $operation, array $p, int $i, User $user): void
     {
         $existing = $line->colourOverride()->first();
+        if ($existing !== null && $existing->lot_id !== $lot->id) {
+            $existing->delete();
+            $existing = null;
+        }
         if (! $this->gateApplies($operation) || $this->colourApproved($lot)) {
-            $existing?->delete();
-
             return;
         }
         $reason = trim((string) ($p['colour_override_reason'] ?? ''));
         if ($reason === '') {
-            if ($existing !== null && $existing->lot_id === $lot->id) {
+            if ($existing !== null) {
                 return;
             }
             throw ValidationException::withMessages(["lines.{$i}.colour_override_reason" => (new ColourNotApproved($lot, $operation))->getMessage()]);
+        }
+        if ($existing !== null && $existing->reason === $reason) {
+            return; // the logged decision repeated: nothing to approve, nothing to re-stamp
         }
         if (! $user->can('colour.override.approve')) {
             throw ValidationException::withMessages(["lines.{$i}.colour_override_reason" => __('production.errors.colour_override_not_allowed')]);
@@ -383,38 +425,99 @@ final class ProductionSheetService
     // ---- helpers ---------------------------------------------------------------------------------------------
 
     /**
-     * Nothing about the line that reached the ledger (or the colour gate) differs from the payload: it is left as
-     * posted. Batch no. and remarks are updated without a re-post; a payload field left null means "as saved".
+     * The header row; a second sheet for the same date, shift and machine (the table's unique key) is refused on
+     * `machine_id` even when two users race past the controller's uniqueness check.
+     *
+     * @param  Header  $header
+     */
+    private function saveHeader(ProductionSheet $sheet, array $header): void
+    {
+        try {
+            $sheet->fill($header)->save();
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages(['machine_id' => __('production.errors.sheet_exists')]);
+        }
+    }
+
+    /**
+     * Nothing about the line that reaches the ledger differs from the payload (lot, operation, step, reprocess flag
+     * and reason, quantities): it is left as posted and only its plain fields are updated. A payload step left null
+     * means "as saved".
      *
      * @param  LinePayload  $p
      */
     private function unchanged(ProductionLine $line, array $p, int $departmentId): bool
     {
         $same = fn (mixed $a, mixed $b): bool => round((float) $a, 2) === round((float) $b, 2);
-        if ($line->lot_id !== (int) $p['lot_id'] || $line->operation_id !== (int) $p['operation_id'] || $line->operation->department_id !== $departmentId) {
+        $operation = $line->operation;
+        if ($line->lot_id !== (int) $p['lot_id'] || $line->operation_id !== (int) $p['operation_id'] || $operation->department_id !== $departmentId) {
             return false;
         }
-        $isReprocess = (bool) ($p['is_reprocess'] ?? false) || $line->operation->kind === 'reprocess';
+        $isReprocess = (bool) ($p['is_reprocess'] ?? false) || $operation->kind === 'reprocess';
 
         return (! isset($p['lot_route_step_id']) || $line->lot_route_step_id === (int) $p['lot_route_step_id'])
             && $line->is_reprocess === $isReprocess
             && $same($line->qty_in, $p['qty_in']) && $same($line->qty_out, $p['qty_out'])
-            && $line->output_type === ($p['output_type'] ?? $line->output_type)
-            && ($line->g_width === null ? ! isset($p['g_width']) : $same($line->g_width, $p['g_width'] ?? $line->g_width))
-            && ($line->f_width === null ? ! isset($p['f_width']) : $same($line->f_width, $p['f_width'] ?? $line->f_width))
-            && (! $isReprocess || $line->reprocess_reason === ($p['reprocess_reason'] ?? null));
+            && (! $isReprocess || $line->reprocess_reason === trim((string) ($p['reprocess_reason'] ?? '')));
+    }
+
+    /**
+     * A later line of the sheet on the same lot as a changed or removed line may have consumed its output, so it is
+     * unposted with it (last line first) and re-posted after it, in sheet order, on what the edited line now leaves.
+     *
+     * @param  array<int, array{line: ProductionLine|null, changed: bool}>  $rows  by payload row, updated in place
+     * @param  EloquentCollection<int, ProductionLine>  $removed
+     */
+    private function markLaterLinesOnSameLot(array &$rows, EloquentCollection $removed): void
+    {
+        /** @var array<int, int> $firstChanged lot id => the lowest line_no changed or removed on that lot */
+        $firstChanged = [];
+        $lines = $removed->all();
+        foreach ($rows as $row) {
+            if ($row['line'] !== null && $row['changed']) {
+                $lines[] = $row['line'];
+            }
+        }
+        foreach ($lines as $line) {
+            $firstChanged[$line->lot_id] = min($firstChanged[$line->lot_id] ?? PHP_INT_MAX, $line->line_no);
+        }
+        foreach ($rows as $i => $row) {
+            if ($row['line'] !== null && ! $row['changed'] && $row['line']->line_no > ($firstChanged[$row['line']->lot_id] ?? PHP_INT_MAX)) {
+                $rows[$i]['changed'] = true;
+            }
+        }
+    }
+
+    /**
+     * The line fields the ledger never sees: batch no., remarks, output type (the operation's finish type by default),
+     * and the widths (the lot's by default).
+     *
+     * @param  LinePayload  $p
+     * @return array{batch_no: string|null, remarks: string|null, output_type: string|null, g_width: float|null, f_width: float|null}
+     */
+    private function plainAttributes(array $p, Lot $lot, ?Operation $operation = null): array
+    {
+        $width = fn (mixed $given, ?string $fallback): ?float => $given !== null ? round((float) $given, 2) : ($fallback === null ? null : (float) $fallback);
+
+        return [
+            'batch_no' => $p['batch_no'] ?? null,
+            'remarks' => $p['remarks'] ?? null,
+            'output_type' => $p['output_type'] ?? $operation?->finish_type,
+            'g_width' => $width($p['g_width'] ?? null, $lot->g_width),
+            'f_width' => $width($p['f_width'] ?? null, $lot->f_width),
+        ];
     }
 
     /**
      * Row-lock every lot the save touches, in id order (so two saves sharing lots take the locks in the same
      * order), before any read that decides a posting.
      *
-     * @param  list<int|string>  $ids
+     * @param  array<int>  $ids
      * @return array<int, Lot> by id
      */
     private function lockLots(array $ids): array
     {
-        $ids = array_values(array_unique(array_map('intval', $ids)));
+        $ids = array_values(array_unique($ids));
         if ($ids === []) {
             return [];
         }
@@ -450,19 +553,37 @@ final class ProductionSheetService
         return Position::from((string) array_key_first($candidates));
     }
 
+    /**
+     * @param  array<string, float>  $sum
+     * @return Buckets
+     */
+    private static function buckets(array $sum): array
+    {
+        return [
+            'fresh' => $sum['fresh'] ?? 0.0,
+            'reprocess' => $sum['reprocess'] ?? 0.0,
+            'stretching' => $sum['stretching'] ?? 0.0,
+            'total' => $sum['total'] ?? 0.0,
+        ];
+    }
+
     private function gateApplies(Operation $operation): bool
     {
         return $operation->finish_type !== null || in_array($operation->department->code, self::GATED_DEPARTMENTS, true);
     }
 
-    /** Spec §5.4: approved means the lot's colour_status code carries the lookup's `approved` flag. */
+    /**
+     * Spec §5.4: approved means the lot's colour_status code carries the lookup's `approved` flag. A deactivated
+     * colour_status value that still carries `meta.approved` passes the gate (ruling): the lot was approved under it.
+     */
     private function colourApproved(Lot $lot): bool
     {
         if ($lot->colour_status === null) {
             return false;
         }
         $this->approvedCodes ??= LookupValue::query()->list(self::COLOUR_STATUS_LIST)->get()
-            ->filter(fn (LookupValue $v) => (bool) ($v->meta['approved'] ?? false))->pluck('code')->values()->all();
+            ->filter(fn (LookupValue $v) => (bool) ($v->meta['approved'] ?? false))
+            ->map(fn (LookupValue $v): string => (string) $v->code)->values()->all();
 
         return in_array($lot->colour_status, $this->approvedCodes, true);
     }

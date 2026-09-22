@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fabric PPC Handbook</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f5f7f8;--surface:#ffffff;--ink:#17232e;--ink-2:#4a5966;--line:#d6dde3;
+  --accent:#0f6f8f;--accent-ink:#0b5670;--accent-soft:#e3f1f6;--warm:#b4582b;--warm-soft:#f8ece5;
+  --code-bg:#eef2f5;--good:#2f7d4f;--warn:#a8701a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1519;--surface:#161e25;--ink:#e6ebef;--ink-2:#a3b0bb;--line:#2a3640;
+    --accent:#5cb8d6;--accent-ink:#8dd0e6;--accent-soft:#12303b;--warm:#e08a5c;--warm-soft:#3a2418;
+    --code-bg:#1c262e;--good:#6cc48f;--warn:#e0a94a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1519;--surface:#161e25;--ink:#e6ebef;--ink-2:#a3b0bb;--line:#2a3640;
+  --accent:#5cb8d6;--accent-ink:#8dd0e6;--accent-soft:#12303b;--warm:#e08a5c;--warm-soft:#3a2418;
+  --code-bg:#1c262e;--good:#6cc48f;--warn:#e0a94a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-block:0 48px;padding-inline:16px}
+a{color:var(--accent-ink)}
+code,pre,kbd{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em}
+code{background:var(--code-bg);padding:.1em .35em;border-radius:3px}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;margin:10px 0}
+pre code{background:none;padding:0}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 .35em;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:40px}
+@media (max-width:860px){.wrap{grid-template-columns:1fr;gap:0}nav.toc{position:static;border:0;padding:0;margin-bottom:8px}}
+header.masthead{grid-column:1/-1;padding-block:36px 20px;border-bottom:2px solid var(--accent)}
+header .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);font-weight:600}
+header h1{font-size:34px;line-height:1.15;margin:6px 0 8px;text-wrap:balance}
+header p{margin:0;color:var(--ink-2);max-width:70ch}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;padding-top:24px;font-size:13.5px}
+nav.toc ol{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+nav.toc a{text-decoration:none;color:var(--ink-2)}
+nav.toc a:hover,nav.toc a:focus{color:var(--accent-ink);text-decoration:underline}
+nav.toc .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px}
+main{min-width:0;padding-top:8px}
+section{padding-block:26px 6px;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+h2{font-size:22px;margin:0 0 12px;text-wrap:balance}
+h3{font-size:15.5px;margin:20px 0 6px;color:var(--accent-ink);text-transform:uppercase;letter-spacing:.05em}
+ul{margin:6px 0 10px;padding-inline-start:22px}
+li{margin:3px 0}
+li ul{margin:2px 0 4px}
+p{max-width:75ch}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.tile h4{margin:0 0 6px;font-size:14px}
+.tile ul{margin:0;padding-inline-start:18px}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto;margin:10px 0}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--ink-2);font-size:12.5px;letter-spacing:.04em;text-transform:uppercase}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink)}
+.pill.warm{background:var(--warm-soft);color:var(--warm)}
+.note{border-inline-start:3px solid var(--warm);background:var(--warm-soft);padding:8px 12px;border-radius:0 4px 4px 0;margin:10px 0;max-width:80ch}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 12px;font-family:"IBM Plex Mono",monospace;font-size:13px}
+.flow span{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:3px 8px}
+.flow i{color:var(--ink-2);font-style:normal}
+.status{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+footer{grid-column:1/-1;color:var(--ink-2);font-size:12.5px;padding-top:24px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Project handbook · Laravel 13 · Inertia v3 · Vue 3</div>
+  <h1>Fabric PPC — what it is, how it works, how to run it</h1>
+  <p>A production-tracking application for the Production Planning &amp; Control team of a textile dyeing, printing and finishing mill. It replaces paper floor sheets, a macro-driven Excel tracker and manual Oracle re-entry with one ledger of every metre of every lot. Status as of 22 Sep 2026.</p>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <div class="lbl">Contents</div>
+  <ol>
+    <li><a href="#what">1 · What it is</a></li>
+    <li><a href="#stack">2 · Stack</a></li>
+    <li><a href="#arch">3 · Architecture</a></li>
+    <li><a href="#data">4 · Data model</a></li>
+    <li><a href="#ledger">5 · The ledger</a></li>
+    <li><a href="#flows">6 · How work flows</a></li>
+    <li><a href="#ui">7 · Oracle-Forms UI</a></li>
+    <li><a href="#roles">8 · Roles</a></li>
+    <li><a href="#setup">9 · Setup</a></li>
+    <li><a href="#gate">10 · Tests &amp; gate</a></li>
+    <li><a href="#conventions">11 · Conventions</a></li>
+    <li><a href="#status">12 · Status &amp; next</a></li>
+    <li><a href="#golive">13 · Go-live</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="what">
+<h2>1 · What it is</h2>
+<ul>
+  <li><b>Problem it replaces:</b> triple entry — handwritten floor production sheets → re-typed into <code>Fabric Report.xlsm</code> → contract/lot master data held separately in Oracle EBS; the three never agree and reconciling is manual.</li>
+  <li><b>Goal:</b> track every <b>lot</b> through every <b>operation</b> from greige receipt to dispatch; show live status per PO and lot (in stock / at which step / finished / dispatched / lost); gate dyeing and printing on colour approval; record dispatch and closing; reproduce the mill's <b>Month Wise Fabric Report</b> exactly.</li>
+  <li><b>Success:</b> PPC no longer maintains the Excel tracker.</li>
+  <li><b>Users:</b> PPC staff and department managers (most data entry), department in-charges (own department only), colour lab, dispatch/inspection, viewers, an admin.</li>
+  <li><b>Look &amp; feel:</b> deliberately behaves like <b>Oracle Forms</b> (toolbar, query mode, LOV pop-ups, function keys, status line) because staff already use Oracle EBS daily; reports follow Oracle Reports conventions. English by default, Urdu with full RTL.</li>
+  <li><b>Source of truth split:</b> Oracle owns contract/lot master fields (imported from the "Processing Contract Status [Party Wise]" Excel export, later via API behind the same interface); the app owns all progress. A lot missing from a later export is <em>flagged</em>, never deleted.</li>
+</ul>
+<h3>Key decisions (D1–D16, spec §2)</h3>
+<ul>
+  <li>D1/D2 Oracle export upload now, API later; Oracle owns master data, app owns progress. D3 Oracle <code>QNTY</code> is the greige received ("ERP Load").</li>
+  <li>D4 seven roles, admin-editable permissions. D5 anyone permitted can edit at any time; every change audited (who, when, old → new).</li>
+  <li>D6 each lot gets a <b>planned route</b> from a template chosen by PO type + quality, editable per lot; reprocess and unplanned steps allowed. D7 a machine <b>batch</b> can hold several lots; a batch total splits proportionally and stays editable. D8 quantity is tracked per <b>stage position</b>, so one lot can be spread over several stages.</li>
+  <li>D9 Oracle issues the challan; the app records dispatch. D10 manual lot close; the remainder becomes a recorded loss with a reason. D11 colour gate warns; PPC/Manager may override with a logged reason. D12 status codes are editable lookups seeded from the tracker.</li>
+  <li>D13 movement ledger + live balances table. D14 stack below. D15 Oracle-Forms UX. D16 English + Urdu/RTL.</li>
+</ul>
+</section>
+
+<section id="stack">
+<h2>2 · Stack (as installed)</h2>
+<div class="tbl"><table>
+<tr><th>Layer</th><th>Package / tool</th><th>Version</th></tr>
+<tr><td>Language</td><td>PHP</td><td>^8.3 (dev box runs 8.5.4, custom build without <code>pdo_sqlite</code>)</td></tr>
+<tr><td>Framework</td><td>laravel/framework · laravel/fortify · laravel/wayfinder</td><td>^13.17 · ^1.37 · ^0.1</td></tr>
+<tr><td>SPA bridge</td><td>inertiajs/inertia-laravel · @inertiajs/vue3</td><td>^3.0</td></tr>
+<tr><td>Front end</td><td>vue (TypeScript) · tailwindcss · vite via <code>vite-plus</code> (<code>vp</code>) · ag-grid-community/-vue3 · reka-ui (shadcn-vue)</td><td>^3.5 · ^4.1 · ^8 · ^36.2 · ^2.9</td></tr>
+<tr><td>Auth/RBAC/Audit</td><td>spatie/laravel-permission · owen-it/laravel-auditing</td><td>^8.3 · ^14</td></tr>
+<tr><td>Excel</td><td>openspout/openspout (streaming read/write)</td><td>^5.11</td></tr>
+<tr><td>Arithmetic</td><td><code>ext-bcmath</code> (required; all ledger maths at scale 2)</td><td>—</td></tr>
+<tr><td>Infra</td><td>MySQL 8.4 + Redis 7 in Docker (host ports 33306 / 63790); predis</td><td>—</td></tr>
+<tr><td>Tests</td><td>pestphp/pest · vitest + @vue/test-utils + jsdom · larastan (phpstan L7) · pint · vp check</td><td>^4.7 · ^4.1</td></tr>
+<tr><td>Node</td><td>Node 22 (<code>.nvmrc</code>) — jsdom 30 needs it</td><td>22.x</td></tr>
+</table></div>
+<ul>
+  <li>Scaffold: official <code>laravel/vue-starter-kit</code> (Fortify login/2FA/passkeys, Wayfinder typed routes, shadcn-vue primitives under <code>resources/js/components/ui/</code> — never edited by hand).</li>
+  <li>Timezone <code>Asia/Karachi</code>; dates display <code>dd-mm-yyyy</code>; quantities are metres, <code>DECIMAL(12,2)</code>.</li>
+</ul>
+</section>
+
+<section id="arch">
+<h2>3 · Architecture</h2>
+<ul>
+  <li><b>Modular monolith.</b> One Laravel app; each module owns its models, migrations (reserved numeric ranges), services, controllers, Vue pages and tests under <code>app/Modules/&lt;Module&gt;/…</code>.</li>
+  <li><b>Only a module's own services write its tables.</b> Other modules call those services. <code>Production\Services\LedgerService</code> is the single writer of <code>lot_movements</code>, <code>lot_balances</code> and the lot's derived quantity/label columns.</li>
+</ul>
+<div class="tbl"><table>
+<tr><th>Module</th><th>Owns</th><th>State</th></tr>
+<tr><td><b>Foundation</b></td><td>auth, users, roles/permissions, departments, machines, operations, shifts, parties (+aliases), qualities, route templates, lookups, settings, i18n/RTL, audit, the Oracle-Forms UI kit, generic master screens, admin screens</td><td><span class="pill">P1 done</span></td></tr>
+<tr><td><b>OracleSync</b></td><td><code>OracleLotSource</code> interface, <code>ExcelUploadSource</code>, import preview/diff/party resolution/commit (queued), <code>oracle:import</code> CLI</td><td><span class="pill">P1 done</span></td></tr>
+<tr><td><b>Production</b></td><td>contracts, lots, ledger, per-lot routes, issue to floor, production sheets (batches, reprocess, colour gate), status labels, hold/cancel, inquiry, contracts/lots screens</td><td><span class="pill warm">P2 in progress</span></td></tr>
+<tr><td><b>Colour</b></td><td>colour steps, group-apply, status, gate + overrides (gate check exists now; steps are P5)</td><td>P5</td></tr>
+<tr><td><b>Dispatch</b></td><td>inspection, dispatch records, lot closing</td><td>P3</td></tr>
+<tr><td><b>Reports</b></td><td>R1 Month Wise Fabric Report (Excel/PDF parity), R2–R18, cached snapshots, one-time Excel migration</td><td>P4</td></tr>
+</table></div>
+<h3>Request path</h3>
+<ul>
+  <li><code>routes/web.php</code> requires <code>settings.php</code> then every file in <code>routes/modules/*.php</code> (<code>foundation.php</code>, <code>oracle.php</code>, <code>production.php</code>; <code>inquiry.php</code> arrives with P2 Task 11). Explicit routes always sit above generic catch-alls.</li>
+  <li>Every route is behind <code>auth</code> + <code>verified</code> + Spatie <code>permission:&lt;name&gt;</code> middleware; department scoping is enforced in policies via <code>department_user</code>. The UI only hides what the server already forbids.</li>
+  <li><code>HandleInertiaRequests</code> shares <code>auth.user / roles / permissions / departments</code>, <code>locale</code>, <code>dir</code> (ltr/rtl), <code>i18nVersion</code>; Vue reads them through <code>@/lib/can.ts</code> and <code>@/lib/i18n</code>.</li>
+  <li>Toasts: <code>Inertia::flash('toast', […])</code> then <code>back()</code>/<code>redirect()</code>; the kit's <code>flashToast.ts</code> listens on Inertia's flash event. Record auto-select after save uses a flashed <code>selectedId</code>.</li>
+  <li>Unexpected errors: logged with a 10-hex reference id (<code>ErrorReference</code>, WeakMap per exception) and rendered as the <code>Error</code> Inertia page carrying that id — XHR and full-page loads alike.</li>
+</ul>
+<h3>i18n</h3>
+<ul>
+  <li>PHP lang files per module group (<code>lang/en|ur/{app,auth,forms,masters,admin,oracle,production,settings,…}.php</code>); served as cached JSON at <code>GET /i18n/{locale}.json?v=</code>; inlined on first load as <code>window.__I18N__</code>.</li>
+  <li><code>t('group.key', replacements)</code> reads a shared reactive dict; <code>initializeLocaleSync()</code> reloads on every Inertia navigation when locale/version differ; a late response for a superseded locale is discarded.</li>
+  <li>Urdu sets <code>&lt;html dir="rtl"&gt;</code>; layouts use Tailwind logical properties. Numbers and dates stay Latin/Gregorian.</li>
+</ul>
+</section>
+
+<section id="data">
+<h2>4 · Data model (essentials)</h2>
+<div class="grid2">
+<div class="tile"><h4>Foundation</h4><ul>
+  <li><code>departments</code> 12 cost centres (Batching-Stenter … Stitching)</li>
+  <li><code>machines</code> per department</li>
+  <li><code>operations</code> 112 seeded; <code>kind</code> normal|reprocess, <code>stage_label</code> (e.g. <code>BLEACHING/</code>), <code>counts_as_finish_production</code>, <code>finish_type</code> null|dyed|print, <code>is_stretch</code></li>
+  <li><code>shifts</code> A/B · <code>parties</code> (+<code>party_aliases</code>) · <code>qualities</code> (parsed ends/picks/counts/composition)</li>
+  <li><code>route_templates</code> + <code>route_template_steps</code> (po_type, quality LIKE pattern, priority)</li>
+  <li><code>lookup_values</code> lists: colour_status (with <code>meta.approved</code>), po_type, loss_reason, hold_reason, reprocess_reason</li>
+  <li><code>settings</code> (string key → JSON; e.g. <code>default_route_template_id</code>), <code>audits</code>, Spatie tables, <code>department_user</code></li>
+</ul></div>
+<div class="tile"><h4>OracleSync</h4><ul>
+  <li><code>oracle_imports</code> status: previewed → committing → committed | failed | discarded; counts new/changed/unchanged/missing/errors</li>
+  <li><code>oracle_import_rows</code> action per row, JSON payload + field diff, error message (<code>unknown_party:</code>, <code>overlong:</code>, <code>bad_row:</code>, <code>greige_below_issued:</code>, <code>duplicate_line:</code>)</li>
+  <li>Match key: Oracle <code>PC_DTL_ID</code> → <code>lots.oracle_line_id</code> (unique). <code>LOT_NUM1</code> is <em>not</em> unique across POs.</li>
+</ul></div>
+<div class="tile"><h4>Production</h4><ul>
+  <li><code>contracts</code> po_no (unique), party, ref_no, po_date, contract_qty, oracle_missing_at</li>
+  <li><code>lots</code> Oracle fields (lot_no, contract, quality, gsm, design, colour, widths, po_type, greige_qty) + app fields (colour_status, state open|hold|closed|cancelled, hold/cancel/loss reasons, state_changed_at) + <b>derived</b> (stock_qty, issued_qty, wip_qty, finished_qty, dispatched_qty, loss_qty, current_label, last_movement_at — written only by the ledger)</li>
+  <li><code>lot_route_steps</code> seq, operation, is_added, status pending|partial|done|skipped</li>
+  <li><code>lot_movements</code> insert-only ledger (see §5) · <code>lot_balances</code> (lot, position, qty; unique)</li>
+  <li><code>production_sheets</code> date+shift+machine (unique), department, downtime, remarks · <code>production_lines</code> batch_no, lot, step, operation, is_reprocess+reason, qty_in, qty_out, output_type, widths · <code>colour_overrides</code> one per line, reason, approved_by/at</li>
+</ul></div>
+</div>
+<ul>
+  <li>Audited models ("(A)" in the spec): every Foundation master, Contract, Lot, LotRouteStep, ProductionSheet, ProductionLine, ColourOverride. Not audited: Setting (string PK), LotMovement/LotBalance (the ledger <em>is</em> the trail) and the lot's derived columns (query-builder updates).</li>
+  <li>Indexes from spec §9: <code>lots(lot_no)</code>, <code>lots(contract_id, state)</code>, <code>lots(state, current_label)</code>, <code>lot_balances(lot_id, position)</code>, <code>lot_movements(lot_id, moved_at)</code>, <code>production_lines(lot_id)</code>, <code>production_sheets(sheet_date, machine_id, shift_id)</code>.</li>
+</ul>
+</section>
+
+<section id="ledger">
+<h2>5 · The ledger — how every metre is tracked</h2>
+<h3>Positions</h3>
+<div class="flow"><span>STOCK</span><i>→</i><span>ISSUED</span><i>→</i><span>STEP:&lt;route_step_id&gt; …</span><i>→</i><span>FINISHED</span><i>→</i><span>DISPATCHED</span><i>/</i><span>LOSS</span></div>
+<ul>
+  <li><code>STOCK</code> greige received, not issued · <code>ISSUED</code> on the floor before the first step · <code>STEP:&lt;id&gt;</code> completed that step, waiting · <code>FINISHED</code> completed the last step · <code>DISPATCHED</code>/<code>LOSS</code> terminal counters.</li>
+  <li>Positions derive from the lot's route, bypassing skipped steps; a route edit may not move metres already sitting at a progressed step's position (<em>position-stability guard</em>).</li>
+</ul>
+<h3>Movement kinds and enforced shapes</h3>
+<div class="tbl"><table>
+<tr><th>kind</th><th>from → to</th><th>Posted by</th></tr>
+<tr><td><code>import</code></td><td>∅ → STOCK (qty = greige_qty)</td><td>Oracle commit (inside its transaction) or <code>production:backfill-ledger</code></td></tr>
+<tr><td><code>adjustment</code></td><td>exactly one side ∅, other non-terminal (greige change, override shortfall)</td><td>import, override path</td></tr>
+<tr><td><code>issue</code></td><td>STOCK → ISSUED (partial allowed)</td><td>Issue to Floor (per lot / bulk per PO)</td></tr>
+<tr><td><code>process</code></td><td>ISSUED|STEP:n → STEP:m|FINISHED (from ≠ to), or in place at a non-terminal non-STOCK position (unplanned work)</td><td>Production sheet line</td></tr>
+<tr><td><code>reprocess</code></td><td>from = to, non-terminal, non-STOCK (FINISHED→FINISHED allowed)</td><td>Production sheet line flagged reprocess or a reprocess-kind operation</td></tr>
+<tr><td><code>dispatch</code></td><td>FINISHED → DISPATCHED</td><td>P3</td></tr>
+<tr><td><code>loss</code></td><td>non-terminal → LOSS</td><td>P3 close</td></tr>
+</table></div>
+<h3>Rules</h3>
+<ul>
+  <li><code>qty_out_of_from</code> and <code>qty_into_to</code> are stored separately, so gain/shrink per operation is kept (e.g. stenter 3,578 → 3,627).</li>
+  <li>No position may go negative. <code>InsufficientQuantity</code> carries the available figure; a user with <code>production.override</code> may supply a reason, which posts an <code>adjustment</code> first (<code>postWithOverride()</code>).</li>
+  <li>Edits and deletes never mutate a movement: they post a <b>reversal</b> (<code>reversal_of_id</code>, unique — one reversal per movement, a reversal cannot be reversed) plus a new movement; balances and lot totals are recomputed in the same transaction.</li>
+  <li>Every ledger write: <code>DB::transaction</code> → <code>lockForUpdate</code> the lot row → lock its balance rows → <b>locking reads</b> for every figure that feeds a write (InnoDB REPEATABLE READ would otherwise serve a stale snapshot inside a caller's transaction) → insert → balance deltas → totals + status label in one update. Lock order everywhere: lot → balances → movements → route steps.</li>
+  <li>Floor movements (<code>issue/process/reprocess</code>) need <code>state = open</code> (<code>LotNotOpen</code>); reversals, adjustments, loss and dispatch don't.</li>
+  <li><b>Invariant</b> (checked by tests and the nightly <code>CheckLedgerInvariant</code> job at 02:00): per lot, balances = Σ<code>qty_into_to</code> − Σ<code>qty_out_of_from</code> per position, and the six <code>lots.*_qty</code> columns equal the balances. <code>rebuild()</code> repairs from the movements.</li>
+  <li>Derived values: Greige In Stock = STOCK · <b>Qty Issued = net metres issued out of STOCK</b> (ruled; spec text said greige − STOCK) · WIP = ISSUED + ΣSTEP · Finished = FINISHED · Dispatch = DISPATCHED.</li>
+</ul>
+<h3>Status label (<code>lots.current_label</code>, first rule that applies)</h3>
+<ul>
+  <li>1 <code>CANCELLED/</code> or <code>HOLD/</code> from state · 2 closed → <code>DISPATCHED/</code> if anything dispatched else <code>CLOSED/</code> · 3 any standing dispatch on an open lot → <code>DISP dd-mm-yy/</code> (last un-reversed dispatch) · 4 <code>stage_label</code> of the next pending step for the largest WIP portion (skipped steps bypassed; <code>WIP/</code> if no route) · 5 <code>RF-INSP/</code> when FINISHED &gt; 0 and nothing on the floor (STOCK may remain) · 6 blank while everything is in STOCK.</li>
+  <li>Process flag: <b>Complete</b> when closed or cancelled, or when STOCK+WIP+FINISHED = 0 and greige &gt; 0; otherwise <b>Pending</b>.</li>
+</ul>
+</section>
+
+<section id="flows">
+<h2>6 · How work flows</h2>
+<h3>Oracle import (OracleSync)</h3>
+<ul>
+  <li>Upload the XLSX → headers validated → rows parsed by <code>ExcelUploadSource</code> (bad rows become <code>bad_row</code> error rows, not a failed upload; per-field length limits → <code>overlong</code>).</li>
+  <li>Preview classifies each row by <code>PC_DTL_ID</code>: new / changed (field diff) / unchanged / missing / error. Parties resolve by <code>oracle_code</code> → normalised name → alias; unmatched ones must be linked or created (one Oracle code per party). A greige decrease below what has left STOCK is an error row (<code>greige_below_issued</code>).</li>
+  <li>Commit: controller checks + atomic <code>previewed → committing</code>, then the queued <code>CommitOracleImport</code> job takes <code>Cache::lock('oracle-import-commit', 660)->block(300)</code> and runs one transaction: parties, qualities, contracts, lots; for each new lot <code>LotIntakeService::receive()</code> assigns the route (template matcher → default-template setting) and posts the <code>import</code> movement; greige changes post an adjustment. Missing lots/contracts get <code>oracle_missing_at</code> (cleared when they reappear). Events fire after commit. Failure → <code>failed</code> + message; commit blocked while error rows exist.</li>
+  <li>CLI: <code>php artisan oracle:import {path} [--user=] [--commit]</code>. Existing lots without a ledger: <code>php artisan production:backfill-ledger [--user=]</code> (idempotent).</li>
+</ul>
+<h3>Planning (Production)</h3>
+<ul>
+  <li><b>Lot Route editor</b> (<code>production.route.manage</code>): edit steps, add <code>is_added</code> steps, reorder, skip/unskip, apply a template to a lot or to every open lot of a PO. Steps with production are locked (order, operation, removal); edits that would move metres already at a completed step are refused with a translated reason.</li>
+  <li><b>Issue to Floor</b> (<code>production.issue</code>): per lot with a lot LOV (full no., last 4 digits or PO; shows PO + design + colour; in-stock lots only) or "issue all stock of this PO" (shows open-lot count and stock first).</li>
+  <li><b>Hold / release / cancel</b> (<code>production.hold</code>): reasons from the <code>hold_reason</code> list; cancel only when nothing is in WIP/FINISHED; held/cancelled lots refuse floor movements.</li>
+</ul>
+<h3>Production entry</h3>
+<ul>
+  <li>One sheet per date + shift + machine; the machine's department limits the operation LOV and the offered route steps; department in-charges may only save their own department's sheets (<code>production.sheet.edit.own_department</code> via <code>department_user</code>).</li>
+  <li>Line resolution: explicit step (must belong to the sheet's department) → the pending/partial step of the line's operation in that department → the department's next pending step → last step of that operation → unplanned (posted in place, step null). Reprocess lines post in place at the step's target.</li>
+  <li>Batches: lines sharing a <code>batch_no</code> form one run; "split batch total" spreads a total in proportion to available metres (2 dp, remainder on the largest line; editable afterwards).</li>
+  <li>Colour gate on save: operation in Jigger Dyeing/Printing or with <code>finish_type</code> on a lot whose <code>colour_status</code> is not flagged approved → blocking; a user with <code>colour.override.approve</code> may supply a reason, logged in <code>colour_overrides</code> (kept even if the colour is approved later).</li>
+  <li>Totals per sheet (fresh / reprocess / stretching / total, per output type dyed/print/other) are computed server-side and mirrored client-side.</li>
+  <li>Editing a saved sheet re-posts only changed lines (plus later lines of the same lot); ledger-neutral fields update in place; a line whose metres have already moved on cannot be edited or deleted.</li>
+</ul>
+</section>
+
+<section id="ui">
+<h2>7 · Oracle-Forms UI kit</h2>
+<ul>
+  <li><code>resources/js/forms/keymap.ts</code> — one key map: <kbd>F7</kbd> Enter Query · <kbd>F8</kbd> Execute Query · <kbd>F9</kbd> LOV · <kbd>F10</kbd>/<kbd>Ctrl+S</kbd> Save · <kbd>Ctrl+Q</kbd> Exit · <kbd>Ctrl+↓</kbd> New record · <kbd>Ctrl+Del</kbd> Delete · <kbd>PgUp/PgDn</kbd> Prev/Next (F6 unused — browsers reserve it).</li>
+  <li><code>useFormsKeys(handlers, active)</code> — a stack of handler sets; dialogs shadow the form only while open; inside an AG Grid the record keys belong to the grid.</li>
+  <li><code>FormsToolbar</code> (Save · New · Delete · Enter/Execute Query · Prev · Next · Clear · Print · Exit), <code>StatusLine</code> ("Record n of m", message, hint, unsaved indicator), <code>FormBlock</code> (Enter moves to the next field; buttons skipped, checkboxes/switches included), <code>FormField</code>.</li>
+  <li><code>useQueryMode()</code> + server-side <code>QueryCriteria</code>: fields accept values, <code>%</code> wildcards, <code>&gt; &lt;</code> and <code>a..b</code> ranges; array values → 422.</li>
+  <li><code>useUnsavedGuard(isDirty, save)</code> — blocks unload and Inertia GETs when dirty (Save / Discard / Cancel, replaying the original visit); <code>guard(fn)</code> wraps every in-page navigation (Prev/Next, New, Clear, grid row, Execute Query, apply actions).</li>
+  <li><code>LovField</code>/<code>LovDialog</code> (search-as-you-type, exact lookup on blur, Enter picks, filters such as <code>states</code>, <code>in_stock</code>, <code>department_id</code>), <code>useGridLov</code> (one shared LOV dialog for grid cells, F9 in the cell), <code>DataGrid</code>/<code>DetailGrid</code> (AG Grid; Down-arrow on the last row adds a row; rows carry a client <code>_uid</code> and are patched on the model, never on the grid's copy), <code>ConfirmDialog</code>/<code>useConfirm</code>, <code>ReasonDialog</code>/<code>useReasonPrompt</code>.</li>
+  <li>LOV backend: <code>LovDefinition</code> implementations registered in <code>LovRegistry</code>; <code>GET /lov/{name}?q=|exact=|filters[…]</code>; definitions may add <code>applyExact()</code>/<code>applySearch()</code>.</li>
+  <li>Generic single-block masters: a <code>MasterResource</code> subclass (fields, rules, permissions) drives <code>MasterController</code> index/store/update/destroy and the <code>MasterForm.vue</code> page; master-detail masters (Parties, Route Templates) have dedicated controllers/pages.</li>
+</ul>
+</section>
+
+<section id="roles">
+<h2>8 · Roles and permissions</h2>
+<ul>
+  <li>Permissions are <code>&lt;module&gt;.&lt;action&gt;</code> strings in <code>App\Modules\Foundation\Access\Permissions::ALL</code> (26); roles map to lists in <code>::ROLES</code>; <code>admin</code> passes every gate via <code>Gate::before</code>. Only an admin may grant <code>admin.*</code> or manage admin accounts. Inactive users are refused at login (password, 2FA and passkey paths).</li>
+</ul>
+<div class="tbl"><table>
+<tr><th>Role</th><th>Can</th><th>Demo login (password <code>password</code>)</th></tr>
+<tr><td>admin</td><td>everything</td><td><code>admin@fabric.local</code> (from <code>ADMIN_EMAIL</code>)</td></tr>
+<tr><td>ppc</td><td>masters, Oracle import, routes/issue/hold/close/override, all sheets, colour, dispatch, inquiry, reports, audit</td><td><code>ppc@fabric.local</code></td></tr>
+<tr><td>manager</td><td>as ppc minus masters.manage and import run</td><td><code>manager@fabric.local</code></td></tr>
+<tr><td>dept_incharge</td><td>own-department sheets, view masters/colour, inquiry, department reports</td><td><code>dept_incharge@fabric.local</code> (Finish-Stenter)</td></tr>
+<tr><td>colour_lab</td><td>colour steps/status, inquiry, colour reports</td><td><code>colour_lab@fabric.local</code></td></tr>
+<tr><td>dispatch</td><td>inspection/dispatch, inquiry, dispatch reports</td><td><code>dispatch@fabric.local</code></td></tr>
+<tr><td>viewer</td><td>read everything</td><td><code>viewer@fabric.local</code></td></tr>
+</table></div>
+<p class="note">Demo users are seeded by <code>DemoUsersSeeder</code> on every <code>db:seed</code>, in every environment — deactivate or delete them before a live deploy.</p>
+</section>
+
+<section id="setup">
+<h2>9 · Setup</h2>
+<h3>First-time (development)</h3>
+<pre><code>git clone git@github.com:NomanHameed/fabric-ppc.git &amp;&amp; cd fabric-ppc
+composer install
+nvm use            # .nvmrc = 22
+npm ci
+cp .env.example .env
+docker compose up -d           # MySQL 8.4 on 127.0.0.1:33306 (fabric/secret, db fabric_ppc) + Redis 7 on 63790
+php artisan key:generate
+php artisan migrate:fresh --seed   # WIPES the database: schema + roles/permissions + masters (12 depts, 112 ops, 124 parties, 4 templates) + admin + demo users
+composer run dev               # php artisan dev: serve + queue worker + Vite together</code></pre>
+<ul>
+  <li>Login: <code>admin@fabric.local</code> / value of <code>ADMIN_PASSWORD</code> (<code>password</code> in <code>.env.example</code>); demo users as in §8.</li>
+  <li><b>Redis must be running</b> before <code>migrate</code>, seed or serve — cache, session and queue are all Redis. If your database is local (not Docker) keep <code>DB_PORT</code> as your server's and still run <code>docker compose up -d redis</code>. Symptom when it isn't: the Spatie permissions migration creates its tables, then fails on the cache flush, and every later <code>migrate</code> says "table permissions already exists".</li>
+  <li>After pulling new code: <code>php artisan migrate</code> (additive). After P2 lands: <code>php artisan production:backfill-ledger</code> once, so existing lots get their STOCK balance and route.</li>
+  <li>Oracle import needs the queue worker (<code>composer run dev</code> starts one). Sample export: <code>tests/Fixtures/oracle-wip-2026-09.xlsx</code> (623 rows; 4 parties need manual mapping the first time: U&amp;I, Image, Al Hamd, Lenok).</li>
+</ul>
+<h3>Key <code>.env</code> values</h3>
+<div class="tbl"><table>
+<tr><th>Key</th><th>Dev default</th><th>Note</th></tr>
+<tr><td><code>DB_*</code></td><td>127.0.0.1:33306 / fabric_ppc / fabric / secret</td><td>Docker MySQL; MariaDB 10.4 also works today</td></tr>
+<tr><td><code>REDIS_HOST/PORT</code></td><td>127.0.0.1:63790</td><td><code>REDIS_CLIENT=predis</code></td></tr>
+<tr><td><code>CACHE_STORE / SESSION_DRIVER / QUEUE_CONNECTION</code></td><td>redis</td><td>set all three to <code>file</code>/<code>database</code> if you don't want Redis locally</td></tr>
+<tr><td><code>REDIS_QUEUE_RETRY_AFTER</code></td><td>660</td><td>must exceed the commit job's 600 s timeout</td></tr>
+<tr><td><code>ADMIN_EMAIL / ADMIN_PASSWORD</code></td><td>admin@fabric.local / password</td><td>read at seed time, before <code>config:cache</code></td></tr>
+<tr><td><code>APP_LOCALE</code></td><td>en</td><td><code>ur</code> available; fallback en</td></tr>
+</table></div>
+</section>
+
+<section id="gate">
+<h2>10 · Tests and the verification gate</h2>
+<ul>
+  <li>Every change must pass all of: <code>./vendor/bin/pest</code> · <code>npm run test:js</code> · <code>npm run types:check</code> (vue-tsc) · <code>npm run build</code> · <code>composer ci:check</code> (vp format+lint, vue-tsc, pint, phpstan, pest) · <code>./vendor/bin/phpstan analyse</code> with <b>no new</b> <code>phpstan-baseline.neon</code> entries. Run <code>npx vp check --fix</code> and <code>./vendor/bin/pint</code> before committing.</li>
+  <li><code>phpunit.xml</code> points Pest at in-memory SQLite. On a PHP build without <code>pdo_sqlite</code> (this dev box) run against a scratch schema on the Docker MySQL instead — never the <code>.env</code> database:</li>
+</ul>
+<pre><code>DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=33306 DB_DATABASE=fabric_ppc_test \
+DB_USERNAME=fabric DB_PASSWORD=secret ./vendor/bin/pest      # create fabric_ppc_test as root/root first</code></pre>
+<ul>
+  <li>Suites: <code>tests/Unit</code> (no framework, e.g. BatchSplitter, Position), <code>tests/Feature/&lt;Module&gt;</code> (RefreshDatabase; the Oracle tests use the real 623-row fixture with exact counts), <code>tests/Concurrency</code> (MySQL-only, DatabaseTruncation, two connections — proves lot locks and snapshot handling; self-skips elsewhere), Vitest under <code>resources/js/**/__tests__</code> (helpers, composables, mounted dialogs and the DetailGrid).</li>
+  <li>Current counts (P2, Task 10 tree): <b>443 Pest tests / 89 Vitest tests</b>, phpstan 0 errors.</li>
+</ul>
+</section>
+
+<section id="conventions">
+<h2>11 · Conventions (non-negotiable)</h2>
+<ul>
+  <li>New PHP under <code>App\Modules\&lt;Module&gt;\…</code>; models under <code>Models\*</code>. Migrations <code>2026_09_19_</code> + 6-digit sequence from the task's reserved range.</li>
+  <li>No bare user-visible strings: PHP <code>__('group.key')</code>, Vue <code>t('group.key')</code>; each module owns its lang group, never mixed.</li>
+  <li>One route file per module; explicit routes above catch-alls.</li>
+  <li>Toasts via <code>Inertia::flash</code> then <code>back()</code>; delete errors reach <code>form.setError()</code>; "in use" only from a real FK violation (<code>isForeignKeyViolation</code>), other DB errors surface.</li>
+  <li>In-page record navigation through <code>useUnsavedGuard().guard(fn)</code>. Never edit <code>components/ui/*</code>.</li>
+  <li>Quantities <code>decimal(12,2)</code>, bcmath at scale 2; console/queue writes to audited models inside <code>ImportCommitService::asAuditUser()</code>.</li>
+  <li>Workflow: subagent-driven development — one implementer per plan task, a spec/quality reviewer, fix rounds, a final whole-branch review. Judgment calls are recorded as rulings in <code>docs/HANDOFF.md</code>.</li>
+</ul>
+</section>
+
+<section id="status">
+<h2>12 · Status and what's next</h2>
+<div class="status">
+  <span><span class="pill">P1</span></span><span>Foundation + OracleSync — 19 tasks done, final review fixes in, merged to <code>main</code> (<code>2134a1d</code>).</span>
+  <span><span class="pill warm">P2</span></span><span>Production, branch <code>feat/p2-production</code>, plan <code>docs/superpowers/plans/2026-09-20-p2-production.md</code> (14 tasks):</span>
+</div>
+<ul>
+  <li>Done &amp; committed: T1–T3 P1 hardening (M-1…M-14 backlog, error reference, Enter-navigation, Urdu auth/settings), T4 ledger core, T5 routes + import hook + backfill, T6 status labels + hold/cancel, T7 Issue to Floor, T8 Lot Route editor, demo-users seeder.</li>
+  <li>Done, awaiting commit: T9 production sheet backend, T10 production sheet screen (shared ConfirmDialog/ReasonDialog, DetailGrid fixes).</li>
+  <li>Next: T11 Lot/PO Inquiry + global search → T12 Contracts &amp; Lots screens → T13 browser smoke tests + MySQL CI job → T14 end-to-end run on MySQL + HANDOFF/spec updates → final whole-branch review → merge.</li>
+  <li>Then P3 Dispatch &amp; Closing, P4 Reports (R1 first, with the one-time Excel migration for the acceptance baseline), P5 Colour.</li>
+</ul>
+<h3>Open business questions</h3>
+<ul>
+  <li>Meaning of the <code>DOX</code> and <code>LCR</code> colour codes (seeded with placeholder labels).</li>
+  <li>Mapping of the Sanforizing sheet's numeric process codes (24, 26, 27, 29) to operations.</li>
+  <li>Exact set of operations that count as "finish production" (defaulted to Finish-Stenter finish operations; matches 40,348 m on 11 Sep).</li>
+  <li>Company name and logo for report headers.</li>
+</ul>
+</section>
+
+<section id="golive">
+<h2>13 · Go-live checklist</h2>
+<ul>
+  <li>PHP 8.3+ with <code>ext-bcmath</code>, <code>pdo_mysql</code>; MySQL 8.4; Redis 7; Node 22 for the asset build.</li>
+  <li><code>php artisan migrate --force</code> on every deploy (first install: <code>--seed</code>), <b>before</b> <code>config:cache</code> (the admin seeder reads <code>env()</code>). Then <code>config:cache</code>, <code>route:cache</code>, <code>view:cache</code>, <code>npm ci &amp;&amp; npm run build</code>.</li>
+  <li>Change the admin password after first login; deactivate the six demo users.</li>
+  <li>Queue worker under Supervisor/systemd: <code>php artisan queue:work redis --timeout=600 --tries=1 --sleep=3</code>, <code>stopwaitsecs=660</code>, restart after each deploy (<code>queue:restart</code>). <code>REDIS_QUEUE_RETRY_AFTER ≥ 660</code>.</li>
+  <li>Scheduler (cron <code>* * * * * php artisan schedule:run</code>) for the nightly ledger invariant check.</li>
+  <li>Uploaded Oracle exports are kept under <code>storage/app/oracle-imports/</code> (no retention policy yet). HTTPS, rate-limited login and CSRF come from the kit.</li>
+</ul>
+</section>
+
+</main>
+<footer>Sources: <code>docs/HANDOFF.md</code>, <code>docs/superpowers/specs/2026-09-19-fabric-ppc-design.md</code>, the P1/P2 plans and the branch as of 22 Sep 2026.</footer>
+</div>
+</body>
+</html>

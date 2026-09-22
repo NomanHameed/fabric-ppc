@@ -673,12 +673,6 @@ parameters:
 			path: app/Modules/Foundation/Models/Operation.php
 
 		-
-			message: '#^Method App\\Modules\\Foundation\\Models\\Operation\:\:department\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Modules/Foundation/Models/Operation.php
-
-		-
 			message: '#^Method App\\Modules\\Foundation\\Models\\Party\:\:aliases\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
 			identifier: missingType.generics
 			count: 1

@@ -2,6 +2,8 @@
 
 namespace App\Modules\Production\Services;
 
+use InvalidArgumentException;
+
 /**
  * "Split batch total" (spec §6.3.4): spread a batch total over its lines in proportion to the metres available to
  * each line at its source position. Every share is rounded to 2 dp and the rounding remainder lands on the line
@@ -13,9 +15,14 @@ final class BatchSplitter
     /**
      * @param  array<int|string, float>  $available  line key => metres available at that line's source position
      * @return array<int|string, float> line key => allocated metres (2 dp), summing exactly to $total; [] for no lines
+     *
+     * @throws InvalidArgumentException when the total or an availability is INF or NAN (number_format would turn it into 0)
      */
     public static function split(float $total, array $available): array
     {
+        if (! is_finite($total) || array_filter($available, fn ($qty): bool => ! is_finite((float) $qty)) !== []) {
+            throw new InvalidArgumentException('The batch total and every availability must be finite.'); // a programmer error, like the ledger's
+        }
         if ($available === []) {
             return [];
         }

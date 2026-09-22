@@ -24,5 +24,8 @@ return [
     'search' => 'Search',
     'select' => 'Select',
     'lov_failed' => 'Could not load the list. Check your connection and try again.',
+    'reason' => 'Reason',
+    'confirm' => 'OK',
+    'confirm_title' => 'Please confirm',
     'lov_list_key_required' => 'Choose which list to show (list_key is required).',
 ];

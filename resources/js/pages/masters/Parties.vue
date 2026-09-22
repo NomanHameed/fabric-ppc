@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import ConfirmDialog from '@/components/forms/ConfirmDialog.vue';
 import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import DetailGrid from '@/components/forms/DetailGrid.vue';
@@ -9,6 +10,7 @@ import FormField from '@/components/forms/FormField.vue';
 import FormsToolbar from '@/components/forms/FormsToolbar.vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/composables/useConfirm';
 import { useQueryMode } from '@/composables/useQueryMode';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
@@ -191,6 +193,24 @@ function save(): Promise<boolean> {
 }
 
 const guard = useUnsavedGuard(isDirty, save);
+const confirm = useConfirm();
+
+async function deleteRecord(): Promise<void> {
+    if (
+        currentId.value !== null &&
+        (await confirm.ask(t('forms.confirm_delete'), { destructive: true }))
+    ) {
+        router.delete(`/masters/parties/${currentId.value}`, {
+            preserveScroll: true,
+            onSuccess: () =>
+                statusLine.setMessage(t('forms.deleted'), 'success'),
+            onError: (errors) => {
+                form.setError(errors);
+                statusLine.setMessage(Object.values(errors)[0] ?? '', 'error');
+            },
+        });
+    }
+}
 
 function onAction(action: FormsAction): void {
     switch (action) {
@@ -201,23 +221,7 @@ function onAction(action: FormsAction): void {
             guard.guard(() => load(null));
             break;
         case 'deleteRecord':
-            if (
-                currentId.value !== null &&
-                window.confirm(t('forms.confirm_delete'))
-            ) {
-                router.delete(`/masters/parties/${currentId.value}`, {
-                    preserveScroll: true,
-                    onSuccess: () =>
-                        statusLine.setMessage(t('forms.deleted'), 'success'),
-                    onError: (errors) => {
-                        form.setError(errors);
-                        statusLine.setMessage(
-                            Object.values(errors)[0] ?? '',
-                            'error',
-                        );
-                    },
-                });
-            }
+            void deleteRecord();
             break;
         case 'enterQuery':
             query.enterQuery();
@@ -380,6 +384,13 @@ function onAction(action: FormsAction): void {
         <ConfirmSaveDialog
             :open="guard.dialogOpen.value"
             @choose="guard.choose"
+        />
+        <ConfirmDialog
+            :open="confirm.open.value"
+            :message="confirm.message.value"
+            v-bind="confirm.options.value"
+            @confirm="confirm.choose(true)"
+            @cancel="confirm.choose(false)"
         />
     </div>
 </template>

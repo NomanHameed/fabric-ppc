@@ -2,10 +2,12 @@
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import GlobalSearch from '@/components/GlobalSearch.vue';
 import LanguageSwitch from '@/components/LanguageSwitch.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { can } from '@/lib/can';
 import type { BreadcrumbItem } from '@/types';
 
 withDefaults(
@@ -18,6 +20,7 @@ withDefaults(
 );
 
 const auth = computed(() => usePage().props.auth);
+const canSearch = computed(() => can('inquiry.view'));
 </script>
 
 <template>
@@ -31,6 +34,7 @@ const auth = computed(() => usePage().props.auth);
             </template>
         </div>
         <div class="ms-auto flex items-center gap-1">
+            <GlobalSearch v-if="canSearch" class="me-2" />
             <span class="text-muted-foreground hidden text-sm md:inline">{{
                 auth.user?.name
             }}</span>

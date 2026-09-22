@@ -1,0 +1,46 @@
+<?php
+
+return [
+    'lot' => [
+        'title' => 'لاٹ :lot', 'heading' => 'لاٹ انکوائری', 'oracle' => 'اوریکل ڈیٹا', 'quantities' => 'مقداریں', 'positions' => 'ہر پوزیشن پر میٹر',
+        'state_block' => 'حیثیت', 'tabs' => ['route' => 'روٹ', 'movements' => 'حرکات', 'lines' => 'پروڈکشن', 'audit' => 'تاریخ'],
+        'hold' => 'روکیں', 'release' => 'جاری کریں', 'release_confirm' => 'لاٹ :lot کو روک سے ہٹا کر دوبارہ کھولیں؟', 'cancel' => 'لاٹ منسوخ کریں', 'hold_title' => 'لاٹ :lot کو روکیں', 'cancel_title' => 'لاٹ :lot منسوخ کریں',
+        'reason_label' => 'وجہ (روکنے کی وجوہات کی فہرست سے)', 'cancel_hint' => 'صرف وہ لاٹ منسوخ ہو سکتا ہے جس کا کچھ بھی پروسیس یا مکمل نہ ہو۔',
+        'process_flag' => ['pending' => 'زیرِ التوا', 'complete' => 'مکمل'],
+        'colour_steps' => 'رنگ کی منظوری', 'colour_steps_hint' => 'رنگ کی منظوری کے مراحل کلر ماڈیول (مرحلہ 5) میں درج ہوں گے؛ یہاں صرف حیثیت دکھائی گئی ہے۔',
+        'dispatches' => 'ڈسپیچ', 'dispatches_hint' => 'ڈسپیچ کے اندراجات ڈسپیچ ماڈیول (مرحلہ 3) کے ساتھ آئیں گے؛ یہاں روانہ شدہ میٹر دکھائے گئے ہیں۔',
+        'no_route' => 'اس لاٹ کا ابھی کوئی روٹ نہیں۔', 'no_positions' => 'اس لاٹ پر ابھی کوئی میٹر درج نہیں۔',
+        'showing' => ':m میں سے :n دکھائے جا رہے ہیں', 'po_link' => 'پی او :po کھولیں', 'sheet_link' => 'شیٹ کھولیں', 'import_link' => 'امپورٹ کھولیں',
+        'reversal_of' => '#:id کی واپسی', 'reversed_by' => '#:id سے واپس', 'record_hint' => 'پچھلا / اگلا پی او :po کے لاٹس کے درمیان چلتا ہے',
+        'held' => ':at سے روکا ہوا (:reason)', 'cancelled' => 'منسوخ :at (:reason)', 'closed' => 'بند :at',
+        'missing_hint' => ':at سے اوریکل ایکسپورٹ میں موجود نہیں',
+    ],
+    'po' => [
+        'title' => 'پی او :po', 'heading' => 'پی او انکوائری', 'header' => 'پرچیز آرڈر', 'lots' => 'لاٹس', 'total' => 'کل', 'lots_count' => 'لاٹس',
+        'open_hint' => 'لاٹ کھولنے کے لیے ڈبل کلک کریں (یا اس پر Enter دبائیں)', 'no_lots' => 'اس پی او میں کوئی لاٹ نہیں۔',
+    ],
+    'search' => [
+        'placeholder' => 'لاٹ / پی او …', 'label' => 'لاٹ / پی او تلاش', 'title' => '":q" کے نتائج', 'heading' => 'تلاش',
+        'none' => '":q" سے کچھ نہیں ملا۔ لاٹ نمبر (یا آخری 4 ہندسے) یا پی او نمبر درج کریں۔',
+        'empty' => 'لاٹ نمبر (یا آخری 4 ہندسے) یا پی او نمبر درج کریں۔',
+        'lots' => 'لاٹس', 'contracts' => 'پی اوز', 'several' => ':n لاٹس ملے؛ ایک منتخب کریں۔', 'shortcut' => 'Ctrl+K',
+        'open_hint' => 'کھولنے کے لیے قطار پر کلک کریں',
+    ],
+    'sources' => ['line' => 'شیٹ لائن', 'import' => 'اوریکل امپورٹ', 'none' => '—'],
+    'models' => ['Lot' => 'لاٹ', 'LotRouteStep' => 'روٹ مرحلہ', 'ProductionLine' => 'پروڈکشن لائن', 'ColourOverride' => 'کلر اوور رائیڈ'],
+    'events' => ['created' => 'بنایا گیا', 'updated' => 'تبدیل کیا گیا', 'deleted' => 'حذف کیا گیا', 'restored' => 'بحال کیا گیا'],
+    'fields' => [
+        'lot_no' => 'لاٹ #', 'oracle_line_id' => 'اوریکل لائن', 'po_no' => 'پی او #', 'party' => 'پارٹی', 'ref_no' => 'حوالہ', 'po_date' => 'پی او تاریخ',
+        'contract_qty' => 'کنٹریکٹ مقدار', 'quality' => 'کوالٹی', 'gsm' => 'GSM', 'design' => 'ڈیزائن', 'colour' => 'رنگ / شیڈ',
+        'g_width' => 'G/W', 'f_width' => 'F/W', 'po_type' => 'پی او قسم', 'state' => 'حالت', 'label' => 'حیثیت', 'process' => 'پروسیس',
+        'colour_status' => 'رنگ کی حیثیت', 'last_movement' => 'آخری حرکت', 'remarks' => 'ریمارکس',
+        'position' => 'پوزیشن', 'qty' => 'میٹر', 'seq' => 'ترتیب', 'operation' => 'آپریشن', 'department' => 'شعبہ', 'stage' => 'مرحلہ',
+        'status' => 'حیثیت', 'from' => 'سے', 'to' => 'تک', 'waiting' => 'منتظر (میٹر)', 'at_position' => 'مکمل، منتظر (میٹر)', 'last_done' => 'آخری بار مکمل',
+        'added' => 'اضافی', 'date' => 'تاریخ', 'kind' => 'قسم', 'qty_out' => 'نکلا', 'qty_in' => 'آیا', 'user' => 'صارف', 'reason' => 'وجہ',
+        'reversal' => 'واپسی', 'source' => 'ماخذ', 'sheet' => 'شیٹ', 'shift' => 'شفٹ', 'machine' => 'مشین', 'step' => 'مرحلہ',
+        'batch' => 'بیچ', 'reprocess' => 'ری پروسیس', 'reprocess_reason' => 'ری پروسیس کی وجہ', 'output' => 'آؤٹ پٹ', 'colour_override' => 'کلر اوور رائیڈ',
+        'at' => 'کب', 'event' => 'واقعہ', 'model' => 'ریکارڈ', 'record_id' => 'شناخت', 'changes' => 'تبدیلیاں',
+        'greige' => 'گریج موصول', 'stock' => 'گریج اسٹاک میں', 'issued' => 'جاری مقدار', 'wip' => 'زیرِ عمل', 'finished' => 'مکمل',
+        'dispatched' => 'ڈسپیچ', 'loss' => 'نقصان', 'lots' => 'لاٹس',
+    ],
+];

@@ -173,6 +173,24 @@ final class LotRouteService
         return $this->targetOf($step, $this->activeSteps($this->stepsOf($step)));
     }
 
+    /**
+     * previousPosition() / targetPosition() of every active step of a loaded route in one pass, without a query per
+     * step (the sheet screen's lot context lists the whole route).
+     *
+     * @param  Collection<int, LotRouteStep>  $steps  the lot's whole route
+     * @return array<int, array{0: Position, 1: Position}> step id => [from, to]; skipped steps are left out
+     */
+    public function stepPositions(Collection $steps): array
+    {
+        $active = $this->activeSteps($steps);
+        $out = [];
+        foreach ($active as $step) {
+            $out[$step->id] = [$this->previousOf($step, $active), $this->targetOf($step, $active)];
+        }
+
+        return $out;
+    }
+
     /** The first pending/partial step in route order, optionally only one whose operation belongs to $departmentId. */
     public function nextPendingStep(Lot $lot, ?int $departmentId = null): ?LotRouteStep
     {

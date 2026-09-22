@@ -2,6 +2,7 @@ import type { LucideIcon } from '@lucide/vue';
 import {
     Boxes,
     Building2,
+    ClipboardList,
     Clock,
     Cog,
     DatabaseZap,
@@ -10,6 +11,7 @@ import {
     ListTree,
     PackageOpen,
     Route,
+    Search,
     Settings,
     Shield,
     Tags,
@@ -69,6 +71,26 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/production/routes',
                 icon: Route,
                 permission: 'production.route.manage',
+            },
+            {
+                key: 'sheets',
+                titleKey: 'app.nav.sheets',
+                href: '/production/sheets',
+                icon: ClipboardList,
+                permission: 'production.sheet.view',
+            },
+        ],
+    },
+    {
+        key: 'inquiry',
+        titleKey: 'app.nav.inquiry',
+        items: [
+            {
+                key: 'search',
+                titleKey: 'app.nav.search',
+                href: '/search',
+                icon: Search,
+                permission: 'inquiry.view',
             },
         ],
     },

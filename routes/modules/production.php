@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
     // Viewing needs production.sheet.view; the writes are authorised per department by ProductionSheetPolicy.
     // Explicit paths (split-batch, lot-context) sit above the parameterised {sheet} routes.
     Route::middleware('permission:production.sheet.view')->group(function () {
+        Route::get('sheets', [ProductionSheetController::class, 'index'])->name('sheets.index');
         Route::post('sheets/split-batch', [ProductionSheetController::class, 'splitBatch'])->name('sheets.split');
         Route::get('sheets/lot-context/{lot}', [ProductionSheetController::class, 'lotContext'])->whereNumber('lot')->name('sheets.lot-context');
         Route::post('sheets', [ProductionSheetController::class, 'store'])->name('sheets.store');

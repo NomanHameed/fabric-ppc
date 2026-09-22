@@ -23,6 +23,7 @@ class Operation extends Model implements Auditable
         'is_active' => 'boolean',
     ];
 
+    /** @return BelongsTo<Department, $this> */
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);

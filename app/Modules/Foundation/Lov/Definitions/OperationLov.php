@@ -48,6 +48,7 @@ class OperationLov implements LovDefinition
     public function row(Model $m): array
     {
         return ['id' => $m->id, 'code' => $m->name, 'label' => $m->name, 'department' => $m->department->name, 'kind' => $m->kind,
-            'department_id' => $m->department_id, 'stage_label' => $m->stage_label];
+            'department_id' => $m->department_id, 'stage_label' => $m->stage_label,
+            'is_stretch' => (bool) $m->getAttribute('is_stretch'), 'finish_type' => $m->getAttribute('finish_type')];
     }
 }

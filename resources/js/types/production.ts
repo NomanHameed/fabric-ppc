@@ -87,3 +87,144 @@ export type RouteLot = {
     wip_qty: number;
     finished_qty: number;
 };
+
+// ---- Production sheet screen (ProductionSheetController::index, ::lotContext) ---------------------------------
+
+/** One row of the sheet list (query mode results). */
+export type SheetListRow = {
+    id: number;
+    sheet_date: string;
+    shift: string;
+    department: string;
+    department_id: number;
+    machine: string;
+    lines_count: number;
+    qty_out: number;
+    entered_by: string | null;
+    can_edit: boolean;
+};
+
+export type OutputType = 'dyed' | 'print';
+
+/**
+ * A production line as the grid holds it. Server fields plus what the screen keeps per row while editing: the
+ * client row id the grid keys its nodes by (and the page finds the row by, since the grid holds copies), the lot
+ * label, the stretch flag of the operation (for the footer), the metres available at the source position, and
+ * the override reasons a refused save collected before re-submitting.
+ */
+export type SheetLineRow = {
+    _uid: string;
+    id: number | null;
+    batch_no: string | null;
+    lot_id: number | null;
+    lot: string;
+    lot_route_step_id: number | null;
+    operation_id: number | null;
+    operation: string;
+    is_stretch: boolean;
+    is_reprocess: boolean;
+    reprocess_reason: string | null;
+    qty_in: number | null;
+    qty_out: number | null;
+    output_type: OutputType | null;
+    g_width: number | null;
+    f_width: number | null;
+    remarks: string | null;
+    colour_override: string | null;
+    available: number | null;
+    override_reason: string | null;
+    colour_override_reason: string | null;
+};
+
+/** What a save sends per line (ProductionSheetService's LinePayload). */
+export type SheetLinePayload = {
+    id: number | null;
+    batch_no: string | null;
+    lot_id: number;
+    lot_route_step_id: number | null;
+    operation_id: number;
+    is_reprocess: boolean;
+    reprocess_reason: string | null;
+    qty_in: number | null;
+    qty_out: number | null;
+    output_type: OutputType | null;
+    g_width: number | null;
+    f_width: number | null;
+    remarks: string | null;
+    override_reason: string | null;
+    colour_override_reason: string | null;
+};
+
+export type SheetDetail = {
+    id: number;
+    sheet_date: string;
+    shift_id: number;
+    department_id: number;
+    machine_id: number;
+    downtime_minutes: number;
+    remarks: string | null;
+    can_edit: boolean;
+    lines: Omit<
+        SheetLineRow,
+        '_uid' | 'available' | 'override_reason' | 'colour_override_reason'
+    >[];
+    totals: import('@/lib/sheetTotals').SheetTotals;
+};
+
+export type LotContextStep = {
+    id: number;
+    seq: number;
+    operation_id: number;
+    operation: string;
+    department_id: number;
+    department: string;
+    status: RouteStepStatus;
+    is_added: boolean;
+    from_position: string | null;
+    to_position: string | null;
+    /** Metres waiting at the step's source position. */
+    available: number;
+};
+
+/** GET production/sheets/lot-context/{lot}?department_id= */
+export type LotContext = {
+    lot_id: number;
+    lot_no: string;
+    po_no: number;
+    party: string;
+    quality: string | null;
+    design: string | null;
+    colour: string | null;
+    po_type: string | null;
+    state: LotState;
+    current_label: string | null;
+    colour_status: string | null;
+    colour_approved: boolean;
+    balances: Record<string, number>;
+    g_width: number | null;
+    f_width: number | null;
+    /** The next pending step of the sheet's department; null: the line would be recorded as unplanned. */
+    default_step_id: number | null;
+    next_step_id: number | null;
+    floor_position: string | null;
+    floor_available: number;
+    steps: LotContextStep[];
+};
+
+/** A select option the sheet screen receives (shifts, departments, machines, reprocess reasons). */
+export type Option = {
+    value: number | string;
+    label: string;
+    code?: string;
+    department_ids?: number[];
+};
+
+/** An active operation as the sheet screen receives it: what a picked operation implies for a line. */
+export type OperationOption = {
+    value: number;
+    label: string;
+    department_id: number;
+    kind: string;
+    is_stretch: boolean;
+    finish_type: OutputType | null;
+};

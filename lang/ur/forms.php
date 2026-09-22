@@ -24,5 +24,8 @@ return [
     'search' => 'تلاش',
     'select' => 'منتخب کریں',
     'lov_failed' => 'فہرست لوڈ نہیں ہو سکی۔ کنکشن چیک کر کے دوبارہ کوشش کریں۔',
+    'reason' => 'وجہ',
+    'confirm' => 'ٹھیک ہے',
+    'confirm_title' => 'تصدیق کریں',
     'lov_list_key_required' => 'فہرست منتخب کریں (list_key ضروری ہے)۔',
 ];

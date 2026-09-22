@@ -7,6 +7,7 @@ import type {
     ValueGetterParams,
 } from 'ag-grid-community';
 import { computed, ref, watch } from 'vue';
+import ConfirmDialog from '@/components/forms/ConfirmDialog.vue';
 import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
 import DetailGrid from '@/components/forms/DetailGrid.vue';
 import FormBlock from '@/components/forms/FormBlock.vue';
@@ -16,6 +17,7 @@ import LovDialog from '@/components/forms/LovDialog.vue';
 import LovField from '@/components/forms/LovField.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/composables/useConfirm';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
@@ -129,6 +131,7 @@ function save(): Promise<boolean> {
 }
 
 const guard = useUnsavedGuard(isDirty, save);
+const confirm = useConfirm();
 
 let navigating = false;
 
@@ -162,9 +165,9 @@ function applyTemplate(scope: 'lot' | 'po'): void {
     if (!lot || apply.route_template_id === null) {
         return;
     }
-    guard.guard(() => {
+    guard.guard(async () => {
         const name = template.value?.label ?? '';
-        const ok = window.confirm(
+        const ok = await confirm.ask(
             scope === 'lot'
                 ? t('production.route.confirm_apply_lot', {
                       lot: lot.lot_no,
@@ -530,6 +533,13 @@ function onAction(action: FormsAction): void {
         <ConfirmSaveDialog
             :open="guard.dialogOpen.value"
             @choose="guard.choose"
+        />
+        <ConfirmDialog
+            :open="confirm.open.value"
+            :message="confirm.message.value"
+            v-bind="confirm.options.value"
+            @confirm="confirm.choose(true)"
+            @cancel="confirm.choose(false)"
         />
         <LovDialog
             v-model:open="lovOpen"

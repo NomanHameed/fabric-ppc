@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import type {
-    CellKeyDownEvent,
-    ICellRendererParams,
-    ValueGetterParams,
-} from 'ag-grid-community';
+import type { CellKeyDownEvent, ValueGetterParams } from 'ag-grid-community';
 import { computed, ref, watch } from 'vue';
+import ConfirmDialog from '@/components/forms/ConfirmDialog.vue';
 import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import DetailGrid from '@/components/forms/DetailGrid.vue';
@@ -15,6 +12,9 @@ import FormsToolbar from '@/components/forms/FormsToolbar.vue';
 import LovDialog from '@/components/forms/LovDialog.vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/composables/useConfirm';
+import { useGridLov } from '@/composables/useGridLov';
+import type { GridLovCell } from '@/composables/useGridLov';
 import { useQueryMode } from '@/composables/useQueryMode';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
@@ -94,8 +94,8 @@ const query = useQueryMode<Record<string, string | null>>([
     'quality_pattern',
 ]);
 
-const lovOpen = ref(false);
-const lovTargetRow = ref<number | null>(null);
+const lov = useGridLov<StepRow>();
+const confirm = useConfirm();
 
 function isDirty(): boolean {
     return form.isDirty || stepSignature(stepRows.value) !== stepBaseline.value;
@@ -152,24 +152,6 @@ const poTypeOptions = computed(() => [
     ...props.poTypes,
 ]);
 
-function operationCellRenderer(
-    params: ICellRendererParams<StepRow>,
-): HTMLElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className =
-        'w-full truncate rounded border border-transparent px-2 py-0.5 text-start text-sm hover:border-input hover:bg-muted disabled:pointer-events-none disabled:opacity-50';
-    button.textContent = params.value
-        ? String(params.value)
-        : t('forms.select');
-    button.disabled = !editable.value;
-    button.addEventListener('click', () => {
-        lovTargetRow.value = params.node?.rowIndex ?? null;
-        lovOpen.value = true;
-    });
-    return button;
-}
-
 const columns = computed<ColumnDef<StepRow>[]>(() => [
     {
         colId: 'seq',
@@ -184,7 +166,12 @@ const columns = computed<ColumnDef<StepRow>[]>(() => [
         headerName: t('masters.fields.operation'),
         flex: 2,
         editable: false,
-        cellRenderer: operationCellRenderer,
+        cellRenderer: lov.renderer(
+            'operations',
+            () => ({}),
+            onOperationSelected,
+            () => editable.value,
+        ),
     },
     {
         field: 'department',
@@ -194,12 +181,9 @@ const columns = computed<ColumnDef<StepRow>[]>(() => [
     },
 ]);
 
-function onOperationSelected(row: LovRow): void {
-    if (lovTargetRow.value === null) {
-        return;
-    }
+function onOperationSelected(row: LovRow, cell: GridLovCell<StepRow>): void {
     const rows = [...stepRows.value];
-    const idx = lovTargetRow.value;
+    const idx = cell.rowIndex;
     if (rows[idx]) {
         rows[idx] = {
             ...rows[idx],
@@ -209,10 +193,12 @@ function onOperationSelected(row: LovRow): void {
         };
         stepRows.value = rows;
     }
-    lovTargetRow.value = null;
 }
 
 function onStepKeyDown(e: CellKeyDownEvent<StepRow>): void {
+    if (lov.onCellKeyDown(e)) {
+        return; // F9 opened the operation list
+    }
     const ke = e.event as KeyboardEvent | undefined;
     if (!ke || !ke.ctrlKey || e.rowIndex === null || e.rowIndex === undefined) {
         return;
@@ -288,6 +274,23 @@ function save(): Promise<boolean> {
 
 const guard = useUnsavedGuard(isDirty, save);
 
+async function deleteRecord(): Promise<void> {
+    if (
+        currentId.value !== null &&
+        (await confirm.ask(t('forms.confirm_delete'), { destructive: true }))
+    ) {
+        router.delete(`/masters/route-templates/${currentId.value}`, {
+            preserveScroll: true,
+            onSuccess: () =>
+                statusLine.setMessage(t('forms.deleted'), 'success'),
+            onError: (errors) => {
+                form.setError(errors);
+                statusLine.setMessage(Object.values(errors)[0] ?? '', 'error');
+            },
+        });
+    }
+}
+
 function onAction(action: FormsAction): void {
     switch (action) {
         case 'save':
@@ -297,23 +300,7 @@ function onAction(action: FormsAction): void {
             guard.guard(() => load(null));
             break;
         case 'deleteRecord':
-            if (
-                currentId.value !== null &&
-                window.confirm(t('forms.confirm_delete'))
-            ) {
-                router.delete(`/masters/route-templates/${currentId.value}`, {
-                    preserveScroll: true,
-                    onSuccess: () =>
-                        statusLine.setMessage(t('forms.deleted'), 'success'),
-                    onError: (errors) => {
-                        form.setError(errors);
-                        statusLine.setMessage(
-                            Object.values(errors)[0] ?? '',
-                            'error',
-                        );
-                    },
-                });
-            }
+            void deleteRecord();
             break;
         case 'enterQuery':
             query.enterQuery();
@@ -508,10 +495,18 @@ function onAction(action: FormsAction): void {
             :open="guard.dialogOpen.value"
             @choose="guard.choose"
         />
+        <ConfirmDialog
+            :open="confirm.open.value"
+            :message="confirm.message.value"
+            v-bind="confirm.options.value"
+            @confirm="confirm.choose(true)"
+            @cancel="confirm.choose(false)"
+        />
         <LovDialog
-            v-model:open="lovOpen"
-            name="operations"
-            @select="onOperationSelected"
+            v-model:open="lov.open.value"
+            :name="lov.name.value"
+            :filters="lov.filters.value"
+            @select="lov.select"
         />
     </div>
 </template>

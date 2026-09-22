@@ -1,0 +1,46 @@
+<?php
+
+return [
+    'lot' => [
+        'title' => 'Lot :lot', 'heading' => 'Lot Inquiry', 'oracle' => 'Oracle data', 'quantities' => 'Quantities', 'positions' => 'Metres per position',
+        'state_block' => 'Status', 'tabs' => ['route' => 'Route', 'movements' => 'Movements', 'lines' => 'Production', 'audit' => 'History'],
+        'hold' => 'Hold', 'release' => 'Release', 'release_confirm' => 'Take lot :lot off hold and open it again?', 'cancel' => 'Cancel lot', 'hold_title' => 'Put lot :lot on hold', 'cancel_title' => 'Cancel lot :lot',
+        'reason_label' => 'Reason (from the hold reasons list)', 'cancel_hint' => 'Only a lot with nothing in process or finished can be cancelled.',
+        'process_flag' => ['pending' => 'Pending', 'complete' => 'Complete'],
+        'colour_steps' => 'Colour approval', 'colour_steps_hint' => 'Colour approval steps are recorded in the Colour module (phase 5); the status is shown here.',
+        'dispatches' => 'Dispatches', 'dispatches_hint' => 'Dispatch entries arrive with the Dispatch module (phase 3); the dispatched metres are shown here.',
+        'no_route' => 'This lot has no route yet.', 'no_positions' => 'No metres recorded on this lot yet.',
+        'showing' => 'Showing :n of :m', 'po_link' => 'Open PO :po', 'sheet_link' => 'Open sheet', 'import_link' => 'Open import',
+        'reversal_of' => 'Reversal of #:id', 'reversed_by' => 'Reversed by #:id', 'record_hint' => 'Previous / Next move between the lots of PO :po',
+        'held' => 'On hold since :at (:reason)', 'cancelled' => 'Cancelled :at (:reason)', 'closed' => 'Closed :at',
+        'missing_hint' => 'Missing from the Oracle export since :at',
+    ],
+    'po' => [
+        'title' => 'PO :po', 'heading' => 'PO Inquiry', 'header' => 'Purchase order', 'lots' => 'Lots', 'total' => 'Total', 'lots_count' => 'Lots',
+        'open_hint' => 'Double-click a lot (or press Enter on it) to open its inquiry', 'no_lots' => 'This PO has no lots.',
+    ],
+    'search' => [
+        'placeholder' => 'Lot / PO …', 'label' => 'Lot / PO search', 'title' => 'Search results for ":q"', 'heading' => 'Search',
+        'none' => 'Nothing matches ":q". Enter a lot number (or its last 4 digits) or a PO number.',
+        'empty' => 'Enter a lot number (or its last 4 digits) or a PO number.',
+        'lots' => 'Lots', 'contracts' => 'POs', 'several' => ':n lots match; pick one.', 'shortcut' => 'Ctrl+K',
+        'open_hint' => 'Click a row to open it',
+    ],
+    'sources' => ['line' => 'Sheet line', 'import' => 'Oracle import', 'none' => '—'],
+    'models' => ['Lot' => 'Lot', 'LotRouteStep' => 'Route step', 'ProductionLine' => 'Production line', 'ColourOverride' => 'Colour override'],
+    'events' => ['created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted', 'restored' => 'Restored'],
+    'fields' => [
+        'lot_no' => 'Lot #', 'oracle_line_id' => 'Oracle line', 'po_no' => 'PO #', 'party' => 'Party', 'ref_no' => 'Ref.', 'po_date' => 'PO date',
+        'contract_qty' => 'Contract qty', 'quality' => 'Quality', 'gsm' => 'GSM', 'design' => 'Design', 'colour' => 'Colour / Shade',
+        'g_width' => 'G/W', 'f_width' => 'F/W', 'po_type' => 'PO type', 'state' => 'State', 'label' => 'Status', 'process' => 'Process',
+        'colour_status' => 'Colour status', 'last_movement' => 'Last movement', 'remarks' => 'Remarks',
+        'position' => 'Position', 'qty' => 'Metres', 'seq' => 'Seq', 'operation' => 'Operation', 'department' => 'Department', 'stage' => 'Stage',
+        'status' => 'Status', 'from' => 'From', 'to' => 'To', 'waiting' => 'Waiting (m)', 'at_position' => 'Done, waiting (m)', 'last_done' => 'Last done',
+        'added' => 'Added', 'date' => 'Date', 'kind' => 'Kind', 'qty_out' => 'Out', 'qty_in' => 'In', 'user' => 'User', 'reason' => 'Reason',
+        'reversal' => 'Reversal', 'source' => 'Source', 'sheet' => 'Sheet', 'shift' => 'Shift', 'machine' => 'Machine', 'step' => 'Step',
+        'batch' => 'Batch', 'reprocess' => 'Reprocess', 'reprocess_reason' => 'Reprocess reason', 'output' => 'Output', 'colour_override' => 'Colour override',
+        'at' => 'When', 'event' => 'Event', 'model' => 'Record', 'record_id' => 'Id', 'changes' => 'Changes',
+        'greige' => 'Greige received', 'stock' => 'Greige in stock', 'issued' => 'Qty issued', 'wip' => 'WIP', 'finished' => 'Finished',
+        'dispatched' => 'Dispatch', 'loss' => 'Loss', 'lots' => 'Lots',
+    ],
+];
