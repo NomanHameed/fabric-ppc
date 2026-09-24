@@ -9,7 +9,7 @@ defineProps<{ status: number; reference: string }>();
 <template>
     <Head :title="t('app.errors.title')" />
     <div
-        class="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center"
+        class="flex min-h-svh flex-col items-center justify-center gap-4 p-4 text-center sm:p-6"
     >
         <h1 class="text-2xl font-semibold">{{ t('app.errors.title') }}</h1>
         <p class="text-muted-foreground">{{ t('app.errors.unexpected') }}</p>

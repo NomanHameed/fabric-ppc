@@ -64,6 +64,40 @@ return [
             ]) : [],
         ],
 
+        /*
+         * The Oracle source (docs/planning/findings.md). Oracle owns the transactions; this application owns
+         * status, timeline and user actions, so the app NEVER writes here — the models on this connection
+         * refuse every write, and the mock schema is applied by `oracle:mock-migrate`, never by `migrate`.
+         *
+         * No Oracle instance exists yet, so this defaults to a local stand-in: the same server, credentials and
+         * schema as the app connection, where the Oracle-shaped tables (PROCESSING_LOTS, GREIGE_ISSUE_M/_D,
+         * PROCESSING_CONTRACT_D and the code masters) sit alongside the app's own — their names cannot collide.
+         * Pointing this at a separate schema, or at the real instance, is a pure .env change:
+         *
+         *   ORACLE_SRC_DATABASE=fabric_oracle_src            # a separate MySQL schema
+         *   ORACLE_SRC_DRIVER=oracle ORACLE_SRC_HOST=...     # the real instance (needs an Oracle PDO driver)
+         */
+        'oracle_src' => [
+            'driver' => env('ORACLE_SRC_DRIVER', env('DB_CONNECTION', 'mysql')),
+            'url' => env('ORACLE_SRC_URL', env('DB_URL')),
+            'host' => env('ORACLE_SRC_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('ORACLE_SRC_PORT', env('DB_PORT', '3306')),
+            'database' => env('ORACLE_SRC_DATABASE', env('DB_DATABASE', 'laravel')),
+            'username' => env('ORACLE_SRC_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('ORACLE_SRC_PASSWORD', env('DB_PASSWORD', '')),
+            'unix_socket' => env('ORACLE_SRC_SOCKET', env('DB_SOCKET', '')),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'foreign_key_constraints' => false,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

@@ -8,15 +8,19 @@ import {
     DatabaseZap,
     Factory,
     FileText,
+    Gauge,
+    History,
     Layers,
     LayoutGrid,
     ListTree,
     PackageOpen,
     Route,
+    ScrollText,
     Search,
     Settings,
     Shield,
     Tags,
+    UserCheck,
     Users,
     Workflow,
 } from '@lucide/vue';
@@ -94,6 +98,21 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/production/contracts',
                 icon: FileText,
                 permission: 'inquiry.view',
+            },
+            // Titles for the new screens come from the lang groups those screens own, not from `app.nav.*`.
+            {
+                key: 'lot_timeline',
+                titleKey: 'timeline.title',
+                href: '/production/timeline',
+                icon: History,
+                permission: 'inquiry.view',
+            },
+            {
+                key: 'capacity',
+                titleKey: 'production.capacity.title',
+                href: '/production/capacity',
+                icon: Gauge,
+                permission: 'production.sheet.view',
             },
         ],
     },
@@ -196,6 +215,24 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/admin/settings',
                 icon: Settings,
                 permission: 'admin.settings.manage',
+            },
+            // Signup approvals and the action log belong to the approval / activity work; the entries live here
+            // because this file is the one navigation source, and their titles come from those lang groups.
+            // `/devices` is deliberately absent: naming your own terminal is a personal setting, and a nav entry
+            // with no permission would keep the whole Administration group visible to every role.
+            {
+                key: 'user_approvals',
+                titleKey: 'approval.queue.link',
+                href: '/admin/users/approvals',
+                icon: UserCheck,
+                permission: 'admin.users.approve',
+            },
+            {
+                key: 'activity_log',
+                titleKey: 'activity.title',
+                href: '/activity/actions',
+                icon: ScrollText,
+                permission: 'activity.view',
             },
         ],
     },

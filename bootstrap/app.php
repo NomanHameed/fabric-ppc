@@ -2,7 +2,9 @@
 
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Modules\Activity\Http\Middleware\TrackDevice;
 use App\Modules\Foundation\Http\Middleware\EnsureUserIsActive;
+use App\Modules\Foundation\Http\Middleware\EnsureUserIsApproved;
 use App\Modules\Foundation\Http\Middleware\SetLocale;
 use App\Modules\Foundation\Support\ErrorReference;
 use App\Modules\OracleSync\Console\ImportOracleFile;
@@ -32,6 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             EnsureUserIsActive::class,
+            // Before the approval gate, so a blocked attempt is still attributable to a terminal.
+            TrackDevice::class,
+            // Signup approval is enforced here, in the group, not per route: a route that forgets its own
+            // middleware is still refused. It runs before anything that could render or return data.
+            EnsureUserIsApproved::class,
             SetLocale::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,

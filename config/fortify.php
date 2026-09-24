@@ -161,7 +161,9 @@ return [
     */
 
     'features' => [
-        // Features::registration(),
+        // Self-registration is open, but a new account is created `pending` and EnsureUserIsApproved refuses it
+        // everything until a moderator approves it (see App\Modules\Foundation\Access\Approval).
+        Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

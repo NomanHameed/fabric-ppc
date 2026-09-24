@@ -10,7 +10,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { can } from '@/lib/can';
 import type { BreadcrumbItem } from '@/types';
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         breadcrumbs?: BreadcrumbItem[];
     }>(),
@@ -21,29 +21,48 @@ withDefaults(
 
 const auth = computed(() => usePage().props.auth);
 const canSearch = computed(() => can('inquiry.view'));
+
+/**
+ * Below `md` the trail is replaced by its last leg: on a 360px screen a four-level
+ * breadcrumb either wraps into three lines or shoves the search box off the edge,
+ * and the leaf is the only part a user needs to orient themselves anyway.
+ */
+const currentPage = computed(
+    () => props.breadcrumbs[props.breadcrumbs.length - 1]?.title ?? '',
+);
 </script>
 
 <template>
     <header
-        class="border-sidebar-border/70 flex h-16 shrink-0 items-center gap-2 border-b px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4"
+        class="bg-background/95 border-sidebar-border/70 supports-[backdrop-filter]:bg-background/75 sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b px-2 backdrop-blur sm:h-16 sm:gap-3 sm:px-4"
     >
-        <div class="flex items-center gap-2">
-            <SidebarTrigger class="-ml-1" />
-            <template v-if="breadcrumbs && breadcrumbs.length > 0">
-                <Breadcrumbs :breadcrumbs="breadcrumbs" />
-            </template>
-        </div>
-        <div class="ms-auto flex items-center gap-1">
-            <GlobalSearch v-if="canSearch" class="me-2" />
-            <span class="text-muted-foreground hidden text-sm md:inline">{{
-                auth.user?.name
-            }}</span>
-            <Badge
-                v-for="dept in auth.departments"
-                :key="dept.id"
-                variant="secondary"
-                >{{ dept.name }}</Badge
+        <SidebarTrigger class="-ms-1 size-9 shrink-0" />
+
+        <Breadcrumbs
+            v-if="breadcrumbs.length > 0"
+            :breadcrumbs="breadcrumbs"
+            class="hidden min-w-0 md:flex"
+        />
+        <span
+            v-if="currentPage"
+            class="min-w-0 truncate text-sm font-semibold md:hidden"
+            >{{ currentPage }}</span
+        >
+
+        <div class="ms-auto flex shrink-0 items-center gap-1 sm:gap-2">
+            <GlobalSearch v-if="canSearch" class="min-w-0" />
+            <span
+                class="text-muted-foreground hidden max-w-40 truncate text-sm lg:inline"
+                >{{ auth.user?.name }}</span
             >
+            <div class="hidden items-center gap-1 xl:flex">
+                <Badge
+                    v-for="dept in auth.departments"
+                    :key="dept.id"
+                    variant="secondary"
+                    >{{ dept.name }}</Badge
+                >
+            </div>
             <ThemeToggle />
             <LanguageSwitch />
         </div>

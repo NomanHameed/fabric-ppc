@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use App\Modules\Foundation\Access\Permissions;
 use App\Modules\Foundation\Models\Department;
+use App\Modules\Foundation\Services\UserApprovalService;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -49,6 +50,9 @@ class DemoUsersSeeder extends Seeder
                 ['email' => self::emailFor($role)],
                 ['name' => $name, 'password' => self::PASSWORD, 'email_verified_at' => now(), 'is_active' => true],
             );
+            if (! $user->isApproved()) {
+                app(UserApprovalService::class)->approveOnCreation($user);
+            }
             $user->syncRoles([$role]);
 
             if ($role === Permissions::ROLE_DEPT_INCHARGE) {

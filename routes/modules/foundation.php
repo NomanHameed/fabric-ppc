@@ -2,7 +2,9 @@
 
 use App\Modules\Foundation\Http\Controllers\Admin\RoleController;
 use App\Modules\Foundation\Http\Controllers\Admin\SettingsController;
+use App\Modules\Foundation\Http\Controllers\Admin\UserApprovalController;
 use App\Modules\Foundation\Http\Controllers\Admin\UserController;
+use App\Modules\Foundation\Http\Controllers\ApprovalPendingController;
 use App\Modules\Foundation\Http\Controllers\LocaleController;
 use App\Modules\Foundation\Http\Controllers\PartyController;
 use App\Modules\Foundation\Http\Controllers\RouteTemplateController;
@@ -13,6 +15,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('i18n/{locale}.json', [TranslationController::class, 'show'])
     ->where('locale', '[a-z]{2}')->name('i18n.show');
+
+// The one screen an unapproved account may reach (EnsureUserIsApproved::ALLOWED_ROUTES). Not `verified`:
+// a user who has not confirmed their email yet still needs to be told what they are waiting for.
+Route::get('approval/pending', ApprovalPendingController::class)->middleware('auth')->name('approval.pending');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('locale', [LocaleController::class, 'update'])->name('locale.update');
@@ -38,6 +44,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
+        // Explicit before the generic {user} routes below.
+        Route::middleware('permission:admin.users.approve')->group(function () {
+            Route::get('users/approvals', [UserApprovalController::class, 'index'])->name('users.approvals.index');
+            Route::post('users/{user}/approve', [UserApprovalController::class, 'approve'])->name('users.approve');
+            Route::post('users/{user}/reject', [UserApprovalController::class, 'reject'])->name('users.reject');
+        });
         Route::middleware('permission:admin.users.manage')->group(function () {
             Route::get('users', [UserController::class, 'index'])->name('users.index');
             Route::post('users', [UserController::class, 'store'])->name('users.store');

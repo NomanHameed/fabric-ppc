@@ -15,6 +15,7 @@ return [
         'notes' => 'Notes', 'list_key' => 'List', 'label' => 'Label', 'label_en' => 'Label (English)', 'label_ur' => 'Label (Urdu)',
         'approved' => 'Counts as approved', 'type' => 'Type', 'email' => 'Email', 'alias' => 'Alias', 'aliases' => 'Aliases',
         'po_type' => 'PO type', 'quality_pattern' => 'Quality pattern', 'priority' => 'Priority', 'seq' => 'Seq',
+        'hourly_capacity' => 'Capacity / hour', 'daily_capacity' => 'Capacity / day', 'capacity_uom' => 'Capacity unit',
         'operation' => 'Operation', 'steps' => 'Steps',
     ],
     'options' => [

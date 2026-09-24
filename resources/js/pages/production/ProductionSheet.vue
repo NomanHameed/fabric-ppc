@@ -1162,7 +1162,7 @@ const sheetColumns = computed<ColumnDef<SheetListRow>[]>(() => [
 
 <template>
     <Head :title="t('production.sheet.title')" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">{{ t('production.sheet.title') }}</h1>
         <FormsToolbar
             :mode="query.mode.value"
@@ -1186,14 +1186,14 @@ const sheetColumns = computed<ColumnDef<SheetListRow>[]>(() => [
                     v-if="inQuery"
                     id="f-date"
                     v-model="criteria.sheet_date as string"
-                    class="border-amber-500/60"
-                    placeholder="dd-mm-yyyy"
+                    class="border-warning/70"
+                    :placeholder="t('app.date_format_hint')"
                 />
                 <Input
                     v-else
                     id="f-date"
                     v-model="form.sheet_date"
-                    placeholder="dd-mm-yyyy"
+                    :placeholder="t('app.date_format_hint')"
                     :disabled="!canEditSheet"
                 />
             </FormField>
@@ -1207,7 +1207,7 @@ const sheetColumns = computed<ColumnDef<SheetListRow>[]>(() => [
                     v-if="inQuery"
                     id="f-shift"
                     v-model="criteria.shift as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <select
                     v-else
@@ -1232,7 +1232,7 @@ const sheetColumns = computed<ColumnDef<SheetListRow>[]>(() => [
                     v-if="inQuery"
                     id="f-department"
                     v-model="criteria.department as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <select
                     v-else
@@ -1263,7 +1263,7 @@ const sheetColumns = computed<ColumnDef<SheetListRow>[]>(() => [
                     v-if="inQuery"
                     id="f-machine"
                     v-model="criteria.machine as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <LovField
                     v-else

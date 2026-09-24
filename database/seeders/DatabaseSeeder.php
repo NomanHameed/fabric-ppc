@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             RouteTemplateSeeder::class,
             AdminUserSeeder::class,
             DemoUsersSeeder::class,
+            // The demo dataset. Idempotent, and it re-enables model events for itself (see DemoDataSeeder).
+            DemoDataSeeder::class,
         ]);
     }
 }

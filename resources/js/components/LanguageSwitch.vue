@@ -23,7 +23,9 @@ const current = computed(() => page.props.locale as string);
         <DropdownMenuTrigger as-child>
             <Button variant="ghost" size="sm" :aria-label="t('app.language')">
                 <Languages class="size-4" />
-                <span class="text-xs">{{ locales[current]?.name }}</span>
+                <span class="hidden text-xs sm:inline">{{
+                    locales[current]?.name
+                }}</span>
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

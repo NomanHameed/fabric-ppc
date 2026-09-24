@@ -102,7 +102,7 @@ const contractColumns = computed<ColumnDef<SearchContractRow>[]>(() => [
             q ? t('inquiry.search.title', { q }) : t('inquiry.search.heading')
         "
     />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">
             {{
                 q

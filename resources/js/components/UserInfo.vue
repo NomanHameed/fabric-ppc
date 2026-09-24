@@ -24,12 +24,12 @@ const showAvatar = computed(
 <template>
     <Avatar class="h-8 w-8 overflow-hidden rounded-lg">
         <AvatarImage v-if="showAvatar" :src="user.avatar!" :alt="user.name" />
-        <AvatarFallback class="rounded-lg text-black dark:text-white">
+        <AvatarFallback class="rounded-lg">
             {{ getInitials(user.name) }}
         </AvatarFallback>
     </Avatar>
 
-    <div class="grid flex-1 text-left text-sm leading-tight">
+    <div class="grid flex-1 text-start text-sm leading-tight">
         <span class="truncate font-medium">{{ user.name }}</span>
         <span v-if="showEmail" class="text-muted-foreground truncate text-xs">{{
             user.email

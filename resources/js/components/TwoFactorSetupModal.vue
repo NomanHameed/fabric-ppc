@@ -124,7 +124,7 @@ watch(
                             <div
                                 v-for="i in 5"
                                 :key="`col-${i}`"
-                                class="border-border border-r last:border-r-0"
+                                class="border-border border-e last:border-e-0"
                             />
                         </div>
                         <div
@@ -225,7 +225,7 @@ watch(
                                     >
                                         <Check
                                             v-if="copied"
-                                            class="w-4 text-green-500"
+                                            class="text-success w-4"
                                         />
                                         <Copy v-else class="w-4" />
                                     </button>

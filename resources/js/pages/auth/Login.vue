@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { t } from '@/lib/i18n';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
+import { register } from '@/routes';
 
 defineProps<{
     status?: string;
@@ -33,7 +34,7 @@ watchEffect(() => {
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="text-success mb-4 text-center text-sm font-medium"
     >
         {{ status }}
     </div>
@@ -110,4 +111,11 @@ watchEffect(() => {
             </Button>
         </div>
     </Form>
+
+    <div class="text-muted-foreground mt-6 text-center text-sm">
+        <span>{{ t('auth.pages.login.no_account') }}</span>
+        <TextLink :href="register()" class="ms-1" :tabindex="6">{{
+            t('auth.pages.login.register')
+        }}</TextLink>
+    </div>
 </template>

@@ -23,11 +23,13 @@ onBeforeUnmount(() => off());
 </script>
 
 <template>
-    <AppShell variant="sidebar">
+    <AppShell>
         <AppSidebar />
-        <AppContent variant="sidebar" class="min-w-0 overflow-x-clip">
+        <AppContent>
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
-            <slot />
+            <div class="flex min-w-0 flex-1 flex-col">
+                <slot />
+            </div>
             <StatusLine />
         </AppContent>
         <Toaster />

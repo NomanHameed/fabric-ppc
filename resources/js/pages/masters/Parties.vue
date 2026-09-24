@@ -264,7 +264,7 @@ function onAction(action: FormsAction): void {
 
 <template>
     <Head :title="t('masters.titles.parties')" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">{{ t('masters.titles.parties') }}</h1>
         <FormsToolbar
             :mode="query.mode.value"
@@ -285,7 +285,7 @@ function onAction(action: FormsAction): void {
                     v-if="inQuery"
                     id="f-oracle_code"
                     v-model="criteria.oracle_code as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <Input
                     v-else
@@ -305,7 +305,7 @@ function onAction(action: FormsAction): void {
                     v-if="inQuery"
                     id="f-name"
                     v-model="criteria.name as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <Input
                     v-else
@@ -324,7 +324,7 @@ function onAction(action: FormsAction): void {
                     v-if="inQuery"
                     id="f-type"
                     v-model="criteria.type as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <select
                     v-else

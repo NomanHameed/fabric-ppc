@@ -343,7 +343,7 @@ function onAction(action: FormsAction): void {
 
 <template>
     <Head :title="t('masters.titles.route_templates')" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">
             {{ t('masters.titles.route_templates') }}
         </h1>
@@ -367,7 +367,7 @@ function onAction(action: FormsAction): void {
                     v-if="inQuery"
                     id="f-name"
                     v-model="criteria.name as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <Input
                     v-else
@@ -386,7 +386,7 @@ function onAction(action: FormsAction): void {
                     v-if="inQuery"
                     id="f-po_type"
                     v-model="criteria.po_type as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <select
                     v-else
@@ -415,7 +415,7 @@ function onAction(action: FormsAction): void {
                     v-if="inQuery"
                     id="f-quality_pattern"
                     v-model="criteria.quality_pattern as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                 />
                 <Input
                     v-else

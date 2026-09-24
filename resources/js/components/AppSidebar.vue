@@ -11,10 +11,21 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarRail,
 } from '@/components/ui/sidebar';
-import { useI18n } from '@/lib/i18n';
+import { t, useI18n } from '@/lib/i18n';
 import { dashboard } from '@/routes';
 
+/**
+ * One sidebar, three behaviours, all from the primitive:
+ * - desktop (>= 768px): docked and persistent, its open/closed state kept in a cookie;
+ * - tablet / narrow desktop: `collapsible="icon"` collapses it to a 3rem icon rail,
+ *   and `SidebarRail` gives the edge a click/drag target to toggle it;
+ * - phone (<= 768px): the primitive swaps itself for an off-canvas Sheet driven by
+ *   `SidebarTrigger` in the header.
+ *
+ * `side` follows the document direction so Urdu docks it on the right.
+ */
 const { dir } = useI18n();
 </script>
 
@@ -28,7 +39,10 @@ const { dir } = useI18n();
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboard()">
+                        <Link
+                            :href="dashboard()"
+                            :aria-label="t('app.brand.home')"
+                        >
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>
@@ -37,12 +51,21 @@ const { dir } = useI18n();
         </SidebarHeader>
 
         <SidebarContent>
-            <NavGroups />
+            <!--
+              `SidebarContent` renders a plain div, so an `aria-label` on it is dropped
+              by assistive tech (a label needs a role to attach to). The real landmark
+              lives here.
+            -->
+            <nav :aria-label="t('app.a11y.primary_nav')">
+                <NavGroups />
+            </nav>
         </SidebarContent>
 
         <SidebarFooter>
             <NavUser />
         </SidebarFooter>
+
+        <SidebarRail />
     </Sidebar>
     <slot />
 </template>

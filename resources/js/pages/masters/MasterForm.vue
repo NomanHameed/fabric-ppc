@@ -209,7 +209,7 @@ const criteria = reactive(query.criteria);
 
 <template>
     <Head :title="resource.title" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">{{ resource.title }}</h1>
         <FormsToolbar
             :mode="query.mode.value"
@@ -234,7 +234,7 @@ const criteria = reactive(query.criteria);
                         v-if="f.queryable"
                         :id="`f-${f.name}`"
                         v-model="criteria[f.name] as string"
-                        class="border-amber-500/60"
+                        class="border-warning/70"
                     />
                     <Input v-else :id="`f-${f.name}`" disabled />
                 </template>
