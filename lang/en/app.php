@@ -10,6 +10,8 @@ return [
         'production' => 'Production',
         'issue' => 'Issue to Floor',
         'lot_routes' => 'Lot Routes',
+        'lots' => 'Lots',
+        'contracts' => 'POs / Contracts',
         'sheets' => 'Production Sheets',
         'inquiry' => 'Inquiry',
         'search' => 'Lot / PO Search',

@@ -1,6 +1,8 @@
 <?php
 
+use App\Modules\Production\Http\Controllers\ContractController;
 use App\Modules\Production\Http\Controllers\IssueController;
+use App\Modules\Production\Http\Controllers\LotController;
 use App\Modules\Production\Http\Controllers\LotRouteController;
 use App\Modules\Production\Http\Controllers\LotStateController;
 use App\Modules\Production\Http\Controllers\ProductionSheetController;
@@ -8,6 +10,14 @@ use Illuminate\Support\Facades\Route;
 
 // One `production` group; later tasks add their controllers' routes inside it (there is no catch-all here).
 Route::middleware(['auth', 'verified'])->prefix('production')->name('production.')->group(function () {
+    // The Lots and POs screens: every seeded role has inquiry.view. `PUT lots/{lot}` is guarded further inside
+    // LotController (colour.edit / production.route.manage). Registered above the `lots/{lot}/…` state routes.
+    Route::middleware('permission:inquiry.view')->group(function () {
+        Route::get('lots', [LotController::class, 'index'])->name('lots.index');
+        Route::put('lots/{lot}', [LotController::class, 'update'])->whereNumber('lot')->name('lots.update');
+        Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
+    });
+
     Route::middleware('permission:production.issue')->group(function () {
         Route::get('issue', [IssueController::class, 'index'])->name('issue.index');
         Route::post('issue', [IssueController::class, 'store'])->name('issue.store');

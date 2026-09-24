@@ -13,7 +13,8 @@ import type { SearchContractRow, SearchLotRow } from '@/types/inquiry';
 
 /**
  * The chooser behind the top-bar search (spec §6.3.2): several lots sharing a number (or a number that is both
- * a lot and a PO) are listed with PO + party + design + colour + state + label; a click opens the inquiry.
+ * a lot and a PO) are listed with PO + party + design + colour + state + label; a single click opens the inquiry
+ * (the one navigation path, as `inquiry.search.open_hint` says).
  * With nothing matching (or no query) it explains what the box takes.
  */
 const props = defineProps<{
@@ -156,9 +157,6 @@ const contractColumns = computed<ColumnDef<SearchContractRow>[]>(() => [
                     :rows="lots"
                     :columns="lotColumns"
                     @row-selected="(r) => router.visit(`/inquiry/lots/${r.id}`)"
-                    @row-activated="
-                        (r) => router.visit(`/inquiry/lots/${r.id}`)
-                    "
                 />
             </div>
             <div v-if="contracts.length" class="flex flex-col gap-1">
@@ -171,9 +169,6 @@ const contractColumns = computed<ColumnDef<SearchContractRow>[]>(() => [
                     :rows="contracts"
                     :columns="contractColumns"
                     @row-selected="
-                        (r) => router.visit(`/inquiry/contracts/${r.id}`)
-                    "
-                    @row-activated="
                         (r) => router.visit(`/inquiry/contracts/${r.id}`)
                     "
                 />

@@ -228,3 +228,92 @@ export type OperationOption = {
     is_stretch: boolean;
     finish_type: OutputType | null;
 };
+
+// ---- Lots screen (LotController::index) -----------------------------------------------------------------------
+
+/** An active `colour_status` lookup value; `approved` drives the ✓ marker (spec §5.4). */
+export type ColourStatusOption = {
+    value: string;
+    label: string;
+    approved: boolean;
+};
+
+/** An active `hold_reason` lookup value, for the hold / cancel ReasonDialog. */
+export type HoldReasonOption = { value: string; label: string };
+
+/** The report's Pending / Complete flag (spec §5.3 "Process flag"). */
+export type ProcessFlag = 'pending' | 'complete';
+
+/**
+ * One lot as the Lots screen receives it. Everything but `colour_status` and `remarks` is read-only here:
+ * `Lot::ORACLE_FIELDS` belong to the import and the quantities plus `current_label` to the ledger. The Oracle
+ * identifiers (`oracle_line_id`, `design_code`, `colour_code`) are not sent: the Lot Inquiry shows those.
+ */
+export type LotScreenRow = {
+    id: number;
+    lot_no: string;
+    contract_id: number;
+    po_no: number;
+    party: string;
+    ref_no: string | null;
+    po_date: string;
+    quality: string;
+    gsm: number | null;
+    design: string | null;
+    colour: string | null;
+    colour_status: string | null;
+    g_width: number | null;
+    f_width: number | null;
+    po_type: string;
+    state: LotState;
+    hold_reason: string | null;
+    cancel_reason: string | null;
+    state_changed_at: string | null;
+    current_label: string | null;
+    process_flag: ProcessFlag;
+    greige_qty: number;
+    stock_qty: number;
+    issued_qty: number;
+    wip_qty: number;
+    finished_qty: number;
+    dispatched_qty: number;
+    loss_qty: number;
+    last_movement_at: string | null;
+    oracle_missing_at: string | null;
+    remarks: string | null;
+};
+
+/** What `PUT production/lots/{lot}` accepts — the two app-owned fields, each behind its own permission. */
+export type LotScreenEdit = {
+    colour_status: string | null;
+    remarks: string | null;
+};
+
+/** Who may do what on the Lots screen (LotController::index). */
+export type LotScreenPermissions = {
+    colour: boolean;
+    remarks: boolean;
+    hold: boolean;
+    route: boolean;
+};
+
+// ---- POs / Contracts screen (ContractController::index) --------------------------------------------------------
+
+/** One PO as the Contracts screen receives it: the Oracle header plus its lot totals, summed in the database. */
+export type ContractScreenRow = {
+    id: number;
+    po_no: number;
+    party: string;
+    ref_no: string | null;
+    po_date: string;
+    contract_qty: number;
+    lots_count: number;
+    oracle_missing_at: string | null;
+    greige_qty: number;
+    stock_qty: number;
+    issued_qty: number;
+    wip_qty: number;
+    finished_qty: number;
+    dispatched_qty: number;
+    loss_qty: number;
+};

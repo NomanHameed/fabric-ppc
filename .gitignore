@@ -1,4 +1,9 @@
 /.phpunit.cache
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+/tests/Browser/Screenshots
 /bootstrap/ssr
 /node_modules
 /public/build

@@ -38,7 +38,7 @@ final class QueryCriteria
             match ($type) {
                 'text' => self::text($query, $column, $value),
                 'bool' => $query->where($column, in_array(strtolower($value), ['y', '1', 'true', 'yes'], true)),
-                'number', 'date' => self::comparable($query, $column, $value, $type, $key),
+                'number', 'date', 'datetime' => self::comparable($query, $column, $value, $type, $key),
             };
         }
 
@@ -55,6 +55,15 @@ final class QueryCriteria
     {
         if (str_contains($value, '..')) {
             [$from, $to] = array_map('trim', explode('..', $value, 2));
+            if ($type === 'datetime') {
+                // the column holds a time as well, so a day range must span the whole of both end days
+                $query->whereBetween($column, [
+                    self::castDate($from, $key).' 00:00:00',
+                    self::castDate($to, $key).' 23:59:59',
+                ]);
+
+                return;
+            }
             $query->whereBetween($column, [self::cast($from, $type, $key), self::cast($to, $type, $key)]);
 
             return;
@@ -68,7 +77,14 @@ final class QueryCriteria
                 break;
             }
         }
-        $query->where($column, $operator === '!=' ? '<>' : $operator, self::cast($value, $type, $key));
+        $operator = $operator === '!=' ? '<>' : $operator;
+        // `datetime`: the user types a day, so compare the column's date part, not the instant
+        if ($type === 'datetime') {
+            $query->whereDate($column, $operator, self::castDate($value, $key));
+
+            return;
+        }
+        $query->where($column, $operator, self::cast($value, $type, $key));
     }
 
     private static function cast(string $value, string $type, string $key): string|float
@@ -81,6 +97,15 @@ final class QueryCriteria
             return (float) $value;
         }
 
+        return self::castDate($value, $key);
+    }
+
+    /**
+     * The day the user typed, as `Y-m-d`. `datetime` criteria read it too: they say which day to compare
+     * against, and the caller widens it to the instants that day covers.
+     */
+    private static function castDate(string $value, string $key): string
+    {
         foreach (self::DATE_FORMATS as $format) {
             try {
                 $date = CarbonImmutable::createFromFormat('!'.$format, $value);

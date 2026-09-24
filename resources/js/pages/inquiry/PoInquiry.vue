@@ -11,6 +11,7 @@ import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
 import { formatQty } from '@/lib/dates';
 import { t } from '@/lib/i18n';
+import { showingText } from '@/lib/inquiry';
 import { statusLine } from '@/lib/statusLine';
 import type { InquiryContract, LotQuantities, PoLotRow } from '@/types/inquiry';
 
@@ -18,14 +19,17 @@ import type { InquiryContract, LotQuantities, PoLotRow } from '@/types/inquiry';
  * PO Inquiry (spec §4.4 screen 4): the PO header and every lot of it with the position summary, label, process
  * flag and state, plus a pinned totals row. Read-only Forms look: a click selects a lot (Record n of m), a
  * double-click or Enter opens its Lot Inquiry; Print and Exit work, the rest of the toolbar is off.
+ * The list is capped like the lot page's tabs ("showing n of m"); the totals row is the whole PO, not the page.
  */
 const props = defineProps<{
     contract: InquiryContract;
     lots: PoLotRow[];
+    lotsTotal: number;
     totals: LotQuantities;
 }>();
 
 const selectedId = ref<number | null>(null);
+const showing = computed(() => showingText(props.lots.length, props.lotsTotal));
 const index = computed(() =>
     props.lots.findIndex((l) => l.id === selectedId.value),
 );
@@ -204,11 +208,18 @@ const rowClassRules = {
         </FormBlock>
 
         <div class="flex flex-col gap-1">
-            <h2
-                class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
-            >
-                {{ t('inquiry.po.lots') }}
-            </h2>
+            <div class="flex items-center gap-2">
+                <h2
+                    class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
+                >
+                    {{ t('inquiry.po.lots') }}
+                </h2>
+                <span
+                    v-if="showing"
+                    class="text-muted-foreground ms-auto text-xs tabular-nums"
+                    >{{ showing }}</span
+                >
+            </div>
             <p v-if="lots.length === 0" class="text-muted-foreground text-sm">
                 {{ t('inquiry.po.no_lots') }}
             </p>

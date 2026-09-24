@@ -11,6 +11,7 @@ use App\Modules\Production\Http\Controllers\InquiryController;
 use App\Modules\Production\Ledger\Position;
 use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Models\LotMovement;
+use App\Modules\Production\Models\ProductionLine;
 use App\Modules\Production\Models\ProductionSheet;
 use App\Modules\Production\Services\LedgerService;
 use App\Modules\Production\Services\LotRouteService;
@@ -34,11 +35,15 @@ beforeEach(function () {
     config(['audit.console' => true]); // tests run in the console; the History tab needs the audit rows
     $this->ppc = User::factory()->create()->assignRole('ppc');
     $this->viewer = User::factory()->create()->assignRole('viewer');
+    $this->partial = fn (string $only): array => ['X-Inertia' => 'true', 'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(Request::create('/')),
+        'X-Inertia-Partial-Component' => 'inquiry/LotInquiry', 'X-Inertia-Partial-Data' => $only];
     $this->ledger = app(LedgerService::class);
     $this->routes = app(LotRouteService::class);
     $this->sheets = app(ProductionSheetService::class);
     // HALF BLEACH route: SINGING (SINGEING) → SINGLE BLEACH (JIGGER_DYEING) → DRY → WHITE FINISH FOR SANFORIZING → SANFORIZE
+    // a fixed lot number: the factory's random one made `/search?q=1` redirect whenever it happened to end in 1
     $this->lot = Lot::factory()->create([
+        'lot_no' => '264899',
         'po_type' => 'HALF BLEACH', 'greige_qty' => 300, 'colour_status' => 'APPROVED', 'design' => 'E1143/119', 'colour' => '520 PLUM',
     ]);
     $this->actingAs($this->ppc);
@@ -146,8 +151,7 @@ it('lists the production lines with their sheet, and the audit history of the lo
 });
 
 it('serves a tab on a partial reload and ignores an unknown tab', function () {
-    $headers = ['X-Inertia' => 'true', 'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(Request::create('/')),
-        'X-Inertia-Partial-Component' => 'inquiry/LotInquiry', 'X-Inertia-Partial-Data' => 'movements,tab'];
+    $headers = ($this->partial)('movements,tab');
     $this->get("/inquiry/lots/{$this->lot->id}?tab=movements", $headers)
         ->assertOk()->assertJsonPath('props.tab', 'movements')->assertJsonPath('props.movements.total', 2)->assertJsonMissingPath('props.lot')->assertJsonMissingPath('props.audit');
     $this->get("/inquiry/lots/{$this->lot->id}?tab=nope")->assertOk()
@@ -179,6 +183,83 @@ it('tells a viewer it cannot hold, and shows the buttons flag only with producti
         ->assertInertia(fn (AssertableInertia $p) => $p->where('canHold', false));
 });
 
+it('offers the sheet and import links only to a role that may open them', function () {
+    $lab = User::factory()->create()->assignRole('colour_lab'); // neither production.sheet.view nor oracle.import.view
+    $this->actingAs($lab)->get("/inquiry/lots/{$this->lot->id}")->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('canOpenSheet', false)->where('canOpenImport', false));
+
+    $this->actingAs($this->ppc)->get("/inquiry/lots/{$this->lot->id}")->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('canOpenSheet', true)->where('canOpenImport', true));
+
+    // the viewer may open a sheet but not an Oracle import
+    $this->actingAs($this->viewer)->get("/inquiry/lots/{$this->lot->id}")->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('canOpenSheet', true)->where('canOpenImport', false));
+});
+
+it('keeps the History tab, and its rows, to the roles with audit.view', function () {
+    app(LotStateService::class)->hold($this->lot, 'PARTY_HOLD', $this->ppc);
+
+    // a viewer has no audit.view: no flag, no prop, and ?tab=audit falls back to the route tab
+    $this->actingAs($this->viewer)->get("/inquiry/lots/{$this->lot->id}")->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('canAudit', false)->missing('audit'));
+    $this->actingAs($this->viewer)->get("/inquiry/lots/{$this->lot->id}?tab=audit")->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('tab', 'route')->where('canAudit', false)->missing('audit'));
+    // a hand-crafted partial reload asking for the tab by name gets nothing either
+    $this->actingAs($this->viewer)->get("/inquiry/lots/{$this->lot->id}?tab=audit", ($this->partial)('audit,tab'))
+        ->assertOk()->assertJsonPath('props.tab', 'route')->assertJsonMissingPath('props.audit');
+
+    foreach (['admin', 'ppc', 'manager'] as $role) {
+        $user = User::factory()->create()->assignRole($role);
+        $this->actingAs($user)->get("/inquiry/lots/{$this->lot->id}?tab=audit")->assertOk()
+            ->assertInertia(fn (AssertableInertia $p) => $p->where('tab', 'audit')->where('canAudit', true)
+                ->has('audit.rows.0', fn (AssertableInertia $a) => $a->where('model', 'Lot')->where('event', 'updated')->etc()));
+    }
+    // every other seeded role is refused the tab
+    foreach ([Permissions::ROLE_DEPT_INCHARGE, Permissions::ROLE_COLOUR_LAB, Permissions::ROLE_DISPATCH] as $role) {
+        $user = User::factory()->create()->assignRole($role);
+        $this->actingAs($user)->get("/inquiry/lots/{$this->lot->id}?tab=audit")->assertOk()
+            ->assertInertia(fn (AssertableInertia $p) => $p->where('canAudit', false)->missing('audit'));
+    }
+});
+
+it('drops a deleted sheet line from the History tab but keeps its posting and reversal in the Movements tab', function () {
+    $sheet = runProduction();
+    $lineId = $sheet->lines->first()->id;
+    $this->get("/inquiry/lots/{$this->lot->id}?tab=audit")
+        ->assertInertia(fn (AssertableInertia $p) => $p->has('audit.rows')); // the line is audited while it lives
+    expect(collect($this->get("/inquiry/lots/{$this->lot->id}?tab=audit")->viewData('page')['props']['audit']['rows'])
+        ->where('model', 'ProductionLine')->count())->toBeGreaterThan(0);
+
+    $this->sheets->delete($sheet, $this->ppc);
+    expect(ProductionLine::query()->whereKey($lineId)->exists())->toBeFalse();
+
+    // the History tab matches by live id, so the line's rows are gone with it (the documented limitation)
+    $audit = $this->get("/inquiry/lots/{$this->lot->id}?tab=audit")->assertOk()->viewData('page')['props']['audit'];
+    expect(collect($audit['rows'])->where('model', 'ProductionLine')->count())->toBe(0);
+
+    // the Movements tab is the surviving trail: the process postings and their reversals both stand
+    $rows = collect($this->get("/inquiry/lots/{$this->lot->id}?tab=movements")->assertOk()
+        ->viewData('page')['props']['movements']['rows'])->where('kind', 'process')->sortBy('id')->values();
+    $reversals = $rows->filter(fn (array $r): bool => $r['reversal_of_id'] !== null);
+    expect($rows)->toHaveCount(4) // the original, its edit reversal, the re-post, and the delete's reversal
+        ->and($reversals)->toHaveCount(2)
+        // the source line is gone, so the rows no longer carry a sheet link, but the ledger pair stands
+        ->and($rows->last())->toMatchArray(['reason' => __('production.reasons.line_edited'), 'sheet_id' => null, 'source_type' => 'line'])
+        ->and($rows->last()['reversal_of_id'])->not->toBeNull();
+});
+
+it('shows an audit row whose acting user has since been deleted', function () {
+    $actor = User::factory()->create()->assignRole('ppc');
+    app(LotStateService::class)->hold($this->lot, 'PARTY_HOLD', $actor);
+    $actor->delete();
+
+    $manager = User::factory()->create()->assignRole('manager');
+    $this->actingAs($manager)->get("/inquiry/lots/{$this->lot->id}?tab=audit")->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('canAudit', true)
+            ->has('audit.rows.0', fn (AssertableInertia $a) => $a
+                ->where('model', 'Lot')->where('event', 'updated')->where('user', null)->whereNot('at', null)->etc()));
+});
+
 // ---- PO page ----------------------------------------------------------------------------------------------------
 
 it('shows the PO with its lots, their position summary and the totals', function () {
@@ -193,8 +274,21 @@ it('shows the PO with its lots, their position summary and the totals', function
                 ->where('id', $other->id)->where('lot_no', '100001')->where('greige_qty', 50)->where('stock_qty', 50)->where('wip_qty', 0)
                 ->where('state', 'open')->where('current_label', null)->where('process_flag', 'pending')->etc())
             ->has('lots.1', fn (AssertableInertia $l) => $l->where('id', $this->lot->id)->where('wip_qty', 100)->where('current_label', 'SINGEING/')->etc())
+            ->where('lotsTotal', 2)
             ->where('totals.greige_qty', 350)->where('totals.stock_qty', 250)->where('totals.issued_qty', 100)->where('totals.wip_qty', 100)
             ->where('totals.finished_qty', 0)->where('totals.dispatched_qty', 0)->where('totals.loss_qty', 0));
+});
+
+it('caps the PO lots at 200, reports the true total and still totals every lot of the PO', function () {
+    $contract = $this->lot->contract;
+    for ($i = 0; $i < 205; $i++) {
+        Lot::factory()->create(['contract_id' => $contract->id, 'greige_qty' => 2, 'lot_no' => (string) (200000 + $i)]);
+    }
+    $this->get("/inquiry/contracts/{$contract->id}")->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('lots', InquiryController::ROW_CAP)->where('lotsTotal', 206)->where('contract.lots_count', 206)
+            // 205 x 2 m greige plus this->lot's 300 m: the totals row is the whole PO, not the page
+            ->where('totals.greige_qty', 710)->where('totals.stock_qty', 200)->where('totals.issued_qty', 100)->etc());
 });
 
 // ---- 404s and permissions ---------------------------------------------------------------------------------------

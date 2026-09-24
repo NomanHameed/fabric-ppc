@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'name' => 'Fabric PPC', // the product name is not translated; the key exists so ur mirrors en exactly
     'nav' => [
         'home' => 'ہوم',
         'dashboard' => 'ڈیش بورڈ',
@@ -9,6 +10,8 @@ return [
         'production' => 'پروڈکشن',
         'issue' => 'فلور کو اجرا',
         'lot_routes' => 'لاٹ روٹس',
+        'lots' => 'لاٹس',
+        'contracts' => 'پی او / معاہدے',
         'sheets' => 'پروڈکشن شیٹس',
         'inquiry' => 'انکوائری',
         'search' => 'لاٹ / پی او تلاش',

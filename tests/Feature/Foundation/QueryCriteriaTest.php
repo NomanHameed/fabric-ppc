@@ -14,18 +14,20 @@ beforeEach(function () {
         $t->string('code')->nullable();
         $t->decimal('qty', 12, 2)->nullable();
         $t->date('dated')->nullable();
+        $t->dateTime('flagged_at')->nullable();
         $t->boolean('active')->default(true);
     });
     DB::table('qc_items')->insert([
-        ['code' => '261041', 'qty' => 5447, 'dated' => '2026-08-17', 'active' => true],
-        ['code' => '261059', 'qty' => 5522, 'dated' => '2026-08-19', 'active' => true],
-        ['code' => '260958', 'qty' => 2565, 'dated' => '2026-07-01', 'active' => false],
-        ['code' => null, 'qty' => null, 'dated' => null, 'active' => true],
+        ['code' => '261041', 'qty' => 5447, 'dated' => '2026-08-17', 'flagged_at' => '2026-09-01 14:30:00', 'active' => true],
+        ['code' => '261059', 'qty' => 5522, 'dated' => '2026-08-19', 'flagged_at' => '2026-09-30 09:00:00', 'active' => true],
+        ['code' => '260958', 'qty' => 2565, 'dated' => '2026-07-01', 'flagged_at' => '2026-10-05 23:59:00', 'active' => false],
+        ['code' => null, 'qty' => null, 'dated' => null, 'flagged_at' => null, 'active' => true],
     ]);
     $this->fields = [
         'po' => ['column' => 'code', 'type' => 'text'],
         'qty' => ['column' => 'qty', 'type' => 'number'],
         'date' => ['column' => 'dated', 'type' => 'date'],
+        'flagged' => ['column' => 'flagged_at', 'type' => 'datetime'],
         'active' => ['column' => 'active', 'type' => 'bool'],
     ];
     $this->codes = fn (array $criteria) => QueryCriteria::apply(DB::table('qc_items'), $criteria, $this->fields)
@@ -55,6 +57,21 @@ it('supports dates in local formats', function () {
     expect(($this->codes)(['date' => '17-08-2026']))->toBe(['261041'])
         ->and(($this->codes)(['date' => '>=18/08/2026']))->toBe(['261059'])
         ->and(($this->codes)(['date' => '2026-07-01..2026-08-17']))->toBe(['261041', '260958']);
+});
+
+it('matches a datetime column by the day, whatever time of day it holds', function () {
+    // `=` and the operators compare the column's date part, so 14:30 on the 1st is still "the 1st"
+    expect(($this->codes)(['flagged' => '01-09-2026']))->toBe(['261041'])
+        ->and(($this->codes)(['flagged' => '>=05-10-2026']))->toBe(['260958'])
+        ->and(($this->codes)(['flagged' => '<30-09-2026']))->toBe(['261041'])
+        ->and(($this->codes)(['flagged' => '#NULL']))->toBe([null]);
+});
+
+it('spans both end days in full for a datetime range', function () {
+    // 30-09 09:00 is inside 01-09..30-09 (the range runs to 23:59:59 of the last day)
+    expect(($this->codes)(['flagged' => '01-09-2026..30-09-2026']))->toBe(['261041', '261059'])
+        ->and(($this->codes)(['flagged' => '02-09-2026..30-09-2026']))->toBe(['261059'])
+        ->and(($this->codes)(['flagged' => '01-09-2026..05-10-2026']))->toBe(['261041', '261059', '260958']);
 });
 
 it('supports booleans', function () {

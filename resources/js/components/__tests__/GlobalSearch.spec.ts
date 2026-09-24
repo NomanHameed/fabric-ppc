@@ -52,7 +52,7 @@ describe('GlobalSearch', () => {
         wrapper.unmount();
     });
 
-    it('focuses the box on Ctrl+K, but not while a dialog is open, and leaves Forms keys alone', async () => {
+    it('focuses the box on Ctrl+K, but not while a dialog or alert dialog is open, and leaves Forms keys alone', async () => {
         const { wrapper, input } = await mountSearch();
         const focus = vi.spyOn(input.element, 'focus');
         const ctrlK = () => {
@@ -84,6 +84,25 @@ describe('GlobalSearch', () => {
         document.body.appendChild(dialog);
         expect(ctrlK().defaultPrevented).toBe(false);
         expect(focus).toHaveBeenCalledTimes(1);
+        dialog.remove();
+
+        // a confirm / reason prompt renders role="alertdialog": it owns the focus just the same
+        const alert = document.createElement('div');
+        alert.setAttribute('role', 'alertdialog');
+        document.body.appendChild(alert);
+        expect(ctrlK().defaultPrevented).toBe(false);
+        expect(focus).toHaveBeenCalledTimes(1);
+        alert.remove();
+
+        // with both gone the shortcut works again
+        expect(ctrlK().defaultPrevented).toBe(true);
+        expect(focus).toHaveBeenCalledTimes(2);
+        wrapper.unmount();
+    });
+
+    it('is shown at every width, so Ctrl+K always has a box to focus', async () => {
+        const { wrapper } = await mountSearch();
+        expect(wrapper.find('form').classes()).not.toContain('hidden');
         wrapper.unmount();
     });
 });

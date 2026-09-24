@@ -36,8 +36,14 @@ use OwenIt\Auditing\Models\Audit;
  * per position, the route timeline and the record position among the lots of the same PO. The heavy tabs — movement
  * history, production lines and the audit history — are optional props: the tab the URL names (`?tab=`) travels with
  * the page, the others only on a partial reload (`router.get(url, {tab}, {only: [tab, 'tab']})`). Each of them is capped
- * at ROW_CAP rows, latest first, and says how many rows there are in all. Hold / release / cancel stay on
- * LotStateController; the page only shows the buttons when the user has `production.hold`.
+ * at ROW_CAP rows, latest first, and says how many rows there are in all. The History tab needs `audit.view`
+ * (spec §8: admin / ppc / manager): without it the `audit` prop is not sent at all and `?tab=audit` falls back to
+ * the route tab. Hold / release / cancel stay on LotStateController; the page only shows the buttons when the user
+ * has `production.hold`, and the out-links on the Movements / Production tabs only with `production.sheet.view` /
+ * `oracle.import.view`.
+ *
+ * The PO page caps its lots at ROW_CAP as well (`lotsTotal` is the true count, "showing n of m"), but its pinned
+ * totals row is summed in the database over *every* lot of the PO, not over the page.
  */
 class InquiryController extends Controller
 {
@@ -61,12 +67,18 @@ class InquiryController extends Controller
         $lot->load(['contract.party', 'quality']);
         $balances = $this->ledger->balances($lot);
         $steps = $lot->routeSteps()->with('operation.department')->get();
+        $user = $request->user();
+        $canAudit = $user->can('audit.view');
         $requested = (string) $request->query('tab', 'route');
         $tab = in_array($requested, self::TABS, true) ? $requested : 'route';
+        // ?tab=audit without audit.view falls back to the summary tab; the prop itself is left out below
+        if ($tab === 'audit' && ! $canAudit) {
+            $tab = 'route';
+        }
         // the tab the URL names is part of the page; the others come only on a partial reload
         $optional = fn (string $name, callable $load) => $tab === $name ? $load() : Inertia::optional($load);
 
-        return Inertia::render('inquiry/LotInquiry', [
+        $props = [
             'lot' => $this->lotSummary($lot),
             'siblings' => $this->siblings($lot),
             'positions' => $this->positions($balances, $steps),
@@ -74,32 +86,49 @@ class InquiryController extends Controller
             'tab' => $tab,
             'movements' => $optional('movements', fn () => $this->movements($lot)),
             'lines' => $optional('lines', fn () => $this->lines($lot)),
-            'audit' => $optional('audit', fn () => $this->audit($lot)),
             'holdReasons' => LookupValue::query()->list(LotStateService::REASON_LIST)->get()
                 ->map(fn (LookupValue $v): array => ['value' => $v->code, 'label' => $v->getAttribute('label'), 'is_active' => $v->is_active])->values(),
             'colourStatuses' => LookupValue::query()->list(ProductionSheetService::COLOUR_STATUS_LIST)->get()
                 ->map(fn (LookupValue $v): array => ['value' => $v->code, 'label' => $v->getAttribute('label')])->values(),
-            'canHold' => $request->user()->can('production.hold'),
-        ]);
+            'canHold' => $user->can('production.hold'),
+            'canAudit' => $canAudit,
+            // the Movements and Production tabs link out to the sheet and the Oracle import; without the permission
+            // the cell stays plain text, so no role is sent to a 403
+            'canOpenSheet' => $user->can('production.sheet.view'),
+            'canOpenImport' => $user->can('oracle.import.view'),
+        ];
+        // without audit.view the key is absent altogether, so even a hand-crafted `?tab=audit` partial reload
+        // resolves nothing and returns no rows
+        if ($canAudit) {
+            $props['audit'] = $optional('audit', fn () => $this->audit($lot));
+        }
+
+        return Inertia::render('inquiry/LotInquiry', $props);
     }
 
     public function contract(Contract $contract): Response
     {
         $contract->load('party');
-        $lots = $contract->lots()->with('quality')->orderBy('lot_no')->orderBy('id')->get();
+        $total = $contract->lots()->count();
+        // the totals row is the whole PO, not the page: summed in the database over every lot of it
+        $sums = $contract->lots()->toBase()
+            ->selectRaw(implode(', ', array_map(fn (string $c): string => "coalesce(sum({$c}), 0) as {$c}", self::QTY_COLUMNS)))
+            ->first();
+        $lots = $contract->lots()->with('quality')->orderBy('lot_no')->orderBy('id')->limit(self::ROW_CAP)->get();
 
         return Inertia::render('inquiry/PoInquiry', [
             'contract' => [
                 'id' => $contract->id, 'po_no' => $contract->po_no, 'party' => $contract->party->name, 'ref_no' => $contract->ref_no,
                 'po_date' => $contract->po_date->format('d-m-Y'), 'contract_qty' => (float) $contract->contract_qty,
-                'oracle_missing_at' => $contract->oracle_missing_at?->format('d-m-Y'), 'lots_count' => $lots->count(),
+                'oracle_missing_at' => $contract->oracle_missing_at?->format('d-m-Y'), 'lots_count' => $total,
             ],
             'lots' => $lots->map(fn (Lot $l): array => [
                 'id' => $l->id, 'lot_no' => $l->lot_no, 'quality' => $l->quality->description, 'design' => $l->design, 'colour' => $l->colour,
                 'colour_status' => $l->colour_status, 'po_type' => $l->po_type, 'state' => $l->state, 'current_label' => $l->current_label,
                 'process_flag' => $this->labeller->processFlag($l), 'oracle_missing_at' => $l->oracle_missing_at?->format('d-m-Y'),
             ] + $this->quantities($l))->values(),
-            'totals' => collect(self::QTY_COLUMNS)->mapWithKeys(fn (string $c) => [$c => round((float) $lots->sum($c), 2)]),
+            'lotsTotal' => $total,
+            'totals' => collect(self::QTY_COLUMNS)->mapWithKeys(fn (string $c) => [$c => round((float) ($sums->{$c} ?? 0), 2)]),
         ]);
     }
 
@@ -277,7 +306,10 @@ class InquiryController extends Controller
 
     /**
      * The audit trail (spec §9): the lot's own rows plus those of its route steps, production lines and colour overrides,
-     * latest first, capped. A line's audit rows are matched by id, so rows of a line removed since still show.
+     * latest first, capped. Limitation: the related ids are plucked from the rows that are still there, so once a
+     * production line, route step or colour override is hard-deleted (deleting its sheet, for instance) its audit rows
+     * — the `created` and the `deleted` alike — drop out of this tab. The Movements tab is the surviving trail for that
+     * work: the posting and its reversal both stay in the ledger.
      *
      * @return array{rows: list<array<string, mixed>>, total: int}
      */

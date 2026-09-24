@@ -51,9 +51,17 @@ const props = defineProps<{
     holdReasons: ReasonOption[];
     colourStatuses: ReasonOption[];
     canHold: boolean;
+    canAudit: boolean;
+    canOpenSheet: boolean;
+    canOpenImport: boolean;
 }>();
 
-const tabs: InquiryTab[] = ['route', 'movements', 'lines', 'audit'];
+/** The History tab needs `audit.view`; without it the server sends no `audit` prop, so the tab is not offered. */
+const tabs = computed<InquiryTab[]>(() =>
+    (['route', 'movements', 'lines', 'audit'] as const).filter(
+        (a) => a !== 'audit' || props.canAudit,
+    ),
+);
 const url = computed(() => `/inquiry/lots/${props.lot.id}`);
 const stateError = ref('');
 const busy = ref(false);
@@ -164,7 +172,8 @@ function post(path: string, data: Record<string, string>): void {
     router.post(`/production/lots/${props.lot.id}/${path}`, data, {
         preserveScroll: true,
         onError: (errors) => {
-            stateError.value = errors.state ?? errors.reason ?? '';
+            stateError.value =
+                errors.state ?? errors.reason ?? Object.values(errors)[0] ?? '';
             statusLine.setMessage(stateError.value, 'error');
         },
         onFinish: () => {
@@ -288,9 +297,13 @@ function sourceCell(p: ICellRendererParams<MovementRow>): HTMLElement {
         return span;
     }
     const href =
-        row.source_type === 'line' && row.sheet_id !== null
+        row.source_type === 'line' &&
+        row.sheet_id !== null &&
+        props.canOpenSheet
             ? `/production/sheets?sheet=${row.sheet_id}`
-            : row.source_type === 'import' && row.import_id !== null
+            : row.source_type === 'import' &&
+                row.import_id !== null &&
+                props.canOpenImport
               ? `/oracle/imports/${row.import_id}`
               : null;
     const text =
@@ -375,11 +388,17 @@ const movementRowClass = {
 };
 
 function sheetCell(p: ICellRendererParams<LineRow>): HTMLElement {
-    const a = document.createElement('a');
     const id = p.data?.sheet_id;
+    const text = `${t('inquiry.lot.sheet_link')} #${id ?? ''}`;
+    if (!props.canOpenSheet) {
+        const span = document.createElement('span');
+        span.textContent = text;
+        return span;
+    }
+    const a = document.createElement('a');
     a.href = `/production/sheets?sheet=${id}`;
     a.className = 'text-primary underline-offset-2 hover:underline';
-    a.textContent = `${t('inquiry.lot.sheet_link')} #${id ?? ''}`;
+    a.textContent = text;
     a.addEventListener('click', (e) => {
         e.preventDefault();
         router.visit(a.href);
@@ -684,7 +703,11 @@ const showing = computed(() => {
                                         v-if="p.kind === 'step'"
                                         class="text-muted-foreground"
                                     >
-                                        — {{ p.step_seq }}. {{ p.operation }}
+                                        —
+                                        <template v-if="p.step_seq !== null"
+                                            >{{ p.step_seq }}.
+                                        </template>
+                                        {{ p.operation }}
                                     </span>
                                 </td>
                                 <td class="py-0.5 text-end">

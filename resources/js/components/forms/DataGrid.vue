@@ -3,6 +3,7 @@ import type {
     CellKeyDownEvent,
     GridApi,
     GridReadyEvent,
+    RowClassRules,
     RowClickedEvent,
     RowDoubleClickedEvent,
 } from 'ag-grid-community';
@@ -18,6 +19,8 @@ const props = defineProps<{
     selectedId?: number | string | null;
     /** Rows pinned under the grid (a totals row); they never select or activate. */
     pinnedBottomRows?: T[];
+    /** ag-Grid row class rules (class → predicate); declared so it is bound, not left to attribute fallthrough. */
+    rowClassRules?: RowClassRules<T>;
 }>();
 /** rowSelected: a click on a row. rowActivated: a double-click or Enter on a row (open it). */
 const emit = defineEmits<{ rowSelected: [row: T]; rowActivated: [row: T] }>();
@@ -62,6 +65,7 @@ function onCellKeyDown(e: CellKeyDownEvent<T>): void {
         :theme="gridTheme"
         :row-data="rows"
         :pinned-bottom-row-data="pinnedBottomRows"
+        :row-class-rules="rowClassRules"
         :column-defs="columns"
         :default-col-def="{
             sortable: true,
