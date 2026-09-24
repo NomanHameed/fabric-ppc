@@ -9,7 +9,7 @@ Rolling status for Fabric PPC / Albeen Textiles. Newest first. Daily detail live
 | | |
 | --- | --- |
 | **`main`** | `842845a` — P1 + P2-to-date, merged and pushed |
-| **Active branch** | `feat/albeen-theme` — Albeen branding + 7 new feature areas, **uncommitted** |
+| **Active branch** | `feat/albeen-theme` — Albeen branding + 7 new feature areas, committed (`9dc1181`), **not pushed** |
 | **Next blocking step** | Open the app in a browser. Nothing on the active branch has ever been rendered. |
 
 ## Phase status
@@ -18,7 +18,7 @@ Rolling status for Fabric PPC / Albeen Textiles. Newest first. Daily detail live
 | --- | --- | --- |
 | **P1** Foundation + OracleSync | Auth, roles, masters, i18n/RTL, audit, Oracle Excel import | **Done**, merged |
 | **P2** Production | Ledger, routes, issue, production sheets, inquiry, contracts & lots | **Tasks 1–12 done.** T13 partial (no MySQL CI job, 2 of 4 browser tests), T14 not started |
-| **Albeen** Branding + new features | Theme, signup/approval, action log, timeline, capacity, dashboard, Oracle 2nd DB | **Built, unreviewed in-browser, uncommitted** |
+| **Albeen** Branding + new features | Theme, signup/approval, action log, timeline, capacity, dashboard, Oracle 2nd DB | **Built and committed. Never opened in a browser.** |
 | **P3** Dispatch & Closing | Inspection, dispatch, lot closing | Not started |
 | **P4** Reports | R1 Month Wise Fabric Report first, then R2–R18 | Not started |
 | **P5** Colour | Colour steps, gate, overrides | Not started |
@@ -41,9 +41,10 @@ Rolling status for Fabric PPC / Albeen Textiles. Newest first. Daily detail live
 
 **Blocking a merge**
 
-1. Browser pass — dark mode, Urdu (especially text inside the chart canvas), phone width, portalled overlays.
-2. 6 PHPStan errors in `ProductionAnalyticsService.php`.
-3. Nothing committed on `feat/albeen-theme`.
+1. Browser pass — dark mode, Urdu (especially text inside the chart canvas), phone width, portalled overlays. **The only genuinely blocking item.**
+2. `feat/albeen-theme` is committed but not pushed.
+
+Gate at commit `9dc1181`: MySQL 658 tests / 653 passed / 0 failed; PHPStan 0 errors (cold cache); Pint, types, 164 JS tests and build all green.
 
 **Known defects**
 
@@ -76,6 +77,7 @@ Rolling status for Fabric PPC / Albeen Textiles. Newest first. Daily detail live
 
 | Document | Contents |
 | --- | --- |
+| `docs/setup.md` | How to run the project, and the traps that are not obvious |
 | `docs/logs/<date>.md` | Daily work logs |
 | `docs/planning/findings.md` | Oracle source analysis — what exists, what's missing, defects in the supplied view |
 | `docs/planning/theme.md` | Albeen theme + feature plan, decisions A1–A5 |
