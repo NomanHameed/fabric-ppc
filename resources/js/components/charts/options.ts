@@ -17,6 +17,8 @@ export type ChartLabels = {
     allocated: string;
     capacity: string;
     notSet: string;
+    /** The one band everything past the eighth is folded into, so the palette is never walked twice. */
+    other: string;
 };
 
 export type ChartContext = {
@@ -33,8 +35,12 @@ export type ChartContext = {
  */
 const NUMBER_LOCALE = 'en-US';
 
-const FONT =
-    'Instrument Sans, ui-sans-serif, system-ui, sans-serif, "Noto Nastaliq Urdu", "Noto Sans Arabic"';
+/**
+ * Only fonts the app actually ships or the OS already has. A named Urdu webfont was listed here once but was
+ * never bundled, which meant the canvas fell through to the generic stack anyway — an intent nobody could read
+ * off the code. If an Urdu face is ever bundled, add it here *and* to the stylesheet in the same change.
+ */
+const FONT = 'Instrument Sans, ui-sans-serif, system-ui, sans-serif';
 
 function compact(value: number): string {
     return new Intl.NumberFormat(NUMBER_LOCALE, {
@@ -125,17 +131,99 @@ function seriesColour(palette: ChartPalette, index: number): string {
 }
 
 /**
+ * The most bands any chart here draws before it folds the rest into one.
+ *
+ * The palette has ten colours and the mill has twelve departments, so `index % length` would paint the
+ * eleventh department the same colour as the first — two bands in one stack that a reader cannot tell apart.
+ * Capping below the palette length makes that impossible by construction rather than by counting tokens.
+ */
+export const MAX_SERIES = 8;
+
+/**
+ * Split a list into the `MAX_SERIES` biggest and everything else, biggest first.
+ *
+ * Callers fold the tail into a single band; the split is here so the department stack and the WIP bars agree
+ * on which categories are "the rest".
+ */
+function splitBySize<T>(
+    items: T[],
+    size: (item: T) => number,
+): { kept: T[]; folded: T[] } {
+    const sorted = [...items].sort((a, b) => size(b) - size(a));
+    return {
+        kept: sorted.slice(0, MAX_SERIES),
+        folded: sorted.slice(MAX_SERIES),
+    };
+}
+
+/**
+ * The date-range slider under a long x axis.
+ *
+ * Shared rather than written per chart: ECharts' stock slider paints its own date labels in light-mode
+ * defaults, which on this app's dark surface sits around 2.4:1 — unreadable. Every builder that offers a zoom
+ * therefore takes its chrome from here, so a new chart cannot forget.
+ */
+function zoomSlider(ctx: ChartContext): Record<string, unknown> {
+    return {
+        type: 'slider',
+        height: 18,
+        bottom: 6,
+        borderColor: ctx.palette.line,
+        fillerColor: withAlpha(ctx.palette.primary, 0.15),
+        handleStyle: { color: ctx.palette.primary },
+        moveHandleStyle: { color: ctx.palette.primary },
+        textStyle: {
+            color: ctx.palette.mutedText,
+            fontFamily: FONT,
+            fontSize: 10,
+        },
+        dataBackground: {
+            lineStyle: { color: ctx.palette.line },
+            areaStyle: { color: withAlpha(ctx.palette.primary, 0.12) },
+        },
+        selectedDataBackground: {
+            lineStyle: { color: ctx.palette.primary },
+            areaStyle: { color: withAlpha(ctx.palette.primary, 0.2) },
+        },
+    };
+}
+
+/** The pair a long range gets: wheel/pinch zoom on the plot, plus the themed slider under it. */
+function zooms(ctx: ChartContext, dates: string[]): EChartsOption['dataZoom'] {
+    return dates.length > 31
+        ? ([
+              { type: 'inside', minValueSpan: 7 },
+              zoomSlider(ctx),
+          ] as EChartsOption['dataZoom'])
+        : undefined;
+}
+
+/**
  * Production by department, stacked by day.
  *
  * A stack answers the manager's question directly — "how much did the mill make, and who made it" — in one
- * read, where five separate lines would not.
+ * read, where five separate lines would not. Biggest department first, and everything past the eighth is one
+ * "other" band: twelve legible bands do not exist, and a thirteenth would repeat a colour.
  */
 export function departmentProductionOption(
     dates: string[],
     series: ChartSeries[],
     ctx: ChartContext,
 ): EChartsOption {
-    const drawn = series.filter((s) => s.total !== 0);
+    const { kept, folded } = splitBySize(
+        series.filter((s) => s.total !== 0),
+        (s) => s.total,
+    );
+    const drawn: { name: string; data: number[] }[] = [...kept];
+    if (folded.length > 0) {
+        drawn.push({
+            name: ctx.labels.other,
+            // Summed per day, so the stack's height is still the mill's total for that day.
+            data: dates.map((_, i) =>
+                folded.reduce((sum, s) => sum + (s.data[i] ?? 0), 0),
+            ),
+        });
+    }
     const names = drawn.map((s) => s.name);
 
     return {
@@ -181,38 +269,7 @@ export function departmentProductionOption(
             },
             ...axisCommon(ctx),
         },
-        dataZoom:
-            dates.length > 31
-                ? [
-                      { type: 'inside', minValueSpan: 7 },
-                      {
-                          type: 'slider',
-                          height: 18,
-                          bottom: 6,
-                          borderColor: ctx.palette.line,
-                          fillerColor: withAlpha(ctx.palette.primary, 0.15),
-                          handleStyle: { color: ctx.palette.primary },
-                          moveHandleStyle: { color: ctx.palette.primary },
-                          textStyle: {
-                              color: ctx.palette.mutedText,
-                              fontFamily: FONT,
-                              fontSize: 10,
-                          },
-                          dataBackground: {
-                              lineStyle: { color: ctx.palette.line },
-                              areaStyle: {
-                                  color: withAlpha(ctx.palette.primary, 0.12),
-                              },
-                          },
-                          selectedDataBackground: {
-                              lineStyle: { color: ctx.palette.primary },
-                              areaStyle: {
-                                  color: withAlpha(ctx.palette.primary, 0.2),
-                              },
-                          },
-                      },
-                  ]
-                : undefined,
+        dataZoom: zooms(ctx, dates),
         series: drawn.map((s, i) => ({
             type: 'bar' as const,
             name: s.name,
@@ -281,13 +338,7 @@ export function flowOption(
             },
             ...axisCommon(ctx),
         },
-        dataZoom:
-            dates.length > 31
-                ? [
-                      { type: 'inside', minValueSpan: 7 },
-                      { type: 'slider', height: 18, bottom: 6 },
-                  ]
-                : undefined,
+        dataZoom: zooms(ctx, dates),
         series: series.map((s) => ({
             type: 'line' as const,
             name: s.name,
@@ -314,11 +365,29 @@ export function flowOption(
     };
 }
 
-/** Where the open metres are right now — one bar per stage, biggest question first: is work piling up? */
+/**
+ * Where the open metres are right now — one bar per stage, biggest question first: is work piling up?
+ *
+ * A mill with twelve departments produces fifteen stages (stock, issued, one per department, finished), more
+ * than the palette has colours, so the smallest are folded into one bar. The kept stages hold the server's
+ * order — stock → issued → departments → finished is the story — and "other" is appended at the end.
+ */
 export function wipStageOption(
     stages: WipStage[],
     ctx: ChartContext,
 ): EChartsOption {
+    const { folded } = splitBySize(stages, (s) => s.qty);
+    const foldedKeys = new Set(folded.map((s) => s.key));
+    const drawn: WipStage[] = stages.filter((s) => !foldedKeys.has(s.key));
+    if (folded.length > 0) {
+        drawn.push({
+            key: 'other',
+            name: ctx.labels.other,
+            qty: folded.reduce((sum, s) => sum + s.qty, 0),
+        });
+    }
+    const reversed = [...drawn].reverse();
+
     return {
         animationDuration: 250,
         grid: { top: 12, bottom: 8, left: 8, right: 8, containLabel: true },
@@ -341,7 +410,7 @@ export function wipStageOption(
         },
         yAxis: {
             type: 'category',
-            data: [...stages].reverse().map((s) => s.name),
+            data: reversed.map((s) => s.name),
             position: ctx.dir === 'rtl' ? 'right' : 'left',
             ...axisCommon(ctx),
             splitLine: { show: false },
@@ -349,10 +418,10 @@ export function wipStageOption(
         series: [
             {
                 type: 'bar' as const,
-                data: [...stages].reverse().map((s, i) => ({
+                data: reversed.map((s, i) => ({
                     value: s.qty,
                     itemStyle: {
-                        color: seriesColour(ctx.palette, stages.length - 1 - i),
+                        color: seriesColour(ctx.palette, drawn.length - 1 - i),
                     },
                 })),
                 barMaxWidth: 22,

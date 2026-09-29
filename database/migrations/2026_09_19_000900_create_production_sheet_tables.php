@@ -55,7 +55,13 @@ return new class extends Migration
             $t->foreignId('production_line_id')->nullable()->unique()->constrained()->nullOnDelete();
             $t->string('reason', 200);
             $t->foreignId('approved_by')->constrained('users')->restrictOnDelete();
-            $t->timestamp('approved_at');
+            // dateTime, not timestamp: on MariaDB (and on MySQL with explicit_defaults_for_timestamp off) the
+            // FIRST timestamp column of a table silently gains DEFAULT CURRENT_TIMESTAMP ON UPDATE
+            // CURRENT_TIMESTAMP. `approved_at` is the first one here, so any later edit to a colour-override
+            // row — re-stamping the reason, nulling production_line_id when a line is deleted — rewrote when
+            // the override was approved. It records a decision and a moment; it must never move on its own.
+            // Same fix as 628dc9c made for user_devices / user_actions.
+            $t->dateTime('approved_at');
             $t->timestamps();
         });
     }

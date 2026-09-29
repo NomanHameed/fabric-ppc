@@ -136,3 +136,69 @@ it('cannot rename somebody else\'s device: only the cookie decides which device 
     expect($other->fresh()->computer_name)->toBe('DISPATCH-DESK')
         ->and(UserDevice::query()->where('computer_name', 'HIJACKED')->count())->toBe(1);
 });
+
+/*
+ * TrackDevice runs before EnsureUserIsApproved (deliberately: a refused attempt is still attributable to a
+ * terminal), and the gate redirects without logging the session out. A rejected account varying its device
+ * cookie was therefore minting one user_devices row per request, unbounded, from a session the application
+ * has already refused.
+ */
+it('writes no device row for an account the moderator has refused', function () {
+    $rejected = User::factory()->rejected()->create();
+
+    for ($i = 0; $i < 10; $i++) {
+        app()->forgetScopedInstances();
+        $this->actingAs($rejected)
+            ->withCookie(DeviceRegistrar::COOKIE, (string) Str::ulid())
+            ->get('/dashboard')
+            ->assertRedirect(route('approval.pending', absolute: false));
+    }
+
+    expect(UserDevice::query()->count())->toBe(0);
+});
+
+it('writes no device row for an account still waiting for approval', function () {
+    $pending = User::factory()->pendingApproval()->create();
+
+    app()->forgetScopedInstances();
+    $this->actingAs($pending)->get('/dashboard')->assertRedirect(route('approval.pending', absolute: false));
+
+    expect(UserDevice::query()->count())->toBe(0);
+});
+
+it('still issues the cookie to a refused account, so the terminal keeps one identity', function () {
+    $rejected = User::factory()->rejected()->create();
+
+    $response = $this->actingAs($rejected)->get('/dashboard');
+
+    expect($response->getCookie(DeviceRegistrar::COOKIE))->not->toBeNull()
+        ->and(UserDevice::query()->count())->toBe(0);
+});
+
+/*
+ * UserDevice::$auditInclude names `user_id`, because "who is this terminal now signed in as" is exactly what
+ * an audit trail is for. A blanket saveQuietly() in DeviceRegistrar::touch() meant it could change forever
+ * with no audit row at all.
+ */
+it('audits a terminal changing hands, and stays quiet for a heartbeat', function () {
+    // The suite runs under the CLI SAPI, where owen-it is off unless `audit.console` says otherwise; a real
+    // web request has it on already (HANDOFF §13).
+    config(['audit.console' => true]);
+
+    $this->actingAs($this->user)->get('/dashboard')->assertOk();
+
+    $device = UserDevice::query()->sole();
+    expect($device->audits()->count())->toBe(0);
+
+    $other = User::factory()->create()->assignRole('ppc');
+    app()->forgetScopedInstances();
+
+    $this->actingAs($other)->withCookie(DeviceRegistrar::COOKIE, $device->device_id)->get('/dashboard')->assertOk();
+
+    $audit = $device->fresh()->audits()->latest('id')->first();
+
+    expect(UserDevice::query()->count())->toBe(1)
+        ->and($audit)->not->toBeNull()
+        ->and($audit->new_values['user_id'])->toBe($other->id)
+        ->and($audit->old_values['user_id'])->toBe($this->user->id);
+});

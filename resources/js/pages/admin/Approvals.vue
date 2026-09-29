@@ -6,7 +6,7 @@ import {
     UserCheck,
     UserX,
 } from '@lucide/vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { formatDateTime } from '@/components/activity/format';
 import ConfirmDialog from '@/components/forms/ConfirmDialog.vue';
@@ -14,6 +14,7 @@ import ReasonDialog from '@/components/forms/ReasonDialog.vue';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/composables/useConfirm';
 import { useReasonPrompt } from '@/composables/useReasonPrompt';
+import { can } from '@/lib/can';
 import { t } from '@/lib/i18n';
 
 /**
@@ -47,13 +48,8 @@ const error = ref('');
 const count = computed(() => props.pending.length);
 
 // A manager holds `admin.users.approve` but not `admin.users.manage`; offering them the user list would only
-// hand them a 403.
-const page = usePage();
-const canManageUsers = computed(() =>
-    (
-        (page.props.auth as { permissions?: string[] })?.permissions ?? []
-    ).includes('admin.users.manage'),
-);
+// hand them a 403. Read through `@/lib/can` (HANDOFF §6.5) rather than re-deriving the shared prop here.
+const canManageUsers = computed(() => can('admin.users.manage'));
 
 function send(user: PendingUser, path: string, data: Record<string, string>) {
     busy.value = user.id;

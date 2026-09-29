@@ -18,6 +18,7 @@ import { useReasonPrompt } from '@/composables/useReasonPrompt';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
+import { can } from '@/lib/can';
 import { useFlashSelect } from '@/lib/flashSelect';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
@@ -49,14 +50,9 @@ const page = usePage();
 const locales = computed(
     () => page.props.locales as Record<string, { name: string; dir: string }>,
 );
-const permissions = computed(
-    () =>
-        (page.props.auth as { permissions?: string[] })?.permissions ??
-        ([] as string[]),
-);
-const canApprove = computed(() =>
-    permissions.value.includes('admin.users.approve'),
-);
+// Through `@/lib/can` (HANDOFF §6.5), not a second reading of `auth.permissions`: one place decides what a
+// permission string means, and an admin's implicit `*` is handled there rather than in every screen.
+const canApprove = computed(() => can('admin.users.approve'));
 
 function currentUser(): UserRow | null {
     return props.users.find((u) => u.id === currentId.value) ?? null;

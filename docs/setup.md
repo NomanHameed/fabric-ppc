@@ -13,8 +13,16 @@ How to get this project running, and the traps that are not obvious.
 | PHP | 8.5 | `^8.3` minimum. Needs `bcmath` (added in P2) |
 | Composer | 2.x | |
 | Node | 24 | `.nvmrc` pins 22; 24 works fine |
-| MySQL | 9.6 local | 8.x is fine. **Docker is not installed on the dev machine** |
-| Redis | — | **Not required.** See §3 |
+| MySQL / MariaDB | **MariaDB 10.4.32** on the dev machine (local, port 3306); **MySQL 8.4.11** in Docker (host port 33306) | 8.x is fine. **Docker does work** — `docker compose up -d mysql redis`. An earlier version of this table said MySQL 9.6 and "Docker is not installed"; both were wrong |
+| Redis | 7 (Docker) | **Not required for development.** See §3 |
+
+> **The dev database engine is not the production one, and the difference bites.** MariaDB 10.4 (and MySQL
+> with `explicit_defaults_for_timestamp` off) silently gives the **first `NOT NULL` TIMESTAMP column of a
+> table** `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` — so any later update to the row rewrites
+> that column. This has already produced two real defects on this project (`user_devices` / `user_actions`,
+> fixed in `628dc9c`; `colour_overrides.approved_at`, fixed in this round). **Never use `$t->timestamp()` for
+> a column that records when something happened — use `$t->dateTime()`.** The authoritative test run is the
+> one against the Docker MySQL (§5).
 
 ---
 
@@ -62,11 +70,17 @@ Every seeded demo account uses the password `password`:
 
 ### 3.1 Database port
 
+`.env.example` points at the Docker MySQL (`DB_PORT=33306`, user `fabric`/`secret`). That container exists and
+works — `docker compose up -d mysql redis` — so on a machine using it, leave the port alone.
+
+To use a local MariaDB/MySQL on the default port instead:
+
 ```diff
-- DB_PORT=33306      # the Docker MySQL, which does not exist here
-+ DB_PORT=3306       # a local MySQL
+- DB_PORT=33306      # the Docker MySQL
++ DB_PORT=3306       # a local MySQL / MariaDB
 ```
-Also set `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` for your local server.
+Also set `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` for your local server — and read the TIMESTAMP warning
+in §1 before writing a migration against MariaDB.
 
 ### 3.2 Redis is not running — switch the three drivers
 
@@ -128,7 +142,32 @@ PHPStan also caches results — if a reported error looks stale, `./vendor/bin/p
 
 **Always run the suite against MySQL before trusting a result.** There is one known SQLite-only failure (`ProductionSheetScreenTest`) which passes on MySQL.
 
-### 4.6 Two test runs against the same scratch database deadlock
+### 4.6 The browser suite lives in `tests-browser/`, and a bare `pest` never touches it
+
+The Pest browser plugin starts a Playwright `run-server` node process as soon as a browser test is
+**collected** — during collection, before any `--testsuite`, group filter or `beforeEach` hook can skip it —
+and then leaves that process behind holding the run's inherited stdout. The tests finished in three minutes;
+a piped `./vendor/bin/pest | tail` then sat there for another **fifteen**. It looks exactly like a hung test
+suite, and it is why `tests/Browser/` no longer exists.
+
+Pest only scans its own test directory (`--test-directory`, default `tests`) plus whatever suites the PHPUnit
+config names. So the browser tests live in `tests-browser/Browser/`, that path is in **neither** — `phpunit.xml`
+does not mention it, and it is outside `tests/`. A bare `./vendor/bin/pest` collects 690 tests, starts no node
+process and returns in under three minutes.
+
+Run them on purpose, on a machine with a browser:
+
+```bash
+composer test:browser
+# = PEST_BROWSER=1 ./vendor/bin/pest -c phpunit-browser.xml --test-directory=tests-browser
+```
+
+Both parts are needed: `--test-directory` tells Pest where to scan, and `-c phpunit-browser.xml` stops PHPUnit
+loading `tests/` as well (it always builds the suites its config names, whatever Pest collected). Without
+`PEST_BROWSER=1` — or without Playwright, Chromium or `public/build/manifest.json` — the four tests skip with a
+message saying which is missing (`tests-browser/Pest.php`).
+
+### 4.7 Two test runs against the same scratch database deadlock
 Running two suites concurrently against one database produces `SQLSTATE[40001]` deadlocks on seeded tables. That is contention, not a code defect — give each run its own database.
 
 ---
@@ -138,12 +177,14 @@ Running two suites concurrently against one database produces `SQLSTATE[40001]` 
 Everything below must pass before a change is considered done.
 
 ```bash
-# PHP tests on SQLite — fast, no MySQL needed. Expect the 1 known failure.
+# PHP tests on SQLite — fast, no MySQL needed. Expect the 1 known failure. ~3 minutes.
+# Unit + Feature + Concurrency; the browser suite is opt-in and elsewhere, see §4.6.
 ./vendor/bin/pest
 
-# PHP tests on MySQL — the authoritative run. Expect 0 failures.
-DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=3306 \
-  DB_DATABASE=fabric_ppc_verify DB_USERNAME=root DB_PASSWORD=<your-password> \
+# PHP tests on the Docker MySQL — the authoritative run. Expect 0 failures.
+docker compose up -d mysql redis
+DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=33306 \
+  DB_DATABASE=fabric_ppc_test DB_USERNAME=fabric DB_PASSWORD=secret \
   DB_SOCKET= DB_URL= ./vendor/bin/pest
 
 npm run test:js            # Vitest
@@ -154,9 +195,10 @@ npm run build              # production build
 npx vp check --fix         # JS/TS format + lint
 ```
 
-Create the scratch database once:
+Create the scratch database once (as root on the Docker MySQL: `docker compose exec mysql mysql -uroot -proot`):
 ```sql
-CREATE DATABASE IF NOT EXISTS fabric_ppc_verify;
+CREATE DATABASE IF NOT EXISTS fabric_ppc_test;
+GRANT ALL ON fabric_ppc_test.* TO 'fabric'@'%';
 ```
 
 > **Never point a test run at your working database.** `RefreshDatabase` wipes whatever it connects to. This is why `DB_SOCKET=` and `DB_URL=` must be blanked (§4.2).
@@ -173,9 +215,18 @@ composer run dev           # serve + queue + vite together
 
 Mail is `MAIL_MAILER=log` — verification emails land in `storage/logs/laravel.log`, so signup can be tested without a mail server.
 
-Re-seed demo data at any time. The seeders are idempotent, so this does not duplicate rows:
+Re-seed demo data at any time. The seeders are idempotent, so this does not duplicate rows, and
+`DemoCapacitySeeder` no longer overwrites a machine capacity somebody has already entered:
 ```bash
 php artisan db:seed
+```
+
+`DatabaseSeeder` **skips the demo seeders when `APP_ENV=production`** — the demo logins all use the password
+`password`, and the demo lots post real, insert-only ledger movements that cannot be deleted afterwards. On a
+demo or staging box, ask for them by name:
+```bash
+php artisan db:seed --class=DemoUsersSeeder
+php artisan db:seed --class=DemoDataSeeder
 ```
 `migrate:fresh --seed` **wipes the database** — never run it against anything you care about.
 
@@ -189,6 +240,8 @@ Beyond the above, from `docs/HANDOFF.md` §13:
 - Seed **before** `config:cache` — `AdminUserSeeder` reads `env()` directly and will otherwise get the defaults.
 - **Change the seeded admin password** immediately after first login.
 - A **queue worker must be running** (`QUEUE_CONNECTION=redis`), or Oracle import commits hang in `committing` forever.
+- **`php artisan db:seed --class=RolesAndPermissionsSeeder --force` after every deploy that adds a permission.** New permissions live in that seeder, not in a migration, so `migrate --force` alone leaves roles without them.
+- **Schedule `php artisan activity:prune --days=730`** — `user_actions` has no other retention and the model refuses `delete()`.
 - Set `REDIS_QUEUE_RETRY_AFTER` to **at least 660** — it must exceed the commit job's 600 s timeout, or a second worker picks up a job the first is still running.
 - After each deploy: `config:cache`, `route:cache`, `view:cache`, and `npm ci && npm run build`.
 

@@ -105,7 +105,7 @@ return [
         'all_departments' => 'تمام شعبے',
         'apply' => 'لاگو کریں',
         'reset' => 'ری سیٹ',
-        'range' => ':from سے :to تک (:days دن)',
+        'range' => ':from سے :to تک (:days کیلنڈر دن)',
         'columns' => [
             'code' => 'کوڈ', 'name' => 'نام', 'allocated' => 'مختص (میٹر)', 'capacity' => 'گنجائش (میٹر)',
             'free' => 'باقی (میٹر)', 'utilisation' => 'استعمال', 'uom' => 'اکائی',
@@ -122,6 +122,7 @@ return [
         'edit_machines' => 'مشین ماسٹر میں گنجائش درج کریں',
         'summary' => ':capacity میٹر میں سے :allocated میٹر مختص — :pct%',
         'summary_unknown' => ':allocated میٹر مختص؛ گنجائش درج نہیں',
+        'clamped' => 'مدت کو :days دن تک محدود کر دیا گیا — اس اسکرین کی زیادہ سے زیادہ حد یہی ہے۔',
         'legend' => ['allocated' => 'مختص', 'capacity' => 'گنجائش'],
     ],
     'step_status' => ['pending' => 'زیرِ التوا', 'partial' => 'جزوی', 'done' => 'مکمل', 'skipped' => 'چھوڑا گیا'],

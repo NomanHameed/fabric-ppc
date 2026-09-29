@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { computed, onMounted, ref, watch } from 'vue';
-import BaseChart from '@/components/charts/BaseChart.vue';
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
+import ChartPlaceholder from '@/components/charts/ChartPlaceholder.vue';
 import SummaryBars from '@/components/charts/SummaryBars.vue';
 import type { ChartContext } from '@/components/charts/options';
 import {
@@ -22,10 +22,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { can } from '@/lib/can';
-import { getJson } from '@/lib/api';
+import { getJson, isAbortError } from '@/lib/api';
 import { formatDmy } from '@/lib/dates';
 import { t, useI18n } from '@/lib/i18n';
 import type { DashboardAnalytics } from '@/types/analytics';
+
+/**
+ * ECharts is 595 kB (201 kB gzipped) and only one of the two renderings on this page needs it: a phone gets
+ * `SummaryBars`, and a role without `inquiry.view` gets no chart at all. Loading it lazily keeps it out of the
+ * dashboard's own chunk, so that cost is paid by the people who actually see a canvas. `options.ts` imports
+ * `EChartsOption` as a type only, which is what lets the split work at all.
+ */
+const BaseChart = defineAsyncComponent({
+    loader: () => import('@/components/charts/BaseChart.vue'),
+    loadingComponent: ChartPlaceholder,
+});
 
 /**
  * The mill's dashboard: what was made, by whom, where the metres are now, and how committed the machines are.
@@ -68,18 +79,48 @@ const wide = useMediaQuery('(min-width: 640px)');
 const data = ref<DashboardAnalytics | null>(null);
 const loading = ref(false);
 const failed = ref(false);
+/** True when the server ran a shorter range than the one asked for (it caps at a year). */
+const clamped = ref(false);
+
+/**
+ * Request sequencing.
+ *
+ * Every filter control re-issues the whole read, and the server takes longer over a quarter than over a week,
+ * so responses do not come back in the order they were asked for. Without a generation counter a slow "last 90
+ * days" landing after a fast "this week" would paint the quarter's figures under the week's filters — silently
+ * wrong, and indistinguishable from a bug in the query. `seq` is the only thing a response is allowed to be
+ * judged by; the previous request is also aborted so it stops costing anything at all.
+ */
+let seq = 0;
+let inFlight: AbortController | null = null;
 
 async function load(): Promise<void> {
+    const mine = ++seq;
+    inFlight?.abort();
+    const controller = new AbortController();
+    inFlight = controller;
     loading.value = true;
     failed.value = false;
     try {
-        data.value = await getJson<DashboardAnalytics>(
+        const res = await getJson<DashboardAnalytics>(
             `/production/analytics?${range.query()}`,
+            controller.signal,
         );
-    } catch {
+        if (mine !== seq) {
+            return;
+        }
+        data.value = res;
+        // The inputs must show the range the figures are actually for, not the one that was asked for.
+        clamped.value = range.adopt(res.range.from, res.range.to);
+    } catch (error) {
+        if (mine !== seq || isAbortError(error)) {
+            return;
+        }
         failed.value = true;
     } finally {
-        loading.value = false;
+        if (mine === seq) {
+            loading.value = false;
+        }
     }
 }
 
@@ -111,6 +152,7 @@ const charts = computed<ChartContext>(() => ({
         allocated: t('production.capacity.legend.allocated'),
         capacity: t('production.capacity.legend.capacity'),
         notSet: t('production.capacity.not_set'),
+        other: t('dashboard.charts.other'),
     },
     formatDate: (iso: string) => formatDmy(new Date(`${iso}T00:00:00`)),
 }));
@@ -118,14 +160,16 @@ const charts = computed<ChartContext>(() => ({
 const metres = (value: number): string =>
     t('dashboard.metres', { qty: formatMetres(value) });
 
-const rangeLabel = computed(() =>
-    data.value === null
+const rangeLabel = computed(() => {
+    const range = data.value?.range;
+
+    return range === undefined
         ? ''
         : t('dashboard.filters.range', {
-              from: formatDmy(new Date(`${data.value.range.from}T00:00:00`)),
-              to: formatDmy(new Date(`${data.value.range.to}T00:00:00`)),
-          }),
-);
+              from: formatDmy(new Date(`${range.from}T00:00:00`)),
+              to: formatDmy(new Date(`${range.to}T00:00:00`)),
+          });
+});
 
 const kpis = computed(() => {
     const k = data.value?.kpi;
@@ -359,6 +403,7 @@ const flowBars = computed(() =>
                             type="button"
                             size="sm"
                             :disabled="loading"
+                            data-test="apply"
                             @click="apply"
                         >
                             {{ t('dashboard.filters.apply') }}
@@ -368,6 +413,7 @@ const flowBars = computed(() =>
                             size="sm"
                             variant="outline"
                             :disabled="loading"
+                            data-test="reset"
                             @click="reset"
                         >
                             {{ t('dashboard.filters.reset') }}
@@ -381,6 +427,7 @@ const flowBars = computed(() =>
                             size="sm"
                             variant="ghost"
                             :disabled="loading"
+                            :data-test="`preset-${p}`"
                             @click="preset(p)"
                         >
                             {{ t(`dashboard.filters.presets.${p}`) }}
@@ -389,12 +436,28 @@ const flowBars = computed(() =>
                 </CardContent>
             </Card>
 
+            <p
+                v-if="clamped"
+                class="border-warning/50 bg-warning-surface text-warning-on-surface rounded-md border px-3 py-2 text-sm"
+                data-test="range-clamped"
+                role="status"
+            >
+                {{ t('production.capacity.clamped', { days: 366 }) }}
+            </p>
+
             <div
                 v-if="failed"
                 class="border-destructive/50 bg-destructive-surface text-destructive-on-surface flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                data-test="charts-failed"
             >
                 <span>{{ t('dashboard.charts.failed') }}</span>
-                <Button type="button" size="sm" variant="outline" @click="load">
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    data-test="charts-retry"
+                    @click="load"
+                >
                     {{ t('dashboard.charts.retry') }}
                 </Button>
             </div>

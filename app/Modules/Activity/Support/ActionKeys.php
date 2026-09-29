@@ -27,6 +27,8 @@ final class ActionKeys
 
     public const LOT_RELEASED = 'lot.released';
 
+    public const LOT_CANCELLED = 'lot.cancelled';
+
     public const LOT_CLOSED = 'lot.closed';
 
     public const LOT_DISPATCHED = 'lot.dispatched';
@@ -41,7 +43,8 @@ final class ActionKeys
     /** @var list<string> */
     public const ALL = [
         self::USER_REGISTERED, self::USER_APPROVED, self::USER_REJECTED, self::DEVICE_NAMED,
-        self::LOT_ISSUED, self::LOT_MOVED, self::LOT_HELD, self::LOT_RELEASED, self::LOT_CLOSED,
-        self::LOT_DISPATCHED, self::COLOUR_APPROVED, self::COLOUR_REJECTED, self::CAPACITY_ALLOCATED,
+        self::LOT_ISSUED, self::LOT_MOVED, self::LOT_HELD, self::LOT_RELEASED, self::LOT_CANCELLED,
+        self::LOT_CLOSED, self::LOT_DISPATCHED, self::COLOUR_APPROVED, self::COLOUR_REJECTED,
+        self::CAPACITY_ALLOCATED,
     ];
 }

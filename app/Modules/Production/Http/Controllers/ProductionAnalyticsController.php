@@ -38,7 +38,8 @@ class ProductionAnalyticsController extends Controller
         if ($to->lessThan($from)) {
             $to = $from;
         }
-        if ($from->diffInDays($to) > self::MAX_DAYS) {
+        // Absolute: Carbon 3's diffInDays is signed, and the guard above is the only thing keeping it positive.
+        if (abs($from->diffInDays($to)) > self::MAX_DAYS) {
             $to = $from->addDays(self::MAX_DAYS);
         }
 
@@ -56,8 +57,13 @@ class ProductionAnalyticsController extends Controller
         // production charts but not how committed the machines are.
         $capacity = $request->user()?->can('production.sheet.view') ?? false;
 
-        return response()->json(
-            $this->analytics->dashboard($from, $to, $department, $operation, withUtilisation: $capacity)->toArray()
-        );
+        $payload = $this->analytics->dashboard($from, $to, $department, $operation, withUtilisation: $capacity)->toArray();
+
+        // The cap belongs to this controller, not to the analytics service, so it is merged in here: the
+        // dashboard's "the range was shortened" notice reads it instead of hard-coding 366 of its own.
+        $range = is_array($payload['range'] ?? null) ? $payload['range'] : [];
+        $payload['range'] = $range + ['max_days' => self::MAX_DAYS];
+
+        return response()->json($payload);
     }
 }

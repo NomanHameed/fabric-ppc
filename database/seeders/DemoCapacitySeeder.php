@@ -45,6 +45,14 @@ class DemoCapacitySeeder extends Seeder
         $machines = Machine::query()->whereIn('code', array_keys(self::CAPACITIES))->get();
 
         foreach ($machines as $machine) {
+            // Never overwrite a real figure. These are the ten machines FoundationSeeder creates, so on an
+            // install that has been in use they are the mill's actual machines with the mill's actual
+            // capacities on them — and `db:seed` is documented as safe to re-run (docs/setup.md §6). A machine
+            // that already carries a capacity is left exactly as it is.
+            if ($machine->daily_capacity !== null || $machine->hourly_capacity !== null) {
+                continue;
+            }
+
             [$daily, $hourly] = self::CAPACITIES[$machine->code];
             $machine->forceFill([
                 'daily_capacity' => $daily,

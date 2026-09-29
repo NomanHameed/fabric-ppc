@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { computed, onMounted, ref, watch } from 'vue';
-import BaseChart from '@/components/charts/BaseChart.vue';
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
+import ChartPlaceholder from '@/components/charts/ChartPlaceholder.vue';
 import SummaryBars from '@/components/charts/SummaryBars.vue';
 import type { ChartContext } from '@/components/charts/options';
 import {
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getJson } from '@/lib/api';
+import { getJson, isAbortError } from '@/lib/api';
 import { can } from '@/lib/can';
 import { formatDmy } from '@/lib/dates';
 import { t, useI18n } from '@/lib/i18n';
@@ -39,6 +39,15 @@ import type {
  *  - Allocation is a *plan*. `machine_allocations` never touches the ledger, so nothing here is presented as
  *    metres actually run — that is the production sheet's and the dashboard's business.
  */
+/**
+ * ECharts is 595 kB (201 kB gzipped) and this screen renders a canvas only above 640px — a phone reads the
+ * same figures from `SummaryBars` and the table. Loading it lazily keeps it out of this page's chunk.
+ */
+const BaseChart = defineAsyncComponent({
+    loader: () => import('@/components/charts/BaseChart.vue'),
+    loadingComponent: ChartPlaceholder,
+});
+
 const props = defineProps<{ departments: DepartmentOption[] }>();
 
 const { dir, locale } = useI18n();
@@ -49,18 +58,47 @@ const wide = useMediaQuery('(min-width: 640px)');
 const data = ref<UtilisationResponse | null>(null);
 const loading = ref(false);
 const failed = ref(false);
+/** True when the server ran a shorter range than the one asked for (MachineUtilisationController::MAX_DAYS). */
+const clamped = ref(false);
+
+/**
+ * Request sequencing.
+ *
+ * Every preset and every Apply re-issues the whole read, and a quarter takes longer to answer than a week, so
+ * responses do not necessarily come back in the order they were asked for. `seq` is the only thing a response
+ * is judged by: a reply from an older request is dropped rather than painted under newer filters. The
+ * superseded request is aborted too, so it stops costing the browser and the server anything.
+ */
+let seq = 0;
+let inFlight: AbortController | null = null;
 
 async function load(): Promise<void> {
+    const mine = ++seq;
+    inFlight?.abort();
+    const controller = new AbortController();
+    inFlight = controller;
     loading.value = true;
     failed.value = false;
     try {
-        data.value = await getJson<UtilisationResponse>(
+        const res = await getJson<UtilisationResponse>(
             `/production/utilisation?${range.query()}`,
+            controller.signal,
         );
-    } catch {
+        if (mine !== seq) {
+            return;
+        }
+        data.value = res;
+        // The server caps an unbounded range; the inputs must not keep claiming the range that was asked for.
+        clamped.value = range.adopt(res.range.from, res.range.to);
+    } catch (error) {
+        if (mine !== seq || isAbortError(error)) {
+            return;
+        }
         failed.value = true;
     } finally {
-        loading.value = false;
+        if (mine === seq) {
+            loading.value = false;
+        }
     }
 }
 
@@ -91,6 +129,7 @@ const charts = computed<ChartContext>(() => ({
         allocated: t('production.capacity.legend.allocated'),
         capacity: t('production.capacity.legend.capacity'),
         notSet: t('production.capacity.not_set'),
+        other: t('dashboard.charts.other'),
     },
     formatDate: (iso: string) => formatDmy(new Date(`${iso}T00:00:00`)),
 }));
@@ -131,8 +170,29 @@ const percent = (row: UtilisationRow): string =>
         ? t('production.capacity.not_set')
         : `${formatMetres(row.utilisation_pct)}%`;
 
+/**
+ * "Not set" means exactly what the server means by it.
+ *
+ * `Utilisation::percent()` treats a capacity of 0 as unknown and returns null, but `capacity_qty` still comes
+ * back as `0` and `free_qty` as `-allocated`. Rendered literally, a zero-capacity machine read "0 / -300 /
+ * Not set" while the footnote below claimed machines without a capacity are the ones marked "not set" — the
+ * table contradicting its own explanation. Mirroring the rule here makes the three columns and the footnote
+ * agree.
+ *
+ * NOTE: the cleaner fix is server-side, in `Utilisation::freeQty()` (and `toArray()`'s `capacity_qty`), so a
+ * capacity of <= 0 is serialised as null exactly as `percent()` already treats it. Left for the backend round
+ * — this screen is not the only consumer of that payload.
+ */
 const qty = (value: number | null): string =>
-    value === null ? t('production.capacity.not_set') : formatMetres(value);
+    value === null || value <= 0
+        ? t('production.capacity.not_set')
+        : formatMetres(value);
+
+/** Free metres are only knowable when utilisation is; the server's own rule, read off `utilisation_pct`. */
+const freeQty = (row: UtilisationRow): string =>
+    row.utilisation_pct === null
+        ? t('production.capacity.not_set')
+        : formatMetres(row.free_qty ?? 0);
 
 const machineBars = computed(() =>
     machines.value.map((m) => ({
@@ -227,6 +287,7 @@ const machineBars = computed(() =>
                         type="button"
                         size="sm"
                         :disabled="loading"
+                        data-test="apply"
                         @click="apply"
                     >
                         {{ t('production.capacity.apply') }}
@@ -236,6 +297,7 @@ const machineBars = computed(() =>
                         size="sm"
                         variant="outline"
                         :disabled="loading"
+                        data-test="reset"
                         @click="reset"
                     >
                         {{ t('production.capacity.reset') }}
@@ -247,6 +309,7 @@ const machineBars = computed(() =>
                         size="sm"
                         variant="ghost"
                         :disabled="loading"
+                        :data-test="`preset-${p}`"
                         @click="preset(p)"
                     >
                         {{ t(`dashboard.filters.presets.${p}`) }}
@@ -255,12 +318,27 @@ const machineBars = computed(() =>
             </CardContent>
         </Card>
 
+        <p
+            v-if="clamped"
+            class="border-warning/50 bg-warning-surface text-warning-on-surface rounded-md border px-3 py-2 text-sm"
+            data-test="range-clamped"
+            role="status"
+        >
+            {{ t('production.capacity.clamped', { days: 366 }) }}
+        </p>
+
         <div
             v-if="failed"
             class="border-destructive/50 bg-destructive-surface text-destructive-on-surface flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 text-sm"
         >
             <span>{{ t('production.capacity.failed') }}</span>
-            <Button type="button" size="sm" variant="outline" @click="load">
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-test="retry"
+                @click="load"
+            >
                 {{ t('production.capacity.retry') }}
             </Button>
         </div>
@@ -394,7 +472,7 @@ const machineBars = computed(() =>
                                     {{ qty(m.capacity_qty) }}
                                 </td>
                                 <td class="px-2 py-2 text-end tabular-nums">
-                                    {{ qty(m.free_qty) }}
+                                    {{ freeQty(m) }}
                                 </td>
                                 <td class="px-2 py-2 text-end">
                                     <Badge

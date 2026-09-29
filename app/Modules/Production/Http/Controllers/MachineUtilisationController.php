@@ -49,7 +49,15 @@ class MachineUtilisationController extends Controller
 
         $from = CarbonImmutable::parse($filters['from'] ?? CarbonImmutable::today()->startOfMonth())->startOfDay();
         $to = CarbonImmutable::parse($filters['to'] ?? CarbonImmutable::today())->startOfDay();
-        if ($from->diffInDays($to) > self::MAX_DAYS) {
+        // `after_or_equal:from` only fires when `from` is present, so `?to=2020-01-01` alone arrives backwards
+        // against the default `from` (the start of this month). Carbon 3's diffInDays is signed, so the cap
+        // below would not catch it either and MachineCapacityService::days() would throw an untranslated
+        // InvalidArgumentException — a 500 on a screen the user simply mistyped a date on. Same guard as
+        // ProductionAnalyticsController.
+        if ($to->lessThan($from)) {
+            $to = $from;
+        }
+        if (abs($from->diffInDays($to)) > self::MAX_DAYS) {
             $to = $from->addDays(self::MAX_DAYS);
         }
 
@@ -62,7 +70,9 @@ class MachineUtilisationController extends Controller
         $machines = $this->capacity->byMachine($from, $to, $department);
 
         return response()->json([
-            'range' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            // `max_days` so the screen's "the range was shortened" notice reads the cap from the server
+            // instead of hard-coding 366 beside it.
+            'range' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'max_days' => self::MAX_DAYS],
             'machines' => $machines->map(fn (Utilisation $u) => $u->toArray())->values(),
             'departments' => $this->capacity->byDepartment($from, $to, $department)
                 ->map(fn (Utilisation $u) => $u->toArray())->values(),

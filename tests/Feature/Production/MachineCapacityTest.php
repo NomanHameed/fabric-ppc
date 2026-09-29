@@ -8,6 +8,8 @@ use App\Modules\Foundation\Masters\Resources\MachineResource;
 use App\Modules\Foundation\Models\Department;
 use App\Modules\Foundation\Models\Machine;
 use App\Modules\Foundation\Models\Operation;
+use App\Modules\Production\Http\Controllers\MachineUtilisationController;
+use App\Modules\Production\Http\Controllers\ProductionAnalyticsController;
 use App\Modules\Production\Models\LotBalance;
 use App\Modules\Production\Models\LotMovement;
 use App\Modules\Production\Models\MachineAllocation;
@@ -192,4 +194,45 @@ it('lays the machines form out in whole 12-column rows, with no field straddling
     }
 
     expect($rows)->toBe(2);
+});
+
+/*
+ * A mistyped date must not be a 500. `after_or_equal:from` only fires when `from` is present, so `?to=` alone
+ * arrives backwards against the default `from` (the start of this month); Carbon 3's diffInDays is signed, so
+ * the MAX_DAYS cap did not catch it either and MachineCapacityService::days() threw.
+ */
+it('answers a backwards range instead of failing', function () {
+    $this->actingAs($this->ppc)->getJson('/production/utilisation?to=2020-01-01')->assertOk()
+        ->assertJsonPath('range.to', CarbonImmutable::today()->startOfMonth()->toDateString())
+        ->assertJsonPath('range.from', CarbonImmutable::today()->startOfMonth()->toDateString());
+
+    $this->actingAs($this->ppc)->getJson('/production/analytics?to=2020-01-01')->assertOk();
+});
+
+it('reports the range cap it applied, so the screen does not hard-code it', function () {
+    $from = CarbonImmutable::today()->subYears(3)->toDateString();
+
+    $this->actingAs($this->ppc)->getJson("/production/utilisation?from={$from}")->assertOk()
+        ->assertJsonPath('range.max_days', MachineUtilisationController::MAX_DAYS)
+        ->assertJsonPath('range.to', CarbonImmutable::parse($from)->addDays(MachineUtilisationController::MAX_DAYS)->toDateString());
+
+    $this->actingAs($this->ppc)->getJson("/production/analytics?from={$from}")->assertOk()
+        ->assertJsonPath('range.max_days', ProductionAnalyticsController::MAX_DAYS);
+});
+
+/*
+ * percent() reports null for a capacity of zero — there is no usable figure to divide by. free_qty has to
+ * agree, or one row says "utilisation unknown" and "500 m free" at the same time.
+ */
+it('reports capacity, free and utilisation as null together when the capacity on file is zero', function () {
+    $this->machine->forceFill(['daily_capacity' => 0, 'hourly_capacity' => null])->save();
+    $operation = Operation::query()->where('department_id', $this->department->id)->firstOrFail();
+    $this->capacity->allocate($this->machine, $this->today, 500, $operation, by: $this->ppc);
+
+    $row = $this->capacity->forMachine($this->machine->fresh(), $this->today, $this->today)->toArray();
+
+    expect($row['capacity_qty'])->toBeNull()
+        ->and($row['free_qty'])->toBeNull()
+        ->and($row['utilisation_pct'])->toBeNull()
+        ->and($row['allocated_qty'])->toBe(500.0);
 });

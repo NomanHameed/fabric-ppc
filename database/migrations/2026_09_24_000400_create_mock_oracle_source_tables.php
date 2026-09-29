@@ -12,6 +12,18 @@ use Illuminate\Support\Facades\Schema;
  * the connection points at a real Oracle instance this migration is a no-op, because the application must
  * never run DDL against the mill's ERP — it reads from it.
  *
+ * It also creates nothing when `APP_ENV=production`. The default `oracle_src` connection is the application's
+ * own database (config/database.php), so on a live install where nobody has configured an Oracle source yet
+ * this would otherwise put PROCESSING_LOTS, MACHINE_M, PARTY_M and the rest of the stand-in schema next to
+ * `lots` and `users` on the mill's production database. The mock exists for development and for the test
+ * suite; there is nothing for it to do on a production box.
+ *
+ * It stays in `database/migrations/` — the plain `migrate` path — rather than behind a separate
+ * `oracle:mock-migrate` command: the mock tables are what the test suite and every local install read through
+ * `OracleSourceReader`, and a second migration path would have to be re-applied by hand after every
+ * `migrate:fresh` and wired into RefreshDatabase. The config comment that claimed such a command existed was
+ * wrong and has been corrected (config/database.php, `oracle_src`).
+ *
  * Shapes follow docs/planning/findings.md §2 as closely as MySQL allows:
  *   - Oracle NUMBER(n) with no scale is an integer here: quantities really are whole metres (§6 q.12).
  *   - Oracle DATE carries a time component, so every DATE is a MySQL DATETIME.
@@ -27,15 +39,26 @@ return new class extends Migration
 
     public function up(): void
     {
-        if (! OracleSourceConnection::isMocked()) {
+        if (! OracleSourceConnection::isMocked() || config('app.env') === 'production') {
             return;
         }
 
         $schema = Schema::connection($this->connection);
 
+        // Skip a table that is already there. `oracle_src` defaults to the *same* schema as the app
+        // connection, but it does not have to: with ORACLE_SRC_DATABASE pointing at a separate schema,
+        // `migrate:fresh` drops only the application's own database, so the mock tables survive and a plain
+        // `migrate` afterwards would die on "table already exists". Creating only what is missing makes this
+        // migration safe to re-run against a schema it does not control the lifetime of.
+        $create = function (string $table, Closure $definition) use ($schema): void {
+            if (! $schema->hasTable($table)) {
+                $schema->create($table, $definition);
+            }
+        };
+
         // --- transactions -------------------------------------------------------------------------------
 
-        $schema->create('PROCESSING_LOTS', function (Blueprint $t) {
+        $create('PROCESSING_LOTS', function (Blueprint $t) {
             $t->unsignedBigInteger('PROCESSING_LOT_ID')->primary();   // NUMBER(10)
             $t->unsignedInteger('LOT_NUM');                            // NUMBER(8) — not unique
             $t->string('PLOT_NUM', 30)->nullable();                    // batch/run id — unconfirmed (§6 q.9)
@@ -74,7 +97,7 @@ return new class extends Migration
             $t->index(['TO_CC_CODE', 'DATED'], 'PROCESSING_LOTS_TO_CC_IDX');
         });
 
-        $schema->create('GREIGE_ISSUE_M', function (Blueprint $t) {
+        $create('GREIGE_ISSUE_M', function (Blueprint $t) {
             $t->unsignedInteger('GI_MAIN_ID')->primary();
             $t->unsignedInteger('GI_NUM');
             $t->dateTime('DATED');
@@ -91,7 +114,7 @@ return new class extends Migration
             $t->index(['DATED'], 'GREIGE_ISSUE_M_DATED_IDX');
         });
 
-        $schema->create('GREIGE_ISSUE_D', function (Blueprint $t) {
+        $create('GREIGE_ISSUE_D', function (Blueprint $t) {
             $t->unsignedInteger('GI_MAIN_ID');
             $t->unsignedInteger('GI_DTL_ID');
             $t->unsignedInteger('LOT_NUM');                            // not unique on its own (§5.1)
@@ -112,7 +135,7 @@ return new class extends Migration
         });
 
         // Stand-in: the real PROCESSING_CONTRACT_D DDL was never supplied (findings.md §4.3).
-        $schema->create('PROCESSING_CONTRACT_D', function (Blueprint $t) {
+        $create('PROCESSING_CONTRACT_D', function (Blueprint $t) {
             $t->unsignedInteger('PC_DTL_ID')->primary();
             $t->unsignedInteger('PC_MAIN_ID')->nullable();
             $t->unsignedInteger('CONTRACT_NUM');
@@ -136,43 +159,43 @@ return new class extends Migration
 
         // --- masters (findings.md §4.1: every one of these is missing from what Oracle supplied) ----------
 
-        $schema->create('COST_CENTRE_M', function (Blueprint $t) {
+        $create('COST_CENTRE_M', function (Blueprint $t) {
             $t->unsignedInteger('CC_CODE')->primary();
             $t->string('CC_NAME', 60);
             $t->string('CC_SHORT', 15)->nullable();
             $t->string('IS_ACTIVE', 1)->default('Y');
         });
 
-        $schema->create('MACHINE_M', function (Blueprint $t) {
+        $create('MACHINE_M', function (Blueprint $t) {
             $t->unsignedInteger('MACHINE_CODE')->primary();
             $t->string('MACHINE_NAME', 60);
             $t->unsignedInteger('CC_CODE')->nullable();
             $t->string('IS_ACTIVE', 1)->default('Y');
         });
 
-        $schema->create('OPERATION_M', function (Blueprint $t) {
+        $create('OPERATION_M', function (Blueprint $t) {
             $t->unsignedInteger('OPERATION_CODE')->primary();
             $t->string('OPERATION_NAME', 60);
             $t->unsignedInteger('CC_CODE')->nullable();
             $t->string('IS_ACTIVE', 1)->default('Y');
         });
 
-        $schema->create('DESIGN_M', function (Blueprint $t) {
+        $create('DESIGN_M', function (Blueprint $t) {
             $t->unsignedInteger('DESIGN_CODE')->primary();
             $t->string('DESIGN_NAME', 60);
         });
 
-        $schema->create('COLOUR_M', function (Blueprint $t) {
+        $create('COLOUR_M', function (Blueprint $t) {
             $t->unsignedInteger('COLOUR_CODE')->primary();
             $t->string('COLOUR_NAME', 80);
         });
 
-        $schema->create('PARTY_M', function (Blueprint $t) {
+        $create('PARTY_M', function (Blueprint $t) {
             $t->unsignedInteger('PARTY_CODE')->primary();
             $t->string('PARTY_NAME', 100);
         });
 
-        $schema->create('QUALITY_M', function (Blueprint $t) {
+        $create('QUALITY_M', function (Blueprint $t) {
             $t->unsignedInteger('Q_CODE')->primary();
             $t->string('QUALITY_NAME', 150);
         });

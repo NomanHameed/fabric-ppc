@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Modules\Activity\Models\UserAction;
 use App\Modules\Activity\Models\UserDevice;
 use App\Modules\Activity\Support\ActionKeys;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,8 +90,12 @@ class UserActionController extends Controller
             ->when($filters['subject_type'] ?? null, fn ($q, $v) => $q->where('subject_type', $v))
             ->when($filters['subject_id'] ?? null, fn ($q, $v) => $q->where('subject_id', $v))
             ->when($filters['device_id'] ?? null, fn ($q, $v) => $q->where('device_id', $v))
-            ->when($filters['from'] ?? null, fn ($q, $v) => $q->where('occurred_at', '>=', $v))
-            ->when($filters['to'] ?? null, fn ($q, $v) => $q->where('occurred_at', '<=', $v))
+            // A date filter names a day, not a midnight. `to=2026-09-29` compared as-is is
+            // `occurred_at <= 2026-09-29 00:00:00`, which drops everything that happened on the day the user
+            // asked for — including, on the default filter, today's own actions. endOfDay() matches
+            // ProductionAnalyticsService and MachineAllocation::scopeBetween.
+            ->when($filters['from'] ?? null, fn ($q, $v) => $q->where('occurred_at', '>=', CarbonImmutable::parse((string) $v)->startOfDay()))
+            ->when($filters['to'] ?? null, fn ($q, $v) => $q->where('occurred_at', '<=', CarbonImmutable::parse((string) $v)->endOfDay()))
             ->orderByDesc('occurred_at')->orderByDesc('id')
             ->paginate($filters['per_page'] ?? self::PER_PAGE)->withQueryString();
     }

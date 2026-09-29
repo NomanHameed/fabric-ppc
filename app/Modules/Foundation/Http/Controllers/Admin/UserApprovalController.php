@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Modules\Activity\Models\UserAction;
 use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Foundation\Access\Approval;
+use App\Modules\Foundation\Access\Permissions;
 use App\Modules\Foundation\Services\UserApprovalService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -52,6 +53,8 @@ class UserApprovalController extends Controller
 
     public function approve(Request $request, User $user): RedirectResponse
     {
+        $this->assertMayModerate($request, $user);
+
         $this->run(fn () => $this->approvals->approve($user, $request->user()));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('approval.approved')]);
@@ -61,6 +64,8 @@ class UserApprovalController extends Controller
 
     public function reject(Request $request, User $user): RedirectResponse
     {
+        $this->assertMayModerate($request, $user);
+
         $data = $request->validate(['rejected_reason' => ['required', 'string', 'max:200']]);
 
         $this->run(fn () => $this->approvals->reject($user, $request->user(), $data['rejected_reason']));
@@ -68,6 +73,19 @@ class UserApprovalController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('approval.rejected_done')]);
 
         return back();
+    }
+
+    /**
+     * The Task-14 privilege boundary (HANDOFF §7), mirrored from UserController: only an admin may act on
+     * another admin's account. `admin.users.approve` is held by the Manager role and is deliberately weaker
+     * than `admin.users.manage`, so without this a manager could decide an administrator's account.
+     */
+    private function assertMayModerate(Request $request, User $user): void
+    {
+        abort_if(
+            ! $request->user()->hasRole(Permissions::ROLE_ADMIN) && $user->hasRole(Permissions::ROLE_ADMIN),
+            403,
+        );
     }
 
     /** Domain refusals reach the form as a field error, not only as a toast. */

@@ -23,13 +23,6 @@ vi.mock('@/components/forms/DataGrid.vue', () => ({
     }),
 }));
 
-vi.mock('@/components/activity/DeviceNamePrompt.vue', () => ({
-    default: defineComponent({
-        name: 'DeviceNamePrompt',
-        setup: () => () => null,
-    }),
-}));
-
 const row = {
     id: 1,
     action: 'lot.closed',

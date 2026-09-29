@@ -222,7 +222,22 @@ final class MachineCapacityService
         })->values();
     }
 
-    /** Inclusive day count; a single date is one day, not zero. */
+    /**
+     * Inclusive **calendar** day count; a single date is one day, not zero.
+     *
+     * Calendar days, not working days, and deliberately so: the application has no working calendar. There is
+     * no roster, no shift pattern per machine, no holiday master — nothing that could say which days a given
+     * machine was meant to run. Inventing one here (say, "Sundays don't count", which is what the demo data
+     * happens to do) would be this service making up a business rule nobody has stated, and it would move
+     * every utilisation figure on the dashboard by roughly a seventh.
+     *
+     * The consequence is real and must be read the right way: over a month that includes four idle Sundays,
+     * capacity is counted for those Sundays too, so utilisation reads about 14% lower than "of the days we
+     * actually ran". The screen says so — `production.capacity.range` reads "(:days calendar day(s))".
+     *
+     * If PPC wants utilisation against *working* days, the fix is a working-calendar master (per machine or
+     * per department, with holidays), not arithmetic here. Until that exists, this stays as it is.
+     */
     private function days(CarbonInterface $from, CarbonInterface $to): int
     {
         if ($to->startOfDay()->lessThan($from->startOfDay())) {

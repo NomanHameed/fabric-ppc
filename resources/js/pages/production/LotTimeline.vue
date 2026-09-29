@@ -56,6 +56,18 @@ const failed = ref(false);
 /** Empty means "everything"; the endpoint takes the same convention. */
 const selectedTypes = ref<string[]>([]);
 
+/**
+ * How many events are asked for.
+ *
+ * The endpoint returns *every* event when no limit is given, and a lot that has been reprocessed a few times
+ * carries hundreds — each one an `<li>` with a rail, a badge and three lines of text. Rendering all of them
+ * costs the reader nothing they wanted: a timeline is read from the top. So the screen asks for a bounded
+ * page, says plainly when it has one, and offers the rest on demand up to the endpoint's own ceiling of 500.
+ */
+const PAGE_LIMIT = 200;
+const FULL_LIMIT = 500;
+const limit = ref(PAGE_LIMIT);
+
 async function load(): Promise<void> {
     if (props.lot === null) {
         events.value = [];
@@ -67,6 +79,7 @@ async function load(): Promise<void> {
     for (const type of selectedTypes.value) {
         params.append('types[]', type);
     }
+    params.set('limit', String(limit.value));
     try {
         const res = await getJson<TimelineResponse>(
             `/production/lots/${props.lot.id}/timeline?${params.toString()}`,
@@ -80,10 +93,25 @@ async function load(): Promise<void> {
     }
 }
 
+/**
+ * A full page back means the lot probably has more; it might have exactly this many, which is why the notice
+ * says "there may be more" rather than claiming a number it cannot know.
+ */
+const capped = computed(() => events.value.length >= limit.value);
+
+function loadAll(): void {
+    limit.value = FULL_LIMIT;
+    void load();
+}
+
 onMounted(() => void load());
 watch(
     () => props.lot?.id,
-    () => void load(),
+    () => {
+        // A different lot is a different question: it starts from the first page again.
+        limit.value = PAGE_LIMIT;
+        void load();
+    },
 );
 // Every event sentence is written server-side in the current locale, so a language change has to re-ask.
 watch(locale, () => void load());
@@ -100,11 +128,13 @@ function toggleType(type: string): void {
     selectedTypes.value = selectedTypes.value.includes(type)
         ? selectedTypes.value.filter((s) => s !== type)
         : [...selectedTypes.value, type];
+    limit.value = PAGE_LIMIT;
     void load();
 }
 
 function showAll(): void {
     selectedTypes.value = [];
+    limit.value = PAGE_LIMIT;
     void load();
 }
 
@@ -231,6 +261,24 @@ const place = (event: TimelineResponse['events'][number]): string | null =>
                     <span class="text-muted-foreground text-xs tabular-nums">{{
                         t('timeline.screen.count', { n: events.length })
                     }}</span>
+                    <template v-if="capped">
+                        <span
+                            class="text-muted-foreground text-xs"
+                            data-test="timeline-capped"
+                            >{{
+                                t('timeline.screen.capped', { n: limit })
+                            }}</span
+                        >
+                        <button
+                            v-if="limit < FULL_LIMIT"
+                            type="button"
+                            class="text-primary text-xs underline underline-offset-4"
+                            data-test="timeline-load-all"
+                            @click="loadAll"
+                        >
+                            {{ t('timeline.screen.load_all') }}
+                        </button>
+                    </template>
                 </div>
                 <div class="-mx-1 flex flex-wrap gap-1.5 px-1">
                     <Button

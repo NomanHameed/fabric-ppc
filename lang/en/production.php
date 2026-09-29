@@ -105,7 +105,9 @@ return [
         'all_departments' => 'All departments',
         'apply' => 'Apply',
         'reset' => 'Reset',
-        'range' => ':from to :to (:days day(s))',
+        'range' => ':from to :to (:days calendar day(s))',
+        // The server caps an unbounded range; saying so beats silently showing a different range than asked.
+        'clamped' => 'The range was shortened to :days days — the longest this screen will query.',
         'columns' => [
             'code' => 'Code', 'name' => 'Name', 'allocated' => 'Allocated (m)', 'capacity' => 'Capacity (m)',
             'free' => 'Free (m)', 'utilisation' => 'Utilisation', 'uom' => 'Unit',

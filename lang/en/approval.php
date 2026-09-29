@@ -52,6 +52,7 @@ return [
     'rejected_done' => 'Account rejected.',
     'errors' => [
         'already_approved' => 'This account is already approved.',
+        'already_decided' => 'A decision has already been recorded for this account.',
         'cannot_moderate_self' => 'You cannot approve or reject your own account.',
     ],
 ];

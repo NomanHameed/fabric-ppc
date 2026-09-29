@@ -21,7 +21,14 @@ class TrackDevice
 
     public function handle(Request $request, Closure $next): Response
     {
-        $this->devices->track($request);
+        // A refused account still gets its cookie — the terminal keeps one identity, and the row it belongs to
+        // is created the moment the account is approved — but it must not be able to write rows.
+        //
+        // This middleware runs before EnsureUserIsApproved (deliberately: a blocked attempt should still be
+        // attributable), and that gate redirects without logging the session out. So a rejected user who
+        // varies the `device_id` cookie was minting one user_devices row per request, unbounded, from a
+        // session the application has already refused. Only an approved account gets a row.
+        $this->devices->track($request, rows: $request->user()?->isApproved() ?? true);
 
         return $next($request);
     }

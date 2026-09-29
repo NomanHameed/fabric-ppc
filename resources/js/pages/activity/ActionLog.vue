@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, reactive, watch } from 'vue';
-import DeviceNamePrompt from '@/components/activity/DeviceNamePrompt.vue';
+import { computed, reactive, watchEffect } from 'vue';
 import { formatDateTime } from '@/components/activity/format';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import { Button } from '@/components/ui/button';
@@ -65,10 +64,23 @@ const form = reactive({
     to: props.filters.to ?? '',
 });
 
-watch(
-    () => props.meta.total,
-    (total) => statusLine.setRecord(props.data.length > 0 ? 1 : 0, total),
-    { immediate: true },
+/**
+ * The status line's "Record n of m".
+ *
+ * `watchEffect`, not `watch(() => props.meta.total)`, for two reasons. The index is the row this page starts
+ * at (`meta.from`), not a hard-coded 1 — on page three of the log the footer said "Record 1 of 412" while the
+ * grid showed rows 101 to 150. And the layout resets the status line on every Inertia `navigate`, which fires
+ * before a watcher on `total` alone would: paging to another page of the same result set leaves `total`
+ * unchanged, the watcher never runs, and the footer stays blank. `watchEffect` re-runs on every prop this
+ * reads, so the reset is always followed by a write.
+ */
+watchEffect(() =>
+    statusLine.setRecord(
+        // Reading `data` as well as `meta` is deliberate: the rows are a fresh array on every response, so a
+        // reload that changes neither the offset nor the total still re-runs this after the layout's reset.
+        props.data.length === 0 ? 0 : (props.meta.from ?? 0),
+        props.meta.total,
+    ),
 );
 
 /** Only the filters that are actually set; an empty one is left out so the URL stays readable. */
@@ -176,8 +188,6 @@ const columns = computed<ColumnDef<ActionRow>[]>(() => [
                 {{ t('activity.description') }}
             </p>
         </header>
-
-        <DeviceNamePrompt />
 
         <section
             class="bg-card rounded-md border p-3"

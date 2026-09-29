@@ -13,6 +13,8 @@ return [
         'filter' => 'Show',
         'all_types' => 'Everything',
         'count' => ':n event(s)',
+        'capped' => 'Showing the most recent :n; there may be more.',
+        'load_all' => 'Load all',
         'not_found' => 'That lot no longer exists.',
         'failed' => 'The timeline could not be loaded.',
         'retry' => 'Try again',

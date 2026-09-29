@@ -49,9 +49,22 @@ Gate at commit `9dc1181`: MySQL 658 tests / 653 passed / 0 failed; PHPStan 0 err
 **Known defects**
 
 4. One SQLite-only test failure: a `date` column compares differently on SQLite and MySQL (`ProductionSheetScreenTest`). Green on MySQL.
-5. No MySQL CI job — the gate runs on SQLite, which is not what ships. This has now hidden three cross-database bugs.
-6. `tests/Browser/TmpTest.php` is committed debris.
+5. No MySQL CI job — the gate runs on SQLite, which is not what ships. This has now hidden **four** cross-database bugs: the two TIMESTAMP columns fixed in `628dc9c`, `colour_overrides.approved_at` fixed in the backend review round, and the `date`-column comparison above.
+6. ~~`tests/Browser/TmpTest.php` is committed debris.~~ Deleted. The browser tests moved to `tests-browser/` and are opt-in (`composer test:browser`) — the Pest browser plugin starts a Playwright server at *collection* time and leaves it holding stdout, which is what made a piped bare `pest` hang for a quarter of an hour after the tests had finished. A bare run is now ~3 minutes (`docs/setup.md` §4.6).
 7. `DeviceNamePrompt` is mounted only on the action-log page, so most users never see it.
+
+**Backend review round (uncommitted)**
+
+Fixed on top of `628dc9c`: the `admin.users.approve` "disable any account" hole (a manager could reject the
+Administrator); the demo dataset seeding into production; unthrottled registration; the mock Oracle schema
+landing in a production database; a 500 on a backwards utilisation range; the action log's `to` filter
+dropping the last day; unbounded `user_devices` growth from a refused session; no retention at all on
+`user_actions` (`activity:prune`); **the production action keys — `lot.issued`, `lot.moved`, `lot.held`,
+`lot.released`, `lot.cancelled`, `colour.approved`, `colour.rejected` — which no real code path had ever
+written**, so the action log and every lot timeline were empty for real lots; `db:seed` overwriting real
+machine capacities; a pending account's full permission list in the Inertia props; a failed log line 500ing a
+completed request; `colour_overrides.approved_at` silently rewritten by MariaDB; and `free_qty` contradicting
+`utilisation_pct` at capacity zero.
 
 **Housekeeping**
 

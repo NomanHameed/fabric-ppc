@@ -63,6 +63,9 @@ return [
         'retry' => 'Try again',
         'summary_view' => 'Shown as a summary on a narrow screen.',
         'no_capacity_charted' => 'Machines with no capacity on file are listed but not charted.',
+        // Everything past the eighth band, summed: a chart with more colours than the palette holds would
+        // repeat one, and two departments in the same colour is worse than one honest "other".
+        'other' => 'Other',
     ],
     'axis' => [
         'metres' => 'Metres',

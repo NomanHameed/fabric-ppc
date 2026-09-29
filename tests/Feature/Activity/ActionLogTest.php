@@ -10,6 +10,8 @@ use App\Modules\Foundation\Access\Permissions;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -174,4 +176,50 @@ it('refuses the log to a user without activity.view', function () {
 
 it('rejects an unknown action key as a filter', function () {
     $this->actingAs($this->ppc)->getJson('/activity/actions?action=made.up')->assertStatus(422);
+});
+
+/*
+ * A date filter names a day, not a midnight. `?to=<today>` compared as `occurred_at <= '<today>'` is
+ * `<= 00:00:00`, which hides everything that happened on the day the user asked for — including, on the
+ * default filter, today's own actions.
+ */
+it('keeps the last day of the range in the to filter', function () {
+    $viewer = User::factory()->create()->assignRole(Permissions::ROLE_PPC);
+    app(ActionLogger::class)->log(ActionKeys::LOT_CLOSED, null, ['lot' => '640101'], $viewer);
+
+    $today = CarbonImmutable::today()->toDateString();
+
+    $this->actingAs($this->ppc)->getJson("/activity/actions?to={$today}")->assertOk()
+        ->assertJsonCount(1, 'data');
+
+    $this->actingAs($this->ppc)->getJson("/activity/actions?from={$today}&to={$today}")->assertOk()
+        ->assertJsonCount(1, 'data');
+});
+
+it('still excludes a day outside the range', function () {
+    $viewer = User::factory()->create()->assignRole(Permissions::ROLE_PPC);
+    app(ActionLogger::class)->log(ActionKeys::LOT_CLOSED, null, ['lot' => '640101'], $viewer);
+
+    $yesterday = CarbonImmutable::yesterday()->toDateString();
+
+    $this->actingAs($this->ppc)->getJson("/activity/actions?to={$yesterday}")->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
+/*
+ * The log must never be the thing that fails the request: it runs after an operation that has already
+ * committed, so a broken write here has to degrade to a warning, not to a 500 the user reads as "it did not
+ * work".
+ */
+it('survives a database failure while recording, and warns instead', function () {
+    Log::spy();
+    Schema::drop('user_actions');
+
+    $action = app(ActionLogger::class)->log(ActionKeys::LOT_CLOSED, null, ['lot' => '640101'], $this->ppc);
+
+    expect($action->exists)->toBeFalse()
+        ->and($action->action)->toBe(ActionKeys::LOT_CLOSED)
+        ->and($action->description)->toContain('640101');
+
+    Log::shouldHaveReceived('warning')->once();
 });

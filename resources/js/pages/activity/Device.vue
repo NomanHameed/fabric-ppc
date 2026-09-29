@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { formatDateTime } from '@/components/activity/format';
+import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
 import FormBlock from '@/components/forms/FormBlock.vue';
 import FormField from '@/components/forms/FormField.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import { t } from '@/lib/i18n';
 
 /**
@@ -22,9 +24,22 @@ const props = defineProps<{
 
 const form = useForm({ computer_name: props.device.computer_name ?? '' });
 
-function save(): void {
-    form.put('/devices/name', { preserveScroll: true });
+function save(): Promise<boolean> {
+    return new Promise((resolve) => {
+        form.put('/devices/name', {
+            preserveScroll: true,
+            onSuccess: () => resolve(true),
+            onError: () => resolve(false),
+        });
+    });
 }
+
+/**
+ * This screen has exactly one editable field and no toolbar, which is precisely why it was missing the guard
+ * every other editable screen has: typing a name and then clicking away in the sidebar dropped it without a
+ * word. Same contract as the master screens — Save / Discard / Cancel, and a blocked `beforeunload`.
+ */
+const guard = useUnsavedGuard(() => form.isDirty, save);
 </script>
 
 <template>
@@ -95,5 +110,10 @@ function save(): void {
                 {{ t('activity.device.save') }}
             </Button>
         </div>
+
+        <ConfirmSaveDialog
+            :open="guard.dialogOpen.value"
+            @choose="guard.choose"
+        />
     </div>
 </template>

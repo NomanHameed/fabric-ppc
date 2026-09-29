@@ -18,10 +18,11 @@ final class UserApprovalService
 {
     use RecordsUserActions;
 
-    /** @throws DomainException when the moderator is the account holder */
+    /** @throws DomainException when the moderator is the account holder, or the account is not awaiting a decision */
     public function approve(User $user, User $moderator): User
     {
         $this->assertNotSelf($user, $moderator);
+        $this->assertPending($user);
 
         DB::transaction(function () use ($user, $moderator): void {
             $user->forceFill([
@@ -37,10 +38,11 @@ final class UserApprovalService
         return $user;
     }
 
-    /** @throws DomainException when the moderator is the account holder */
+    /** @throws DomainException when the moderator is the account holder, or the account is not awaiting a decision */
     public function reject(User $user, User $moderator, string $reason): User
     {
         $this->assertNotSelf($user, $moderator);
+        $this->assertPending($user);
 
         DB::transaction(function () use ($user, $moderator, $reason): void {
             $user->forceFill([
@@ -80,5 +82,27 @@ final class UserApprovalService
         if ($user->is($moderator)) {
             throw new DomainException(__('approval.errors.cannot_moderate_self'));
         }
+    }
+
+    /**
+     * Moderation decides a *signup*. It is not a switch for turning working accounts off.
+     *
+     * Without this, `admin.users.approve` — which the Manager role holds, and which is deliberately separate
+     * from `admin.users.manage` — was an unrestricted "disable any account" power: a POST to
+     * `/admin/users/{admin}/reject` on the live Administrator locked the mill out of its own admin screens with
+     * no in-app way back. Deactivating an existing account is `admin.users.manage` (UserController's is_active),
+     * and doing it to an admin needs the admin role (the Task-14 privilege boundary, HANDOFF §7).
+     *
+     * @throws DomainException when the account has already been decided
+     */
+    private function assertPending(User $user): void
+    {
+        if ($user->isPendingApproval()) {
+            return;
+        }
+
+        throw new DomainException(__(
+            $user->isApproved() ? 'approval.errors.already_approved' : 'approval.errors.already_decided'
+        ));
     }
 }

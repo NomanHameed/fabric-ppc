@@ -77,6 +77,7 @@ export function useRangeFilters(
     filters: RangeFilters;
     query: () => string;
     apply: () => void;
+    adopt: (from: string, to: string) => boolean;
     reset: () => void;
     setPreset: (preset: RangePreset) => void;
 } {
@@ -126,6 +127,24 @@ export function useRangeFilters(
                 filters.to = filters.from;
             }
             syncUrl();
+        },
+        /**
+         * Take the range the server actually ran.
+         *
+         * Every one of these endpoints caps an unbounded range (a year), so what came back is not always what
+         * was asked for. Without this the inputs say one thing and the figures beside them another, and the
+         * URL someone copies does not reproduce what they were looking at. Returns true when the server
+         * narrowed the range, so the screen can say so out loud instead of quietly changing the answer.
+         */
+        adopt(from: string, to: string): boolean {
+            if (filters.from === from && filters.to === to) {
+                return false;
+            }
+            filters.from = from;
+            filters.to = to;
+            syncUrl();
+
+            return true;
         },
         reset(): void {
             Object.assign(filters, defaults);

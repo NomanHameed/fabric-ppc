@@ -89,7 +89,7 @@ function save(): void {
 <template>
     <section
         v-if="visible"
-        class="bg-info-surface text-info-on-surface flex flex-col gap-3 rounded-md px-3 py-3"
+        class="bg-info-surface text-info-on-surface mx-3 mt-3 flex flex-col gap-3 rounded-md px-3 py-3 sm:mx-4 sm:mt-4"
         role="region"
         :aria-label="t('activity.device.prompt_title')"
         data-test="device-name-prompt"
@@ -138,7 +138,13 @@ function save(): void {
             </Button>
         </div>
 
-        <p v-if="error" class="text-destructive text-xs" role="alert">
+        <!-- `-on-surface`, not `text-destructive`: the plain token is ~4:1 against this info surface in dark
+             mode, and this line is the only thing that says why the name would not save. -->
+        <p
+            v-if="error"
+            class="text-destructive-on-surface text-xs"
+            role="alert"
+        >
             {{ error }}
         </p>
     </section>

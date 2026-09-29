@@ -78,6 +78,11 @@
     --color-chart-3: var(--chart-3);
     --color-chart-4: var(--chart-4);
     --color-chart-5: var(--chart-5);
+    --color-chart-6: var(--chart-6);
+    --color-chart-7: var(--chart-7);
+    --color-chart-8: var(--chart-8);
+    --color-chart-9: var(--chart-9);
+    --color-chart-10: var(--chart-10);
 
     --color-sidebar: var(--sidebar-background);
     --color-sidebar-foreground: var(--sidebar-foreground);
@@ -174,11 +179,21 @@
        outline is the only thing that says "this is a text field". */
     --input: oklch(0.62 0.012 161.2);
     --ring: oklch(0.532 0.098 161.2);
+    /* Ten categorical series colours: the mill has twelve departments, so five ran out and the
+       sixth department was painted the same green as the first. Hues are spread around the wheel
+       (161 brand green, 250, 72, 305, 200, 28, 128, 283, 348) with a desaturated taupe last, so
+       neighbours stay apart for a red-green reader as well; lightness is held near the brand's so
+       a stacked bar still reads as one family. The `.dark` block lifts the same hues. */
     --chart-1: oklch(0.532 0.098 161.2);
     --chart-2: oklch(0.52 0.145 250);
     --chart-3: oklch(0.56 0.115 72);
     --chart-4: oklch(0.55 0.13 305);
     --chart-5: oklch(0.55 0.11 200);
+    --chart-6: oklch(0.55 0.155 28);
+    --chart-7: oklch(0.585 0.105 128);
+    --chart-8: oklch(0.475 0.15 283);
+    --chart-9: oklch(0.55 0.145 348);
+    --chart-10: oklch(0.525 0.045 60);
     --radius: 0.5rem;
     --sidebar-background: oklch(0.965 0.009 161.2);
     --sidebar-foreground: oklch(0.28 0.018 161.2);
@@ -235,6 +250,11 @@
     --chart-3: oklch(0.79 0.145 75);
     --chart-4: oklch(0.72 0.13 305);
     --chart-5: oklch(0.74 0.1 200);
+    --chart-6: oklch(0.735 0.14 28);
+    --chart-7: oklch(0.8 0.125 128);
+    --chart-8: oklch(0.695 0.135 283);
+    --chart-9: oklch(0.745 0.14 348);
+    --chart-10: oklch(0.715 0.04 60);
     --sidebar-background: oklch(0.19 0.013 161.2);
     --sidebar-foreground: oklch(0.91 0.01 161.2);
     --sidebar-primary: oklch(0.75 0.108 161.2);

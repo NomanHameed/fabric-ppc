@@ -11,7 +11,9 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Records a business action in one call. Who, what, which record, from where — everything except the action
@@ -37,8 +39,11 @@ class ActionLogger
      * @param  string  $action  an ActionKeys constant
      * @param  Model|null  $subject  the record acted on
      * @param  array<string, scalar|null>  $context  replacements for the description, kept on the row
+     * @param  CarbonInterface|null  $at  when it happened, when that is not "now": a production sheet or an
+     *                                    issue is entered for a production date, sometimes days later, and the
+     *                                    log should read in the order the mill worked, not the order it typed
      */
-    public function log(string $action, ?Model $subject = null, array $context = [], ?User $user = null): UserAction
+    public function log(string $action, ?Model $subject = null, array $context = [], ?User $user = null, ?CarbonInterface $at = null): UserAction
     {
         $request = $this->request();
         $actor = $user ?? Auth::user();
@@ -51,7 +56,7 @@ class ActionLogger
             $this->device($request, $actor),
             $request?->ip(),
             $request === null ? null : (string) $request->userAgent(),
-            null,
+            $at,
         );
     }
 
@@ -93,7 +98,7 @@ class ActionLogger
         ?string $userAgent,
         ?CarbonInterface $at,
     ): UserAction {
-        return UserAction::query()->create([
+        $attributes = [
             'user_id' => $user?->getKey(),
             'user_name' => $user?->name,
             'action' => $action,
@@ -107,7 +112,29 @@ class ActionLogger
             'computer_name' => $device?->computer_name,
             'user_agent' => $userAgent === null ? null : Str::limit($userAgent, 250, ''),
             'occurred_at' => $at ?? now(),
-        ]);
+        ];
+
+        // The log must never be the thing that fails the request. Recording is the *last* step of an operation
+        // that has already happened and already committed — a lot really was issued, an account really was
+        // approved — so a failure here (a column too short, the table locked, the connection gone) must not
+        // turn a completed business action into a 500 the user reads as "it did not work". It is logged as a
+        // warning and the caller gets a non-persisted instance, which has the same shape and an empty key.
+        //
+        // This is why every caller records *after* its transaction commits: swallowing an exception raised
+        // inside someone else's transaction would hide a rollback rather than a lost log line.
+        try {
+            return UserAction::query()->create($attributes);
+        } catch (Throwable $e) {
+            Log::warning('Failed to record a user action; the action itself was not affected.', [
+                'action' => $action,
+                'subject_type' => $attributes['subject_type'],
+                'subject_id' => $attributes['subject_id'],
+                'user_id' => $attributes['user_id'],
+                'exception' => $e,
+            ]);
+
+            return new UserAction($attributes);
+        }
     }
 
     /**

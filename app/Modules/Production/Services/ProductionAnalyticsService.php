@@ -240,6 +240,13 @@ final class ProductionAnalyticsService
      * not-started are their own stages; everything at a route step is grouped under the department that owns
      * it; finished metres are the last stage. Dispatched and loss are counters, not places, so they are out.
      *
+     * Why `DB::table('lot_balances')` and not `LedgerService::balances()`: that method answers "the positions
+     * of *one* lot" (`LedgerService::balances(Lot $lot)`); this needs one grouped SUM over every open lot, and
+     * calling it per lot would be a query per lot on every dashboard refresh. It is a read — the ledger's
+     * authority is over *writes*, and LedgerService remains the only writer of `lot_movements` and
+     * `lot_balances`, so nothing here can make the two disagree. If `balances()` ever grows a grouped,
+     * cross-lot form, this should move onto it.
+     *
      * @param  array<int, array{operation_id: int, department_id: int}>  $steps
      * @return list<array{key: string, name: string, qty: float}>
      */

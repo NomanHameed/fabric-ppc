@@ -157,8 +157,9 @@ class DemoProductionSeeder extends Seeder
 
         $issuedAt = $poDate->addDays(2);
         $qty = round((float) $lot->greige_qty, 2);
+        // IssueService records `lot.issued` itself now, stamped with the issue date, so there is nothing to
+        // log here — doing it again would put two identical rows on every demo lot's timeline.
         $issues->issue($lot, $qty, $ppc, $issuedAt);
-        $logger->record(ActionKeys::LOT_ISSUED, $lot, ['qty' => $qty, 'lot' => $lot->lot_no], $ppc, null, null, null, $issuedAt);
 
         if ($stage === 1) {
             return;
@@ -213,9 +214,9 @@ class DemoProductionSeeder extends Seeder
             if ($n % 9 === 5) {
                 // Through asAuditUser so the state change lands in `audits` with the manager on it: that row
                 // is what the lot timeline reads for "put on hold".
+                // LotStateService records `lot.held` itself now (at the time of the run, not $movedAt: the
+                // transition takes no backdate), so this seeder no longer logs it a second time.
                 ImportCommitService::asAuditUser($manager, fn () => $states->hold($lot, 'PARTY_HOLD', $manager));
-                $logger->record(ActionKeys::LOT_HELD, $lot, ['lot' => $lot->lot_no, 'reason' => 'PARTY_HOLD'],
-                    $manager, null, null, null, $movedAt->addDay());
             }
 
             return;

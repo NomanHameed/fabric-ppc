@@ -3,6 +3,8 @@
 namespace App\Modules\Production\Services;
 
 use App\Models\User;
+use App\Modules\Activity\Concerns\RecordsUserActions;
+use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Foundation\Models\LookupValue;
 use App\Modules\Foundation\Models\Machine;
 use App\Modules\Foundation\Models\Operation;
@@ -58,6 +60,8 @@ use Illuminate\Validation\ValidationException;
  */
 final class ProductionSheetService
 {
+    use RecordsUserActions;
+
     /** Departments whose operations always need an approved colour (spec §5.4), plus any operation with finish_type. */
     private const GATED_DEPARTMENTS = ['JIGGER_DYEING', 'PRINTING'];
 
@@ -74,6 +78,9 @@ final class ProductionSheetService
     /** @var array<int, string>|null colour_status codes flagged approved, cached per save */
     private ?array $approvedCodes = null;
 
+    /** @var array<string, string> position value => human label, memoised per save (a sheet reuses few steps) */
+    private array $positionLabels = [];
+
     public function __construct(private readonly LedgerService $ledger, private readonly LotRouteService $routes) {}
 
     /**
@@ -89,6 +96,7 @@ final class ProductionSheetService
     {
         $sheetId = $sheet?->getKey();
         $this->approvedCodes = null;
+        $this->positionLabels = [];
 
         return DB::transaction(function () use ($sheetId, $header, $lines, $user): ProductionSheet {
             // Locks first (a deadlock retry re-runs this closure from the top, so every instance is fresh per attempt):
@@ -308,7 +316,57 @@ final class ProductionSheetService
         }
         $this->routes->refreshStatuses($lot);
 
+        // The action log's `lot.moved`: what a supervisor reads ("moved lot 264899 from Issued to Stenter"),
+        // beside the ledger movement that is the authority for the metres. Recorded after the sheet's
+        // transaction commits, because ActionLogger deliberately swallows its own failures and must not do
+        // that while somebody else's transaction is open.
+        //
+        // Only a real move. A reprocess line keeps the metres exactly where they are, and "moved lot X from
+        // Stenter to Stenter" would be noise on every timeline; the ledger row already says `reprocess`, and
+        // LotTimelineService renders it as such.
+        if (! $from->equals($to)) {
+            $labels = [
+                'lot' => $lot->lot_no,
+                'from' => $this->positionLabel($from),
+                'to' => $this->positionLabel($to),
+            ];
+            $movedAt = $sheet->sheet_date->setTime(12, 0);
+            DB::afterCommit(fn () => $this->recordAction(ActionKeys::LOT_MOVED, $lot, $labels, $user, $movedAt));
+        }
+
         return $line;
+    }
+
+    /**
+     * A position as a person reads it: the operation of that route step, or the fixed position's own label.
+     *
+     * Memoised for the whole save — a sheet's lines share a handful of steps, so this is one query per
+     * distinct step rather than one per line.
+     */
+    private function positionLabel(Position $position): string
+    {
+        $value = $position->value();
+
+        if (isset($this->positionLabels[$value])) {
+            return $this->positionLabels[$value];
+        }
+
+        $stepId = $position->stepId();
+        $name = $stepId === null
+            ? null
+            : LotRouteStep::query()->whereKey($stepId)->with('operation:id,name')->first()?->operation?->name;
+
+        $label = $name ?? $this->line('production.positions.'.$position->labelKey());
+
+        return $this->positionLabels[$value] = $label;
+    }
+
+    /** A lang line as a plain string: __() is declared as string|array|null, which no caller here wants. */
+    private function line(string $key): string
+    {
+        $value = __($key);
+
+        return is_string($value) ? $value : $key;
     }
 
     /**

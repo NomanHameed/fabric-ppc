@@ -44,10 +44,14 @@ final class DeviceRegistrar
      *
      * A guest still leaves with the cookie, so the terminal keeps the same identity into the session where it
      * finally matters; the row is created at that point, under the id the cookie already carries.
+     *
+     * `$rows: false` is the same deal for a signed-in account the application has refused (TrackDevice passes
+     * it for an unapproved user): cookie yes, new row no. An existing row is still kept current, because that
+     * is a terminal somebody has already met.
      */
-    public function track(Request $request): ?UserDevice
+    public function track(Request $request, bool $rows = true): ?UserDevice
     {
-        $this->tracked = true;
+        $this->tracked = $rows;
 
         if ($this->resolved !== null) {
             return $this->resolved;
@@ -55,7 +59,7 @@ final class DeviceRegistrar
 
         $deviceId = $this->issue($request);
 
-        if ($request->user() === null) {
+        if (! $rows || $request->user() === null) {
             $device = UserDevice::query()->where('device_id', $deviceId)->first();
 
             if ($device !== null) {
@@ -133,8 +137,9 @@ final class DeviceRegistrar
     }
 
     /**
-     * Whether TrackDevice ran, i.e. whether there is a terminal behind this at all. False on the console and
-     * in queue workers — and in a seeder, which is what stops a seeded action from inventing a device row.
+     * Whether TrackDevice ran *and* was allowed to write rows — i.e. whether there is a terminal behind this
+     * that may be recorded. False on the console and in queue workers, in a seeder (which is what stops a
+     * seeded action from inventing a device row), and for a signed-in account the approval gate has refused.
      */
     public function wasTracked(): bool
     {
@@ -155,6 +160,12 @@ final class DeviceRegistrar
     /**
      * Keep last_seen_at / last_ip / user fresh without writing on every single request: a busy screen would
      * otherwise turn one page into dozens of updates on the same row.
+     *
+     * A terminal changing hands is audited; a heartbeat is not. `UserDevice::$auditInclude` names `user_id`
+     * because "who is this machine now signed in as" is exactly the kind of fact an audit trail is for — and a
+     * blanket `saveQuietly()` here meant that column could change forever without a single audit row, which
+     * made the model's declaration a lie. The stale-timestamp refresh stays quiet: it happens every five
+     * minutes per terminal and records no decision.
      */
     private function touch(UserDevice $device, Request $request): void
     {
@@ -171,6 +182,14 @@ final class DeviceRegistrar
             'last_ip_address' => $request->ip(),
             'user_agent' => Str::limit((string) $request->userAgent(), 250, ''),
             'last_seen_at' => now(),
-        ])->saveQuietly();
+        ]);
+
+        if ($newUser) {
+            $device->save();
+
+            return;
+        }
+
+        $device->saveQuietly();
     }
 }

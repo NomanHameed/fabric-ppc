@@ -56,6 +56,13 @@ it('names the route step a lot moved to, not the raw position', function () {
         ->and($moved->title())->toContain($step->operation->name);
 });
 
+/*
+ * Note on the ACTION entries below: IssueService now records `lot.issued` through ActionLogger (the whole
+ * point of the Activity module — before this, nothing but the demo seeder ever wrote a production action key,
+ * so the action log and this timeline were empty for every real lot). The action carries the same instant as
+ * the movement it describes, so it sits beside it here: the movement is the ledger's record of the metres,
+ * the action is the log's record of the decision, and the timeline shows both.
+ */
 it('is ordered by time and covers issue, loss, finish and dispatch', function () {
     $ledger = app(LedgerService::class);
     app(IssueService::class)->issue($this->lot, 1000, $this->ppc, now()->subDays(5));
@@ -67,6 +74,7 @@ it('is ordered by time and covers issue, loss, finish and dispatch', function ()
 
     expect(timelineTypes($this->lot))->toBe([
         TimelineEventType::LOADED,
+        TimelineEventType::ACTION,      // "Issued 1 000 m of lot X to the floor" — same instant as the movement
         TimelineEventType::ISSUED,
         TimelineEventType::MOVED,
         TimelineEventType::LOSS,
@@ -81,7 +89,7 @@ it('shows a reversal as its own entry rather than rewriting history', function (
     $ledger->reverse($issue, $this->ppc->id, 'Issued against the wrong lot');
 
     expect(timelineTypes($this->lot))->toBe([
-        TimelineEventType::LOADED, TimelineEventType::ISSUED, TimelineEventType::REVERSED,
+        TimelineEventType::LOADED, TimelineEventType::ACTION, TimelineEventType::ISSUED, TimelineEventType::REVERSED,
     ]);
 });
 
@@ -132,7 +140,9 @@ it('serves the timeline over http to anyone with inquiry.view', function () {
         ->assertOk()
         ->assertJsonPath('lot.lot_no', $this->lot->lot_no)
         ->assertJsonPath('events.0.type', TimelineEventType::LOADED)
-        ->assertJsonPath('events.1.type', TimelineEventType::ISSUED)
+        // the `lot.issued` action IssueService records, and then the ledger movement itself
+        ->assertJsonPath('events.1.type', TimelineEventType::ACTION)
+        ->assertJsonPath('events.2.type', TimelineEventType::ISSUED)
         ->assertJsonStructure(['events' => [['id', 'type', 'title', 'occurred_at', 'from', 'to', 'qty', 'actor', 'note']]]);
 });
 

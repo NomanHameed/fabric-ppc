@@ -32,9 +32,26 @@ export type ChartPalette = {
     surfaceText: string;
 };
 
-/** Fallbacks are the light palette's sRGB values; they are only used before the stylesheet is readable. */
+/**
+ * Fallbacks are the light palette's sRGB values; they are only used before the stylesheet is readable.
+ *
+ * Ten series colours, not five: the mill has twelve departments and a five-colour ring painted the sixth
+ * department the same green as the first. The builders additionally fold everything past the eighth band into
+ * one "other" series, so the ring is never walked twice even on a chart with more categories than this.
+ */
 const FALLBACK: ChartPalette = {
-    series: ['#44916d', '#3b6fd4', '#8a6a1f', '#8a5bd0', '#1f7f96'],
+    series: [
+        '#44916d',
+        '#3b6fd4',
+        '#8a6a1f',
+        '#8a5bd0',
+        '#1f7f96',
+        '#bb4a3c',
+        '#5c7f30',
+        '#5b52c6',
+        '#b2417c',
+        '#7d7266',
+    ],
     primary: '#3f8765',
     success: '#2f8a3f',
     warning: '#8a6a1f',
@@ -50,13 +67,9 @@ const FALLBACK: ChartPalette = {
 
 function read(): ChartPalette {
     return {
-        series: [
-            readCssColour('--chart-1', FALLBACK.series[0]),
-            readCssColour('--chart-2', FALLBACK.series[1]),
-            readCssColour('--chart-3', FALLBACK.series[2]),
-            readCssColour('--chart-4', FALLBACK.series[3]),
-            readCssColour('--chart-5', FALLBACK.series[4]),
-        ],
+        series: FALLBACK.series.map((fallback, i) =>
+            readCssColour(`--chart-${i + 1}`, fallback),
+        ),
         primary: readCssColour('--primary', FALLBACK.primary),
         success: readCssColour('--success', FALLBACK.success),
         warning: readCssColour('--warning', FALLBACK.warning),

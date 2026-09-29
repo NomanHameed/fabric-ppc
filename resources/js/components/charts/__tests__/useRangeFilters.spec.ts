@@ -93,6 +93,54 @@ describe('useRangeFilters', () => {
         expect(range.query()).not.toContain('department_id');
     });
 
+    /**
+     * Every analytics endpoint caps an unbounded range (366 days). Before this, asking for two years showed
+     * one year of figures under inputs that still said two — and the URL copied to a colleague reproduced
+     * neither. The screen adopts what the server actually ran, and is told so it can say it out loud.
+     */
+    describe('adopt', () => {
+        it('takes the narrower range the server ran, and says that it did', () => {
+            const replace = vi.spyOn(window.history, 'replaceState');
+            const range = withSearch('?from=2025-01-01&to=2026-12-31', () =>
+                useRangeFilters(),
+            );
+
+            expect(range.adopt('2025-01-01', '2026-01-02')).toBe(true);
+            expect(range.filters.from).toBe('2025-01-01');
+            expect(range.filters.to).toBe('2026-01-02');
+            expect(range.query()).toBe('from=2025-01-01&to=2026-01-02');
+            expect(replace).toHaveBeenCalledWith(
+                expect.anything(),
+                '',
+                expect.stringContaining('to=2026-01-02'),
+            );
+            replace.mockRestore();
+        });
+
+        it('reports no change, and rewrites no url, when the server ran what was asked', () => {
+            const range = withSearch('?from=2026-01-01&to=2026-01-31', () =>
+                useRangeFilters(),
+            );
+            const replace = vi.spyOn(window.history, 'replaceState');
+
+            expect(range.adopt('2026-01-01', '2026-01-31')).toBe(false);
+            expect(replace).not.toHaveBeenCalled();
+            replace.mockRestore();
+        });
+
+        it('keeps the dimension filters it was not asked about', () => {
+            const range = withSearch(
+                '?from=2026-01-01&to=2026-12-31&department_id=4&operation_id=9',
+                () => useRangeFilters(),
+            );
+
+            range.adopt('2026-01-01', '2026-06-30');
+
+            expect(range.filters.department_id).toBe('4');
+            expect(range.filters.operation_id).toBe('9');
+        });
+    });
+
     it('writes the applied filters back into the url', () => {
         const replace = vi.spyOn(window.history, 'replaceState');
         const range = withSearch('', () => useRangeFilters());

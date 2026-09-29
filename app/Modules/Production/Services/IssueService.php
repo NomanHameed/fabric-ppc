@@ -3,6 +3,8 @@
 namespace App\Modules\Production\Services;
 
 use App\Models\User;
+use App\Modules\Activity\Concerns\RecordsUserActions;
+use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Production\Exceptions\InsufficientQuantity;
 use App\Modules\Production\Exceptions\LotNotOpen;
 use App\Modules\Production\Ledger\Position;
@@ -18,6 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class IssueService
 {
+    use RecordsUserActions;
+
     public function __construct(private readonly LedgerService $ledger) {}
 
     /**
@@ -28,9 +32,23 @@ final class IssueService
      */
     public function issue(Lot $lot, float $qty, User $user, ?CarbonInterface $on = null, ?string $remarks = null): LotMovement
     {
-        return $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), $qty, $qty, [
+        $movement = $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), $qty, $qty, [
             'userId' => $user->id, 'movedAt' => $on ?? now(), 'reason' => $remarks,
         ]);
+
+        // After the commit, and after the bulk path's outer transaction (issueContract) too: the log is not
+        // allowed to fail a movement that has already happened, and ActionLogger can only make that promise
+        // outside a transaction. Stamped with the issue date, so the action log and the lot timeline read in
+        // production order rather than data-entry order.
+        DB::afterCommit(fn () => $this->recordAction(
+            ActionKeys::LOT_ISSUED,
+            $lot,
+            ['qty' => round($qty, 2), 'lot' => $lot->lot_no],
+            $user,
+            $on,
+        ));
+
+        return $movement;
     }
 
     /**

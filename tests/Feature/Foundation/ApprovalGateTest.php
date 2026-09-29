@@ -261,3 +261,90 @@ it('defaults a new row to pending, so a forgotten code path fails closed', funct
 
     expect(User::findOrFail($id)->approval_status)->toBe(Approval::PENDING);
 });
+
+/*
+ * `admin.users.approve` decides *signups*. It is not a switch for turning working accounts off — and the
+ * Manager role holds it without holding `admin.users.manage`. Before these tests, a manager could POST
+ * /admin/users/{admin}/reject and lock the mill out of its own administrator with no in-app way back.
+ */
+
+it('refuses a manager the moderation of an administrator account', function () {
+    $manager = User::factory()->create()->assignRole(Permissions::ROLE_MANAGER);
+
+    $this->actingAs($manager)->post("/admin/users/{$this->admin->id}/reject", ['rejected_reason' => 'Locking you out'])
+        ->assertForbidden();
+    $this->actingAs($manager)->post("/admin/users/{$this->admin->id}/approve")->assertForbidden();
+
+    $this->admin->refresh();
+    expect($this->admin->approval_status)->toBe(Approval::APPROVED)
+        ->and($this->admin->rejected_reason)->toBeNull();
+
+    // The administrator still gets in.
+    $this->actingAs($this->admin)->get('/dashboard')->assertOk();
+});
+
+it('lets an admin moderate a pending administrator, because the boundary is admin-to-admin', function () {
+    $pendingAdmin = User::factory()->pendingApproval()->create();
+    $pendingAdmin->assignRole(Permissions::ROLE_ADMIN);
+
+    $this->actingAs($this->admin)->post("/admin/users/{$pendingAdmin->id}/approve")->assertRedirect();
+
+    expect($pendingAdmin->fresh()->approval_status)->toBe(Approval::APPROVED);
+});
+
+it('refuses to reject an account that is already approved', function () {
+    $manager = User::factory()->create()->assignRole(Permissions::ROLE_MANAGER);
+    $working = User::factory()->create()->assignRole(Permissions::ROLE_PPC);
+    $before = $working->approved_at;
+
+    $this->actingAs($manager)->post("/admin/users/{$working->id}/reject", ['rejected_reason' => 'Go away'])
+        ->assertSessionHasErrors('approval_status');
+
+    $working->refresh();
+    expect($working->approval_status)->toBe(Approval::APPROVED)
+        ->and($working->rejected_reason)->toBeNull()
+        ->and($working->approved_at?->toDateTimeString())->toBe($before?->toDateTimeString());
+
+    $this->actingAs($working)->get('/dashboard')->assertOk();
+});
+
+it('refuses to approve an account that has already been rejected', function () {
+    $this->actingAs($this->admin)->post("/admin/users/{$this->rejected->id}/approve")
+        ->assertSessionHasErrors('approval_status');
+
+    expect($this->rejected->fresh()->approval_status)->toBe(Approval::REJECTED);
+});
+
+it('refuses to reject an account that has already been rejected, so the reason cannot be rewritten', function () {
+    $original = $this->rejected->rejected_reason;
+
+    $this->actingAs($this->admin)->post("/admin/users/{$this->rejected->id}/reject", ['rejected_reason' => 'Something else'])
+        ->assertSessionHasErrors('approval_status');
+
+    expect($this->rejected->fresh()->rejected_reason)->toBe($original);
+});
+
+/*
+ * The shared Inertia props travel with the one screen an unapproved account can see. A pending administrator
+ * was being handed the whole role and permission list through them.
+ */
+it('hands a pending account no roles and no permissions in the shared props', function () {
+    $this->pending->assignRole(Permissions::ROLE_ADMIN);
+
+    $props = $this->actingAs($this->pending)->get('/approval/pending')->assertOk()
+        ->viewData('page')['props'];
+
+    expect($props['auth']['roles'])->toBe([])
+        ->and($props['auth']['permissions'])->toBe([])
+        ->and($props['auth']['departments'])->toBe([])
+        ->and($props['auth']['user']['id'])->toBe($this->pending->id);
+});
+
+it('still hands an approved user their roles and permissions', function () {
+    $ppc = User::factory()->create()->assignRole(Permissions::ROLE_PPC);
+
+    $props = $this->actingAs($ppc)->get('/dashboard')->assertOk()->viewData('page')['props'];
+
+    expect($props['auth']['roles'])->toBe([Permissions::ROLE_PPC])
+        ->and($props['auth']['permissions'])->toContain('production.issue');
+});

@@ -96,3 +96,38 @@ it('approves accounts an administrator creates, because that is the decision', f
     expect($user->approval_status)->toBe(Approval::APPROVED)
         ->and($user->approved_by)->toBe($admin->id);
 });
+
+/*
+ * Fortify throttles login, the two-factor challenge and passkeys; it puts nothing on `POST /register`. Every
+ * accepted signup writes a user row, queues a verification mail and writes a user_actions row, so an
+ * unthrottled endpoint lets one address fill the approval queue, the action log and the mail spool.
+ */
+it('rate limits registration from one address', function () {
+    Notification::fake();
+
+    $before = User::query()->count();
+    $statuses = [];
+
+    for ($i = 1; $i <= 6; $i++) {
+        $statuses[] = $this->post('/register', [
+            'name' => "Flood {$i}", 'email' => "flood{$i}@example.test",
+            'password' => 'secret-password-1', 'password_confirmation' => 'secret-password-1',
+        ])->baseResponse->getStatusCode();
+
+        // Fortify signs the new account in, and `guest:web` would then bounce the next post before the
+        // limiter ever saw it. A real flood comes from a script that keeps no session at all.
+        $this->app['auth']->guard('web')->logout();
+        $this->flushSession();
+    }
+
+    expect(array_slice($statuses, 0, 3))->not->toContain(429)
+        ->and(array_slice($statuses, 3))->toBe([429, 429, 429])
+        ->and(User::query()->count())->toBe($before + 3)
+        ->and(User::query()->where('email', 'flood4@example.test')->exists())->toBeFalse();
+});
+
+it('does not throttle anything but the registration post', function () {
+    for ($i = 0; $i < 6; $i++) {
+        $this->get('/login')->assertOk();
+    }
+});

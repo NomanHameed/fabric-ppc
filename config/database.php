@@ -67,11 +67,17 @@ return [
         /*
          * The Oracle source (docs/planning/findings.md). Oracle owns the transactions; this application owns
          * status, timeline and user actions, so the app NEVER writes here — the models on this connection
-         * refuse every write, and the mock schema is applied by `oracle:mock-migrate`, never by `migrate`.
+         * refuse every write.
          *
          * No Oracle instance exists yet, so this defaults to a local stand-in: the same server, credentials and
          * schema as the app connection, where the Oracle-shaped tables (PROCESSING_LOTS, GREIGE_ISSUE_M/_D,
          * PROCESSING_CONTRACT_D and the code masters) sit alongside the app's own — their names cannot collide.
+         *
+         * The stand-in schema is created by the ordinary `php artisan migrate`
+         * (2026_09_24_000400_create_mock_oracle_source_tables), which creates nothing at all when this
+         * connection is a real Oracle instance or when APP_ENV=production, and skips any table that already
+         * exists. There is no `oracle:mock-migrate` command; an earlier version of this comment claimed one.
+         *
          * Pointing this at a separate schema, or at the real instance, is a pure .env change:
          *
          *   ORACLE_SRC_DATABASE=fabric_oracle_src            # a separate MySQL schema

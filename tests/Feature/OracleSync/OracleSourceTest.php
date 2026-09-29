@@ -16,7 +16,15 @@ beforeEach(function () {
     $this->reader = app(OracleSourceReader::class);
 });
 
-it('creates the Oracle-shaped tables on the oracle_src connection, not the application one', function () {
+/*
+ * Honest name: this proves the tables exist *on the oracle_src connection* and that the source models read
+ * through it. It does NOT prove they are in a different database — with the default stand-in configuration
+ * `oracle_src` deliberately points at the same schema as the app connection (config/database.php), so the
+ * Oracle-shaped tables really do sit beside `lots` and `users` on a development install. On SQLite `:memory:`
+ * each connection gets a private database, which made an earlier version of this test look like proof of a
+ * separation the MySQL configuration does not have.
+ */
+it('creates the Oracle-shaped tables on the oracle_src connection', function () {
     $oracle = Schema::connection(OracleSourceConnection::NAME);
 
     foreach ([

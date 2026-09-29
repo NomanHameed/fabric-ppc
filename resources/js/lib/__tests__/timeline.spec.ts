@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { groupByDay, movement, toneFor } from '@/lib/timeline';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { formatTime, groupByDay, movement, toneFor } from '@/lib/timeline';
 import type { TimelineEvent } from '@/types/analytics';
 
 function event(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
@@ -52,6 +52,62 @@ describe('groupByDay', () => {
 
     it('returns nothing for nothing', () => {
         expect(groupByDay([])).toEqual([]);
+    });
+});
+
+/**
+ * A lot's history belongs to the mill's calendar, not the reader's.
+ *
+ * The server sends every instant with its `+05:00` offset. Read back through the browser's own zone, an event
+ * at 02:00 in Karachi is 21:00 the evening before in UTC — so a viewer abroad, or a CI box with no TZ set, saw
+ * the night shift filed under the previous day and the clock four hours out. Both are the kind of quiet
+ * wrongness a timeline exists to rule out, so the case is pinned with the viewer deliberately on UTC.
+ */
+describe("under a viewer whose browser is not on the mill's zone", () => {
+    afterEach(() => {
+        vi.unstubAllEnvs();
+    });
+
+    /** `TZ` is what Node resolves a Date's local getters against, so this really is "a viewer on UTC". */
+    function onUtc<T>(run: () => T): T {
+        vi.stubEnv('TZ', 'UTC');
+        try {
+            return run();
+        } finally {
+            vi.unstubAllEnvs();
+        }
+    }
+
+    it("groups the night shift under the mill's day, not the viewer's", () => {
+        const days = onUtc(() =>
+            groupByDay([
+                // 21:00 on the 20th in UTC; 02:00 on the 21st at the mill.
+                event({
+                    id: 'night',
+                    occurred_at: '2026-09-21T02:00:00+05:00',
+                }),
+                event({
+                    id: 'morning',
+                    occurred_at: '2026-09-21T09:00:00+05:00',
+                }),
+            ]),
+        );
+
+        expect(days).toHaveLength(1);
+        expect(days[0].key).toBe('21-09-2026');
+        expect(days[0].events.map((e) => e.id)).toEqual(['night', 'morning']);
+    });
+
+    it('shows the time the clock on the mill wall showed', () => {
+        expect(onUtc(() => formatTime('2026-09-21T02:00:00+05:00'))).toBe(
+            '02:00',
+        );
+        // The same instant written in UTC must read the same: it is the same moment at the mill.
+        expect(onUtc(() => formatTime('2026-09-20T21:00:00Z'))).toBe('02:00');
+    });
+
+    it('still keeps an unparseable timestamp out of the clock', () => {
+        expect(onUtc(() => formatTime('not a date'))).toBe('');
     });
 });
 

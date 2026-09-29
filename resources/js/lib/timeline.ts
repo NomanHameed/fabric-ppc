@@ -1,4 +1,4 @@
-import { formatDmy } from '@/lib/dates';
+import { formatDmyAt, formatTimeAt } from '@/lib/dates';
 import type { TimelineEvent } from '@/types/analytics';
 
 /**
@@ -36,13 +36,15 @@ export function toneFor(type: string): TimelineTone {
     return TONES[type] ?? 'neutral';
 }
 
-/** HH:mm in the browser's zone, which the app pins to Asia/Karachi. */
+/**
+ * HH:mm on the mill's clock, not the viewer's.
+ *
+ * The server sends the instant with its `+05:00` offset, so reading it back through the browser's local
+ * getters showed a Karachi event in whatever zone the browser happens to be in. What a lot's history means is
+ * what the clock on the mill wall said.
+ */
 export function formatTime(iso: string): string {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) {
-        return '';
-    }
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return formatTimeAt(iso);
 }
 
 export type TimelineDay = {
@@ -55,19 +57,23 @@ export type TimelineDay = {
  * One group per calendar day, oldest first — the order a story is told in, and the order the endpoint already
  * returns. An unparseable timestamp keeps its own group rather than being dropped: a timeline that quietly
  * loses an event is worse than one with an odd heading.
+ *
+ * The day is the *mill's* day. Grouping on the viewer's calendar put a 02:00 PKT event under the previous
+ * day's heading for anyone whose browser ran on UTC, which is exactly the kind of quiet wrongness a timeline
+ * exists to rule out.
  */
 export function groupByDay(events: TimelineEvent[]): TimelineDay[] {
     const days: TimelineDay[] = [];
     for (const event of events) {
-        const d = new Date(event.occurred_at);
-        const valid = !Number.isNaN(d.getTime());
-        const key = valid ? formatDmy(d) : event.occurred_at;
-        let day = days.at(-1);
-        if (day === undefined || day.key !== key) {
-            day = { key, label: key, events: [] };
-            days.push(day);
+        const day = formatDmyAt(event.occurred_at);
+        const valid = day !== '';
+        const key = valid ? day : event.occurred_at;
+        let group = days.at(-1);
+        if (group === undefined || group.key !== key) {
+            group = { key, label: key, events: [] };
+            days.push(group);
         }
-        day.events.push({
+        group.events.push({
             ...event,
             tone: toneFor(event.type),
             time: valid ? formatTime(event.occurred_at) : '',
