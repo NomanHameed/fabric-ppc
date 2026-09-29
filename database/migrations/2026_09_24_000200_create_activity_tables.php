@@ -23,8 +23,8 @@ return new class extends Migration
             $t->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // last user seen on this device
             $t->string('last_ip_address', 45)->nullable();
             $t->string('user_agent', 255)->nullable();
-            $t->timestamp('first_seen_at');
-            $t->timestamp('last_seen_at');
+            $t->dateTime('first_seen_at');
+            $t->dateTime('last_seen_at');
             $t->timestamps();
             $t->index(['user_id', 'last_seen_at']);
             $t->index('computer_name');
@@ -46,7 +46,7 @@ return new class extends Migration
             $t->string('device_id', 64)->nullable();         // kept verbatim: survives the device row being deleted
             $t->string('computer_name', 60)->nullable();
             $t->string('user_agent', 255)->nullable();
-            $t->timestamp('occurred_at');
+            $t->dateTime('occurred_at');
             $t->timestamps();
             $t->index(['user_id', 'occurred_at']);
             $t->index(['action', 'occurred_at']);
