@@ -25,7 +25,7 @@ watchEffect(() => {
 
     <div
         v-if="status === 'verification-link-sent'"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="text-success mb-4 text-center text-sm font-medium"
     >
         {{ t('auth.pages.verify.sent') }}
     </div>

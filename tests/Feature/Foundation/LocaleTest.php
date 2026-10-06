@@ -5,7 +5,8 @@ use App\Models\User;
 it('serves translations for a locale as json with ur falling back to en', function () {
     $res = $this->getJson('/i18n/ur.json')->assertOk();
     expect($res->json('app.nav.dashboard'))->toBe('ڈیش بورڈ')
-        ->and($res->json('app.name'))->toBe('Fabric PPC');
+        // The company name is not translated: ur must serve exactly what en has, whatever the brand is.
+        ->and($res->json('app.name'))->toBe(__('app.name', [], 'en'));
 });
 
 it('serves the auth and settings groups in both locales (M-11)', function () {

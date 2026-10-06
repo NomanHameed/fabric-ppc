@@ -13,22 +13,39 @@ const record = computed(() =>
 
 <template>
     <footer
-        class="bg-muted/70 sticky bottom-0 z-20 flex h-7 items-center gap-4 border-t px-3 text-xs tabular-nums backdrop-blur"
+        class="bg-muted/70 sticky bottom-0 z-20 flex min-h-8 flex-wrap items-center gap-x-3 gap-y-0.5 border-t px-3 py-1 text-xs tabular-nums backdrop-blur sm:h-7 sm:flex-nowrap sm:gap-x-4 sm:py-0"
         aria-live="polite"
     >
-        <span class="text-muted-foreground min-w-28">{{ record }}</span>
+        <span class="text-muted-foreground shrink-0 sm:min-w-28">{{
+            record
+        }}</span>
         <span
-            class="truncate"
+            class="min-w-0 flex-1 truncate"
             :class="{
                 'text-destructive': s.kind === 'error',
-                'text-emerald-700 dark:text-emerald-400': s.kind === 'success',
+                'text-success-on-surface': s.kind === 'success',
             }"
             >{{ s.message }}</span
         >
-        <span class="text-muted-foreground ms-auto truncate">{{ s.hint }}</span>
+        <!--
+          The hint is operational data, not a function-key legend: producers put stock
+          figures, availability and the reason a lot is blocked in here. So it is never
+          hidden — on a phone it wraps onto its own full-width line below the message,
+          and only from `sm` up does it share the row, splitting the free space evenly
+          with the message (both `flex-1`, so neither can squeeze the other to nothing)
+          and truncating with the full text on `title`. `text-end` keeps it against the
+          trailing edge exactly as the old `ms-auto` did, in either direction.
+          `hidden` would also have dropped it out of this `aria-live` region.
+        -->
+        <span
+            v-if="s.hint"
+            :title="s.hint"
+            class="text-muted-foreground order-last w-full min-w-0 break-words sm:order-none sm:w-auto sm:flex-1 sm:truncate sm:text-end"
+            >{{ s.hint }}</span
+        >
         <span
             v-if="s.dirty"
-            class="rounded bg-amber-500/15 px-1.5 text-amber-700 dark:text-amber-400"
+            class="bg-warning-surface text-warning-on-surface shrink-0 rounded px-1.5"
             >{{ t('forms.unsaved') }}</span
         >
     </footer>

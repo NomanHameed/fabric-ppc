@@ -40,6 +40,7 @@ describe('visibleNavigation', () => {
         ).toEqual([
             ['lots', '/production/lots'],
             ['contracts', '/production/contracts'],
+            ['lot_timeline', '/production/timeline'],
         ]);
     });
 
@@ -58,6 +59,41 @@ describe('visibleNavigation', () => {
         const groups = visibleNavigation(NAVIGATION, () => true);
         expect(
             groups.find((g) => g.key === 'admin')?.items.map((i) => i.key),
-        ).toEqual(['users', 'roles', 'settings']);
+        ).toEqual([
+            'users',
+            'roles',
+            'settings',
+            'user_approvals',
+            'activity_log',
+        ]);
+    });
+
+    it('gates the capacity screen on production.sheet.view, not inquiry.view', () => {
+        const withInquiry = visibleNavigation(
+            NAVIGATION,
+            (p) => p === 'inquiry.view',
+        );
+        expect(
+            withInquiry
+                .find((g) => g.key === 'production')
+                ?.items.map((i) => i.key),
+        ).not.toContain('capacity');
+
+        const withSheet = visibleNavigation(
+            NAVIGATION,
+            (p) => p === 'production.sheet.view',
+        );
+        expect(
+            withSheet
+                .find((g) => g.key === 'production')
+                ?.items.map((i) => i.href),
+        ).toEqual(['/production/sheets', '/production/capacity']);
+    });
+
+    it('keeps the new approval and activity entries permission-gated', () => {
+        // The dashboard is deliberately open to everyone, so `home` survives; nothing else may.
+        expect(
+            visibleNavigation(NAVIGATION, () => false).map((g) => g.key),
+        ).toEqual(['home']);
     });
 });

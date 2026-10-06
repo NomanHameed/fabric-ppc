@@ -193,7 +193,7 @@ const TOTAL_LABELS: Record<(typeof TOTAL_FIELDS)[number], string> = {
 
 <template>
     <Head :title="t('production.contracts.title')" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <div class="flex flex-wrap items-center gap-2">
             <h1 class="text-lg font-semibold">
                 {{ t('production.contracts.title') }}
@@ -228,7 +228,7 @@ const TOTAL_LABELS: Record<(typeof TOTAL_FIELDS)[number], string> = {
                 <Input
                     :id="`q-${f}`"
                     v-model="criteria[f] as string"
-                    class="border-amber-500/60"
+                    class="border-warning/70"
                     autocomplete="off"
                 />
             </FormField>

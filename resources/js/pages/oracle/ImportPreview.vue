@@ -174,7 +174,7 @@ const columns = computed<ColumnDef<ImportRow>[]>(() => [
 
 <template>
     <Head :title="`${t('oracle.title')} — ${props.import.label}`" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-lg font-semibold">{{ props.import.label }}</h1>
             <Badge variant="outline">{{

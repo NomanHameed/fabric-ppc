@@ -141,7 +141,7 @@ const rowClassRules = {
 
 <template>
     <Head :title="t('inquiry.po.title', { po: String(contract.po_no) })" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">
             {{ t('inquiry.po.heading') }}
             <span class="tabular-nums">{{ contract.po_no }}</span>

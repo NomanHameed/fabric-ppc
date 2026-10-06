@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Modules\Activity\Services\DeviceRegistrar;
 use App\Modules\Foundation\Access\Permissions;
 use App\Modules\Foundation\Lov\Definitions\DepartmentLov;
 use App\Modules\Foundation\Lov\Definitions\LookupLov;
@@ -43,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(LovRegistry::class);
         $this->app->singleton(MasterRegistry::class);
         $this->app->scoped(PartyResolver::class);
+        // One per request: TrackDevice resolves the device and everything logged later reads it back.
+        $this->app->scoped(DeviceRegistrar::class);
         $this->app->singleton(LedgerService::class);
     }
 

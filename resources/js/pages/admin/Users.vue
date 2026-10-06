@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import ApprovalBadge from '@/components/activity/ApprovalBadge.vue';
+import { formatDateTime } from '@/components/activity/format';
+import ConfirmDialog from '@/components/forms/ConfirmDialog.vue';
 import ConfirmSaveDialog from '@/components/forms/ConfirmSaveDialog.vue';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import FormBlock from '@/components/forms/FormBlock.vue';
 import FormField from '@/components/forms/FormField.vue';
 import FormsToolbar from '@/components/forms/FormsToolbar.vue';
+import ReasonDialog from '@/components/forms/ReasonDialog.vue';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/composables/useConfirm';
+import { useReasonPrompt } from '@/composables/useReasonPrompt';
 import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
+import { can } from '@/lib/can';
 import { useFlashSelect } from '@/lib/flashSelect';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
@@ -24,6 +32,12 @@ type UserRow = {
     locale: string;
     roles: string[];
     department_ids: number[];
+    approval_status: string;
+    approved_at: string | null;
+    approved_by: string | null;
+    rejected_reason: string | null;
+    email_verified: boolean;
+    registered_at: string | null;
 };
 
 const props = defineProps<{
@@ -36,6 +50,9 @@ const page = usePage();
 const locales = computed(
     () => page.props.locales as Record<string, { name: string; dir: string }>,
 );
+// Through `@/lib/can` (HANDOFF §6.5), not a second reading of `auth.permissions`: one place decides what a
+// permission string means, and an admin's implicit `*` is handled there rather than in every screen.
+const canApprove = computed(() => can('admin.users.approve'));
 
 function currentUser(): UserRow | null {
     return props.users.find((u) => u.id === currentId.value) ?? null;
@@ -124,12 +141,75 @@ const columns = computed<ColumnDef<UserRow>[]>(() => [
                 .join(', '),
     },
     {
+        field: 'approval_status',
+        headerName: t('approval.fields.status'),
+        width: 120,
+        valueFormatter: (p) => t(`approval.statuses.${String(p.value)}`),
+    },
+    {
         field: 'is_active',
         headerName: t('admin.active'),
         flex: 1,
         valueFormatter: (p) => (p.value ? '✓' : ''),
     },
 ]);
+
+/*
+ * Moderation from the record the administrator is already looking at. It is a POST, not part of the header
+ * form, so it goes through the unsaved guard itself — the guard's router hook cannot intercept it.
+ */
+const confirm = useConfirm();
+const prompt = useReasonPrompt();
+const selected = computed(() => currentUser());
+const moderationError = ref('');
+
+function moderate(path: string, data: Record<string, string>): void {
+    const user = selected.value;
+    if (user === null) {
+        return;
+    }
+    moderationError.value = '';
+    router.post(`/admin/users/${user.id}/${path}`, data, {
+        preserveScroll: true,
+        onError: (errors) => {
+            moderationError.value = Object.values(errors)[0] ?? '';
+        },
+    });
+}
+
+function approveSelected(): void {
+    const user = selected.value;
+    if (user === null) {
+        return;
+    }
+    guard.guard(async () => {
+        const ok = await confirm.ask(
+            t('approval.confirm_approve', { name: user.name }),
+            { title: t('approval.actions.approve') },
+        );
+        if (ok) {
+            moderate('approve', {});
+        }
+    });
+}
+
+function rejectSelected(): void {
+    const user = selected.value;
+    if (user === null) {
+        return;
+    }
+    guard.guard(async () => {
+        const reason = await prompt.ask({
+            title: t('approval.reject_dialog.title', { name: user.name }),
+            message: t('approval.reject_dialog.message'),
+            label: t('approval.reject_dialog.label'),
+            placeholder: t('approval.reject_dialog.placeholder'),
+        });
+        if (reason !== null) {
+            moderate('reject', { rejected_reason: reason });
+        }
+    });
+}
 
 function save(): Promise<boolean> {
     return new Promise((resolve) => {
@@ -189,8 +269,16 @@ function onAction(action: FormsAction): void {
 
 <template>
     <Head :title="t('admin.users')" />
-    <div class="flex flex-col gap-3 p-4">
-        <h1 class="text-lg font-semibold">{{ t('admin.users') }}</h1>
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h1 class="text-lg font-semibold">{{ t('admin.users') }}</h1>
+            <Link
+                v-if="canApprove"
+                href="/admin/users/approvals"
+                class="text-primary text-sm underline-offset-4 hover:underline"
+                >{{ t('approval.queue.link') }}</Link
+            >
+        </div>
         <FormsToolbar
             :disabled="{
                 save: false,
@@ -320,6 +408,104 @@ function onAction(action: FormsAction): void {
             {{ form.errors['record'] }}
         </p>
 
+        <!--
+          Approval is not part of the header form: the columns are written only by UserApprovalService, so
+          this block reports them and offers the two decisions rather than editing fields.
+        -->
+        <FormBlock
+            v-if="selected !== null"
+            :title="t('approval.fields.status')"
+        >
+            <FormField
+                :label="t('approval.fields.status')"
+                for="f-approval-status"
+                :span="3"
+            >
+                <p id="f-approval-status" class="py-1.5">
+                    <ApprovalBadge :status="selected.approval_status" />
+                </p>
+            </FormField>
+            <FormField
+                :label="t('approval.fields.registered_at')"
+                for="f-registered-at"
+                :span="3"
+            >
+                <p
+                    id="f-registered-at"
+                    class="text-muted-foreground py-2 text-sm tabular-nums"
+                >
+                    {{ formatDateTime(selected.registered_at) }}
+                </p>
+            </FormField>
+            <FormField
+                :label="t('approval.fields.email_verified')"
+                for="f-email-verified"
+                :span="3"
+            >
+                <p id="f-email-verified" class="py-2 text-sm">
+                    {{
+                        selected.email_verified
+                            ? t('approval.verified')
+                            : t('approval.unverified')
+                    }}
+                </p>
+            </FormField>
+            <FormField
+                :label="t('approval.fields.approved_by')"
+                for="f-approved-by"
+                :span="3"
+            >
+                <p
+                    id="f-approved-by"
+                    class="text-muted-foreground py-2 text-sm"
+                >
+                    {{ selected.approved_by ?? t('approval.unknown') }}
+                    <span v-if="selected.approved_at" class="tabular-nums">
+                        · {{ formatDateTime(selected.approved_at) }}</span
+                    >
+                </p>
+            </FormField>
+            <FormField
+                v-if="selected.rejected_reason"
+                :label="t('approval.fields.rejected_reason')"
+                for="f-rejected-reason"
+                :span="12"
+            >
+                <p id="f-rejected-reason" class="text-destructive py-2 text-sm">
+                    {{ selected.rejected_reason }}
+                </p>
+            </FormField>
+            <div
+                v-if="canApprove"
+                class="col-span-12 flex flex-wrap items-center gap-2"
+            >
+                <Button
+                    v-if="selected.approval_status !== 'approved'"
+                    class="min-h-11 sm:min-h-9"
+                    data-test="approve-selected"
+                    @click="approveSelected"
+                >
+                    {{ t('approval.actions.approve') }}
+                </Button>
+                <Button
+                    v-if="selected.approval_status !== 'rejected'"
+                    variant="outline"
+                    class="text-destructive min-h-11 sm:min-h-9"
+                    data-test="reject-selected"
+                    @click="rejectSelected"
+                >
+                    {{ t('approval.actions.reject') }}
+                </Button>
+                <p
+                    v-if="moderationError"
+                    class="text-destructive text-sm"
+                    role="alert"
+                >
+                    {{ moderationError }}
+                </p>
+            </div>
+        </FormBlock>
+
         <DataGrid
             :rows="users"
             :columns="columns"
@@ -329,6 +515,19 @@ function onAction(action: FormsAction): void {
         <ConfirmSaveDialog
             :open="guard.dialogOpen.value"
             @choose="guard.choose"
+        />
+        <ConfirmDialog
+            :open="confirm.open.value"
+            :message="confirm.message.value"
+            v-bind="confirm.options.value"
+            @confirm="confirm.choose(true)"
+            @cancel="confirm.choose(false)"
+        />
+        <ReasonDialog
+            :open="prompt.open.value"
+            v-bind="prompt.options.value"
+            @confirm="prompt.confirm"
+            @cancel="prompt.cancel"
         />
     </div>
 </template>

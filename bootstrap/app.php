@@ -2,8 +2,12 @@
 
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Modules\Activity\Console\PruneUserActions;
+use App\Modules\Activity\Http\Middleware\TrackDevice;
 use App\Modules\Foundation\Http\Middleware\EnsureUserIsActive;
+use App\Modules\Foundation\Http\Middleware\EnsureUserIsApproved;
 use App\Modules\Foundation\Http\Middleware\SetLocale;
+use App\Modules\Foundation\Http\Middleware\ThrottleRegistrations;
 use App\Modules\Foundation\Support\ErrorReference;
 use App\Modules\OracleSync\Console\ImportOracleFile;
 use App\Modules\Production\Console\BackfillLedger;
@@ -26,12 +30,19 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([ImportOracleFile::class, BackfillLedger::class])
+    ->withCommands([ImportOracleFile::class, BackfillLedger::class, PruneUserActions::class])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
+            // First: a flood of signups is refused before anything writes a user, a mail or an action row.
+            ThrottleRegistrations::class,
             EnsureUserIsActive::class,
+            // Before the approval gate, so a blocked attempt is still attributable to a terminal.
+            TrackDevice::class,
+            // Signup approval is enforced here, in the group, not per route: a route that forgets its own
+            // middleware is still refused. It runs before anything that could render or return data.
+            EnsureUserIsApproved::class,
             SetLocale::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,

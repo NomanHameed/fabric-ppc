@@ -1,29 +1,108 @@
 <script setup lang="ts">
-import type { HTMLAttributes } from 'vue';
+import { computed, type HTMLAttributes } from 'vue';
+import { t } from '@/lib/i18n';
 
+/**
+ * The Albeen Textiles mark, redrawn as vector geometry from `public/images/albeen-logo.jpeg`
+ * (which is a JPEG on an opaque white ground and therefore unusable on a dark sidebar).
+ * The motif is a four-fold pinwheel — two rounded bars and one disc per quadrant, each
+ * quadrant a 90 degrees rotation of the previous one — set on the diagonal by the outer
+ * rotate(-45). Bars are bitten by a disc of radius 68 so the woven gap is carved out of the
+ * shape itself rather than painted with a white stroke; that is what keeps the mark
+ * transparent, so it sits correctly on any surface in either mode.
+ *
+ * Colours come from tokens, not from the image: `--brand` / `--brand-muted` are the logo's
+ * green and grey in light mode and lightened equivalents in dark mode, so the mark keeps at
+ * least 3:1 against every surface it is placed on. `tone="mono"` paints it in `currentColor`
+ * for single-colour contexts (print, a solid brand bar, a favicon mask).
+ */
 defineOptions({
     inheritAttrs: false,
 });
 
-type Props = {
-    className?: HTMLAttributes['class'];
-};
+const props = withDefaults(
+    defineProps<{
+        className?: HTMLAttributes['class'];
+        tone?: 'brand' | 'mono';
+        /** Decorative by default; set a title when the mark is the only thing identifying the app. */
+        labelled?: boolean;
+    }>(),
+    { tone: 'brand', labelled: false },
+);
 
-defineProps<Props>();
+const a = computed(() =>
+    props.tone === 'mono' ? 'currentColor' : 'var(--brand)',
+);
+const b = computed(() =>
+    props.tone === 'mono' ? 'currentColor' : 'var(--brand-muted)',
+);
 </script>
 
 <template>
     <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 40 42"
+        viewBox="0 0 400 400"
         :class="className"
+        :role="labelled ? 'img' : undefined"
+        :aria-hidden="labelled ? undefined : 'true'"
+        :aria-label="labelled ? t('app.brand.logo_alt') : undefined"
         v-bind="$attrs"
     >
-        <path
-            fill="currentColor"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-            d="M17.2 5.633 8.6.855 0 5.633v26.51l16.2 9 16.2-9v-8.442l7.6-4.223V9.856l-8.6-4.777-8.6 4.777V18.3l-5.6 3.111V5.633ZM38 18.301l-5.6 3.11v-6.157l5.6-3.11V18.3Zm-1.06-7.856-5.54 3.078-5.54-3.079 5.54-3.078 5.54 3.079ZM24.8 18.3v-6.157l5.6 3.111v6.158L24.8 18.3Zm-1 1.732 5.54 3.078-13.14 7.302-5.54-3.078 13.14-7.3v-.002Zm-16.2 7.89 7.6 4.222V38.3L2 30.966V7.92l5.6 3.111v16.892ZM8.6 9.3 3.06 6.222 8.6 3.143l5.54 3.08L8.6 9.3Zm21.8 15.51-13.2 7.334V38.3l13.2-7.334v-6.156ZM9.6 11.034l5.6-3.11v14.6l-5.6 3.11v-14.6Z"
-        />
+        <g transform="rotate(-45 200 200)">
+            <path :fill="a" d="M101 17H206.54a68 68 0 0 0 0 66H101Z" />
+            <path :fill="b" d="M209.5 101H109.46a68 68 0 0 1 0 66H209.5Z" />
+            <circle :fill="a" cx="266" cy="50" r="49.5" />
+            <path
+                :fill="b"
+                d="M101 17H206.54a68 68 0 0 0 0 66H101Z"
+                transform="rotate(90 200 200)"
+            />
+            <path
+                :fill="a"
+                d="M209.5 101H109.46a68 68 0 0 1 0 66H209.5Z"
+                transform="rotate(90 200 200)"
+            />
+            <circle
+                :fill="b"
+                cx="266"
+                cy="50"
+                r="49.5"
+                transform="rotate(90 200 200)"
+            />
+            <path
+                :fill="a"
+                d="M101 17H206.54a68 68 0 0 0 0 66H101Z"
+                transform="rotate(180 200 200)"
+            />
+            <path
+                :fill="b"
+                d="M209.5 101H109.46a68 68 0 0 1 0 66H209.5Z"
+                transform="rotate(180 200 200)"
+            />
+            <circle
+                :fill="a"
+                cx="266"
+                cy="50"
+                r="49.5"
+                transform="rotate(180 200 200)"
+            />
+            <path
+                :fill="b"
+                d="M101 17H206.54a68 68 0 0 0 0 66H101Z"
+                transform="rotate(270 200 200)"
+            />
+            <path
+                :fill="a"
+                d="M209.5 101H109.46a68 68 0 0 1 0 66H209.5Z"
+                transform="rotate(270 200 200)"
+            />
+            <circle
+                :fill="b"
+                cx="266"
+                cy="50"
+                r="49.5"
+                transform="rotate(270 200 200)"
+            />
+        </g>
     </svg>
 </template>

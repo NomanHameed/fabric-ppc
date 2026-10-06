@@ -116,6 +116,14 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($throttleKey);
         });
 
+        // Registration is open on this project and Fortify puts no limiter on its own `POST /register`, so
+        // one address could otherwise mint accounts, verification mails and action-log rows without limit.
+        // Applied by App\Modules\Foundation\Http\Middleware\ThrottleRegistrations, which reads the name from
+        // config('fortify.limiters.register').
+        RateLimiter::for('register', function (Request $request) {
+            return Limit::perMinute(3)->by((string) $request->ip());
+        });
+
         RateLimiter::for('passkeys', function (Request $request) {
             return Limit::perMinute(10)->by(
                 ($request->input('credential.id') ?: $request->session()->getId()).'|'.$request->ip(),

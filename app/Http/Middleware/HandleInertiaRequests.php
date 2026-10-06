@@ -37,18 +37,27 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
+        // An account the moderator has not let in yet carries nothing but its own status. It reaches exactly
+        // one screen (EnsureUserIsApproved), but these props travel with that screen, and a pending
+        // administrator was being handed the whole role and permission list — a map of what the application
+        // can do and what the account will be able to do once approved. `departments` was already empty for
+        // them; roles and permissions now match.
+        $entitled = $user !== null && $user->isApproved();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
-                'roles' => $request->user()?->getRoleNames()->values()->all() ?? [],
-                'permissions' => $request->user() === null ? [] : (
-                    $request->user()->hasRole(Permissions::ROLE_ADMIN)
+                'user' => $user,
+                'roles' => $entitled ? $user->getRoleNames()->values()->all() : [],
+                'permissions' => ! $entitled ? [] : (
+                    $user->hasRole(Permissions::ROLE_ADMIN)
                         ? Permissions::ALL
-                        : $request->user()->getAllPermissions()->pluck('name')->values()->all()
+                        : $user->getAllPermissions()->pluck('name')->values()->all()
                 ),
-                'departments' => $request->user()?->departments()->orderBy('sort')->get()->map(fn ($d) => ['id' => $d->id, 'code' => $d->code, 'name' => $d->name])->values()->all() ?? [],
+                'departments' => $entitled ? $user->departments()->orderBy('sort')->get()->map(fn ($d) => ['id' => $d->id, 'code' => $d->code, 'name' => $d->name])->values()->all() : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'locale' => app()->getLocale(),

@@ -118,6 +118,9 @@ return [
         'login' => 'login',
         'two-factor' => 'two-factor',
         'passkeys' => 'passkeys',
+        // Fortify itself does not read this one — its `POST /register` route carries no limiter at all.
+        // App\Modules\Foundation\Http\Middleware\ThrottleRegistrations applies it in the `web` group.
+        'register' => 'register',
     ],
 
     /*
@@ -161,7 +164,9 @@ return [
     */
 
     'features' => [
-        // Features::registration(),
+        // Self-registration is open, but a new account is created `pending` and EnsureUserIsApproved refuses it
+        // everything until a moderator approves it (see App\Modules\Foundation\Access\Approval).
+        Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

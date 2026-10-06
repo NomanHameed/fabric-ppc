@@ -1,28 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { SidebarInset } from '@/components/ui/sidebar';
-import type { AppVariant } from '@/types';
+import { cn } from '@/lib/utils';
 
 type Props = {
-    variant?: AppVariant;
     class?: string;
 };
 
-const props = withDefaults(defineProps<Props>(), {
-    variant: 'sidebar',
-});
-const className = computed(() => props.class);
+const props = defineProps<Props>();
+
+/**
+ * `min-w-0` is what stops a wide grid from widening the flex column and pushing the
+ * whole page sideways; `overflow-x-clip` (not `hidden`, which would break the sticky
+ * header and status line) catches anything that still overhangs.
+ */
+const className = computed(() =>
+    cn('min-w-0 overflow-x-clip', props.class as string | undefined),
+);
 </script>
 
 <template>
-    <SidebarInset v-if="props.variant === 'sidebar'" :class="className">
+    <SidebarInset id="main-content" :class="className">
         <slot />
     </SidebarInset>
-    <main
-        v-else
-        class="mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-4 rounded-xl"
-        :class="className"
-    >
-        <slot />
-    </main>
 </template>

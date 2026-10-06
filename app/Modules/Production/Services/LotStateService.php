@@ -3,6 +3,8 @@
 namespace App\Modules\Production\Services;
 
 use App\Models\User;
+use App\Modules\Activity\Concerns\RecordsUserActions;
+use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Foundation\Models\LookupValue;
 use App\Modules\OracleSync\Services\ImportCommitService;
 use App\Modules\Production\Models\Lot;
@@ -19,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class LotStateService
 {
+    use RecordsUserActions;
+
     public const REASON_LIST = 'hold_reason';
 
     public function __construct(private readonly LedgerService $ledger) {}
@@ -26,13 +30,19 @@ final class LotStateService
     /** @throws DomainException when the lot is not open, or the reason is not an active `hold_reason` code */
     public function hold(Lot $lot, string $reason, User $user): void
     {
-        $this->transition($lot, $user, from: ['open'], to: 'hold', attrs: ['hold_reason' => $this->reason($reason)]);
+        $code = $this->reason($reason);
+
+        $this->transition($lot, $user, from: ['open'], to: 'hold', attrs: ['hold_reason' => $code]);
+
+        $this->record(ActionKeys::LOT_HELD, $lot, ['lot' => $lot->lot_no, 'reason' => $code], $user);
     }
 
     /** @throws DomainException when the lot is not on hold */
     public function release(Lot $lot, User $user): void
     {
         $this->transition($lot, $user, from: ['hold'], to: 'open', attrs: ['hold_reason' => null]);
+
+        $this->record(ActionKeys::LOT_RELEASED, $lot, ['lot' => $lot->lot_no], $user);
     }
 
     /**
@@ -43,15 +53,35 @@ final class LotStateService
      */
     public function cancel(Lot $lot, string $reason, User $user): void
     {
+        $code = $this->reason($reason);
+
         $this->transition(
             $lot, $user, from: ['open', 'hold'], to: 'cancelled',
-            attrs: ['cancel_reason' => $this->reason($reason), 'hold_reason' => null],
+            attrs: ['cancel_reason' => $code, 'hold_reason' => null],
             guard: function (Lot $locked): void {
                 if (round((float) $locked->wip_qty + (float) $locked->finished_qty, 2) > 0) {
                     throw new DomainException(__('production.errors.cancel_has_wip', ['lot' => $locked->lot_no]));
                 }
             },
         );
+
+        $this->record(ActionKeys::LOT_CANCELLED, $lot, ['lot' => $lot->lot_no, 'reason' => $code], $user);
+    }
+
+    /**
+     * The action-log entry for a transition that has already committed.
+     *
+     * The `audits` row is the record of *what changed*; this is the record of *what somebody did*, in a
+     * sentence a mill supervisor reads, and it is what the action log screen and LotTimelineService's
+     * `fromUserActions()` read. Wrapped in afterCommit so that a caller which has wrapped this service in its
+     * own transaction still gets the log only once the state change is real (it runs immediately when there is
+     * no transaction open).
+     *
+     * @param  array<string, scalar|null>  $context
+     */
+    private function record(string $action, Lot $lot, array $context, User $user): void
+    {
+        DB::afterCommit(fn () => $this->recordAction($action, $lot, $context, $user));
     }
 
     /**
