@@ -254,7 +254,7 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
 
 <template>
     <Head :title="t('production.issue.title')" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">{{ t('production.issue.title') }}</h1>
         <FormsToolbar
             :disabled="{
@@ -329,7 +329,7 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
                 <Input
                     id="f-date"
                     v-model="form.issued_on"
-                    placeholder="dd-mm-yyyy"
+                    :placeholder="t('app.date_format_hint')"
                     :disabled="viewing"
                 />
             </FormField>
@@ -392,7 +392,7 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
                 <Input
                     id="f-po-date"
                     v-model="bulk.issued_on"
-                    placeholder="dd-mm-yyyy"
+                    :placeholder="t('app.date_format_hint')"
                 />
             </FormField>
             <div class="col-span-12 flex items-end md:col-span-2">

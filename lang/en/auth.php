@@ -20,6 +20,19 @@ return [
 
     // The starter kit's auth pages (M-11).
     'pages' => [
+        'register' => [
+            'title' => 'Create an account',
+            'description' => 'Enter your details below. A moderator has to approve the account before you can use the system.',
+            'name' => 'Full name',
+            'email' => 'Email address',
+            'email_placeholder' => 'email@example.com',
+            'password' => 'Password',
+            'confirm' => 'Confirm password',
+            'submit' => 'Create account',
+            'approval_notice' => 'New accounts start as pending. You will be able to log in once a moderator approves yours.',
+            'have_account' => 'Already have an account?',
+            'login' => 'Log in',
+        ],
         'login' => [
             'head' => 'Log in',
             'title' => 'Log in to your account',
@@ -33,6 +46,8 @@ return [
             'passkey' => 'Sign in with a passkey',
             'passkey_loading' => 'Authenticating...',
             'passkey_separator' => 'Or continue with email',
+            'no_account' => 'Do not have an account?',
+            'register' => 'Create one',
         ],
         'forgot' => [
             'title' => 'Forgot password',

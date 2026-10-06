@@ -13,5 +13,9 @@ export default defineConfig({
         environment: 'jsdom',
         include: ['resources/js/**/__tests__/**/*.spec.ts'],
         passWithNoTests: true,
+        // AG Grid mounts real grids in jsdom; under worker contention they need more than
+        // Vitest's 5s default, which made the suite fail on most runs.
+        testTimeout: 20000,
+        hookTimeout: 20000,
     },
 });

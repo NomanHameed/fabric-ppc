@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Foundation\Access\Permissions;
 use App\Modules\Foundation\Models\Department;
+use App\Modules\Foundation\Services\UserApprovalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,12 +18,17 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly UserApprovalService $approvals) {}
+
     public function index(): Response
     {
         return Inertia::render('admin/Users', [
-            'users' => User::query()->with(['roles', 'departments'])->orderBy('name')->get()->map(fn (User $u) => [
+            'users' => User::query()->with(['roles', 'departments', 'approver:id,name'])->orderBy('name')->get()->map(fn (User $u) => [
                 'id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'is_active' => $u->is_active, 'locale' => $u->locale,
                 'roles' => $u->getRoleNames()->values(), 'department_ids' => $u->departments->pluck('id')->values(),
+                'approval_status' => $u->approval_status, 'approved_at' => $u->approved_at?->toIso8601String(),
+                'approved_by' => $u->approver?->name, 'rejected_reason' => $u->rejected_reason,
+                'email_verified' => $u->email_verified_at !== null, 'registered_at' => $u->created_at?->toIso8601String(),
             ]),
             'roles' => array_keys(Permissions::ROLES),
             'departments' => Department::query()->orderBy('sort')->get()->map(fn ($d) => ['value' => $d->id, 'label' => $d->name]),
@@ -36,11 +42,13 @@ class UserController extends Controller
             ! $request->user()->hasRole(Permissions::ROLE_ADMIN) && in_array(Permissions::ROLE_ADMIN, $data['roles'], true),
             403
         );
-        $user = DB::transaction(function () use ($data) {
+        $user = DB::transaction(function () use ($data, $request) {
             $user = User::create([
                 'name' => $data['name'], 'email' => $data['email'], 'password' => $data['password'],
                 'is_active' => $data['is_active'] ?? true, 'locale' => $data['locale'], 'email_verified_at' => now(),
             ]);
+            // An administrator creating an account IS the approval decision; there is nothing to moderate.
+            $this->approvals->approveOnCreation($user, $request->user());
             $user->syncRoles($data['roles']);
             $user->departments()->sync($data['department_ids'] ?? []);
 

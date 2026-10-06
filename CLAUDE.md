@@ -20,10 +20,12 @@ composer run dev                  # serve + queue + vite together
 
 Verification gate — all of these must pass before any change is done:
 ```bash
-./vendor/bin/pest        # PHP tests (in-memory SQLite, no Docker needed)
+./vendor/bin/pest        # PHP tests (in-memory SQLite, no Docker needed), ~3 min. Browser tests live in
+                         # tests-browser/ and are opt-in: `composer test:browser` (docs/setup.md §4.6)
 npm run test:js          # Vitest
+npm run build            # vite production build — run this BEFORE types:check on a fresh clone: it generates
+                         # the Wayfinder routes under resources/js/routes/, which are gitignored
 npm run types:check      # vue-tsc --noEmit
-npm run build            # vite production build
 composer ci:check        # vp check (format+lint) + vue-tsc + pest; also ./vendor/bin/phpstan analyse (no new baseline entries)
 ```
 
@@ -32,7 +34,7 @@ composer ci:check        # vp check (format+lint) + vue-tsc + pest; also ./vendo
 - New PHP code under `App\Modules\<Module>\...`; models under `Models\*`.
 - No bare strings: PHP `__('group.key')`, Vue `t('group.key')` from `@/lib/i18n`. Never mix lang groups across modules.
 - One route file per module in `routes/modules/`, auto-loaded. Explicit routes go above generic catch-alls for the same prefix.
-- Migrations: `2026_09_19_` + 6-digit sequence from the task's reserved range.
+- Migrations: **date + 6-digit sequence** (`2026_09_24_000400_…`), unique within the date. P1's reserved-per-task ranges are history — see `docs/HANDOFF.md` §7. Never `$t->timestamp()` for a column recording when something happened: on MariaDB the first NOT NULL TIMESTAMP silently gains `ON UPDATE CURRENT_TIMESTAMP`. Use `$t->dateTime()`.
 - Toasts: `Inertia::flash('toast', ['type' => ..., 'message' => ...])` then `back()`/`redirect()` — never `back()->with(...)`.
 - `MasterController::destroy` maps to `forms.in_use` only via `isForeignKeyViolation()` (SQLSTATE 23000); never mask other DB errors.
 - In-page record navigation (prev/next/new/grid row) must go through `useUnsavedGuard().guard(fn)`, not call it directly.

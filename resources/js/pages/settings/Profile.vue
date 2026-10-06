@@ -74,7 +74,7 @@ const user = computed(() => page.props.auth.user);
                     <Link
                         :href="send()"
                         as="button"
-                        class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                        class="text-foreground decoration-muted-foreground/60 underline underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current!"
                     >
                         {{ t('settings.profile.resend') }}
                     </Link>
@@ -82,7 +82,7 @@ const user = computed(() => page.props.auth.user);
 
                 <div
                     v-if="page.props.status === 'verification-link-sent'"
-                    class="mt-2 text-sm font-medium text-green-600"
+                    class="text-success mt-2 text-sm font-medium"
                 >
                     {{ t('settings.profile.sent') }}
                 </div>

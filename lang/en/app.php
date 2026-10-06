@@ -1,7 +1,14 @@
 <?php
 
 return [
-    'name' => 'Fabric PPC',
+    'name' => 'Albeen Textiles',
+    'brand' => [
+        // The wordmark is a trademark: it is set in Latin capitals in every locale.
+        'wordmark' => 'ALBEEN',
+        'wordmark_sub' => 'TEXTILES',
+        'home' => 'Albeen Textiles — go to the dashboard',
+        'logo_alt' => 'Albeen Textiles logo',
+    ],
     'nav' => [
         'home' => 'Home',
         'dashboard' => 'Dashboard',
@@ -29,8 +36,16 @@ return [
         'roles' => 'Roles',
         'settings' => 'Settings',
     ],
+    // Dates are entered and shown as dd-mm-yyyy in every locale (HANDOFF §7); this
+    // placeholder only spells the field order out for the reader.
+    'date_format_hint' => 'dd-mm-yyyy',
     'language' => 'Language',
     'theme' => 'Theme',
+    'a11y' => [
+        'skip_to_content' => 'Skip to content',
+        'toggle_sidebar' => 'Show or hide the navigation',
+        'primary_nav' => 'Primary navigation',
+    ],
     'errors' => [
         'title' => 'Something went wrong',
         'unexpected' => 'An unexpected error occurred. It has been logged.',

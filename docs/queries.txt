@@ -1,0 +1,107 @@
+CREATE TABLE GREIGE_ISSUE_M
+(
+  GI_MAIN_ID    NUMBER(8),
+  GI_NUM        NUMBER(8),
+  DATED         DATE,
+  REF_NUM       VARCHAR2(8 BYTE),
+  SECTION_CODE  VARCHAR2(4 BYTE),
+  REMARKS       VARCHAR2(150 BYTE),
+  FINAL         VARCHAR2(1 BYTE),
+  FINAL_DATE    DATE,
+  FINAL_BY      VARCHAR2(15 BYTE),
+  ENTRY_DATE    DATE,
+  USER_ID       VARCHAR2(15 BYTE),
+  COMPUTER      VARCHAR2(15 BYTE),
+  CC_CODE       NUMBER(8)                       DEFAULT 82
+);
+
+CREATE TABLE GREIGE_ISSUE_D
+(
+  GI_MAIN_ID    NUMBER(8),
+  LOT_NUM       NUMBER(8),
+  GI_DTL_ID     NUMBER(8),
+  Q_CODE        NUMBER(4),
+  G_WIDTH       NUMBER(5,2),
+  PARTY_CODE    NUMBER(8),
+  QNTY          NUMBER(6),
+  RATE          NUMBER(6,2),
+  THAN          NUMBER(4),
+  CONTRACT_NUM  NUMBER(6),
+  PC_MAIN_ID    NUMBER(8),
+  PC_DTL_ID     NUMBER(8),
+  LOCATION      VARCHAR2(15 BYTE),
+  GSM           NUMBER(4)
+)
+
+CREATE TABLE PROCESSING_LOTS
+(
+  PROCESSING_LOT_ID  NUMBER(10),
+  CC_CODE            NUMBER(8)                  NOT NULL,
+  MACHINE_CODE       NUMBER(8)                  NOT NULL,
+  REF_NUM            VARCHAR2(25 BYTE),
+  LOT_NUM            NUMBER(8)                  NOT NULL,
+  PLOT_NUM           VARCHAR2(30 BYTE),
+  CONTRACT_NUM       NUMBER(8)                  NOT NULL,
+  PARTY_CODE         NUMBER(8)                  NOT NULL,
+  DATED              DATE,
+  Q_CODE             NUMBER(8)                  NOT NULL,
+  G_WIDTH            NUMBER(8,2)                NOT NULL,
+  F_WIDTH            NUMBER(8,2),
+  PROCESS_TYPE       VARCHAR2(20 BYTE)          NOT NULL,
+  DESIGN_CODE        NUMBER(8),
+  VERSION_CODE       NUMBER(8),
+  COLOUR_CODE        NUMBER(8),
+  QNTY_USED          NUMBER(8)                  NOT NULL,
+  QNTY_PRODUCED      NUMBER(8)                  NOT NULL,
+  REMARKS            VARCHAR2(100 BYTE),
+  TO_CC_CODE         NUMBER(8)                  NOT NULL,
+  OPERATION_CODE     NUMBER(8),
+  ENTRY_DATE         DATE,
+  USER_ID            VARCHAR2(30 BYTE),
+  COMPUTER           VARCHAR2(30 BYTE),
+  LOT_STARTTIME      DATE,
+  LOT_ENDTIME        DATE,
+  F_WIDTH_PRODUCED   NUMBER(8,2),
+  REPROCESS          VARCHAR2(1 BYTE),
+  NON_PROCESS        VARCHAR2(1 BYTE),
+  GREIGE_RECEIPT     VARCHAR2(1 BYTE),
+  GREIGE_RECEIPT_BY  VARCHAR2(30 BYTE),
+  GREIGE_RECEIPT_DT  DATE
+);
+
+
+
+
+
+
+
+CREATE OR REPLACE FORCE VIEW processing_lots_trans AS
+   SELECT 'GREIGE-ISSUE' AS trans_type, m.cc_code, m.dated, d.party_code,
+          d.contract_num, d.lot_num, d.q_code, d.g_width, c.f_width,
+          c.process_type, c.design_code, c.version_code, c.colour_code,
+          NULL AS machine_code, d.qnty, 0 AS ref_id
+     FROM greige_issue_m m, greige_issue_d d, processing_contract_d c
+    WHERE m.gi_main_id = d.gi_main_id
+      AND d.pc_dtl_id = c.pc_dtl_id
+      AND m.dated >= '01-SEP-26'
+   UNION ALL
+/* ================= PROCESSING USED ================= */
+   SELECT 'PROCESS-USED' AS trans_type, l.cc_code, l.dated, l.party_code,
+          l.contract_num, l.lot_num, l.q_code, l.g_width, l.f_width,
+          c.process_type, c.design_code, c.version_code, c.colour_code,
+          l.machine_code, -l.qnty_used AS qnty, l.processing_lot_id AS ref_id
+     FROM processing_lots l, greige_issue_d g, processing_contract_d c
+    WHERE l.lot_num = g.lot_num
+      AND g.pc_dtl_id = c.pc_dtl_id
+      AND l.dated >= '01-SEP-26'
+   UNION ALL
+/* ================= PROCESSING ISSUE ================= */
+   SELECT 'PROCESS-PRODUCED' AS trans_type, l.to_cc_code, l.dated,
+          l.party_code, l.contract_num, l.lot_num, l.q_code, l.g_width,
+          NVL (l.f_width_produced, l.f_width) AS f_width, c.process_type,
+          c.design_code, c.version_code, c.colour_code, l.machine_code,
+          l.qnty_produced AS qnty, l.processing_lot_id AS ref_id
+     FROM processing_lots l, greige_issue_d g, processing_contract_d c
+    WHERE l.lot_num = g.lot_num
+      AND g.pc_dtl_id = c.pc_dtl_id
+      AND l.dated >= '01-SEP-26'

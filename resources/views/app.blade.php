@@ -3,6 +3,11 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {{-- The app owns its own light/dark switch, so CSS (`color-scheme` on :root/.dark
+             in app.css) is what finally decides; this meta only covers the first frame. --}}
+        <meta name="color-scheme" content="light dark">
+        <meta name="theme-color" content="#fafcfb" media="(prefers-color-scheme: light)">
+        <meta name="theme-color" content="#0a100d" media="(prefers-color-scheme: dark)">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
@@ -19,14 +24,15 @@
             })();
         </script>
 
-        {{-- Inline style to set the HTML background color based on our theme in app.css --}}
+        {{-- Pre-paint background so there is no white flash before app.css loads.
+             Keep these two values in step with `--background` in resources/css/app.css. --}}
         <style>
             html {
-                background-color: oklch(1 0 0);
+                background-color: oklch(0.99 0.003 161.2);
             }
 
             html.dark {
-                background-color: oklch(0.145 0 0);
+                background-color: oklch(0.165 0.011 161.2);
             }
         </style>
 

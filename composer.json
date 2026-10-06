@@ -84,7 +84,7 @@
         ],
         "test:browser": [
             "@php artisan config:clear --ansi",
-            "./vendor/bin/pest tests/Browser"
+            "PEST_BROWSER=1 ./vendor/bin/pest -c phpunit-browser.xml --test-directory=tests-browser"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

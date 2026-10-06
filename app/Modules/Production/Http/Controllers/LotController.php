@@ -3,6 +3,8 @@
 namespace App\Modules\Production\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Activity\Concerns\RecordsUserActions;
+use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Foundation\Models\LookupValue;
 use App\Modules\Foundation\Query\QueryCriteria;
 use App\Modules\Production\Models\Lot;
@@ -32,6 +34,8 @@ use Inertia\Response;
  */
 class LotController extends Controller
 {
+    use RecordsUserActions;
+
     /** Rows the grid shows at most ("showing n of m"); the count beside it is the true number of matches. */
     public const ROW_CAP = 200;
 
@@ -109,11 +113,45 @@ class LotController extends Controller
         // the user may write something, but sent none of it (only fields that are not theirs to change)
         abort_if($attrs === [], 403);
 
+        $wasColourStatus = $lot->colour_status;
         $lot->fill($attrs)->save();
+        $this->recordColourDecision($lot, $wasColourStatus, $request);
+
         Inertia::flash('toast', ['type' => 'success', 'message' => __('forms.saved')]);
         Inertia::flash('selectedId', $lot->id);
 
         return back();
+    }
+
+    /**
+     * The colour decision, for the action log and the lot timeline.
+     *
+     * The `audits` row already records the column change; this is the same fact in the words the colour lab
+     * and the floor use, and it is what `ActionKeys::COLOUR_APPROVED` / `COLOUR_REJECTED` were defined for —
+     * until now nothing but the demo seeder ever wrote them. Which of the two it is comes from the lookup's
+     * own `meta.approved` flag (spec §5.4), the same flag the production sheet's colour gate reads.
+     *
+     * Clearing the status is not a decision, so it records nothing; neither does a save that left the colour
+     * status alone. Logging is best-effort inside ActionLogger and the save has already committed.
+     */
+    private function recordColourDecision(Lot $lot, ?string $previous, Request $request): void
+    {
+        $status = $lot->colour_status;
+
+        if ($status === null || $status === $previous) {
+            return;
+        }
+
+        $meta = LookupValue::query()->list(ProductionSheetService::COLOUR_STATUS_LIST)
+            ->where('code', $status)->first()?->meta;
+        $approved = is_array($meta) && (bool) ($meta['approved'] ?? false);
+
+        $this->recordAction(
+            $approved ? ActionKeys::COLOUR_APPROVED : ActionKeys::COLOUR_REJECTED,
+            $lot,
+            ['colour' => (string) $lot->colour, 'lot' => $lot->lot_no],
+            $request->user(),
+        );
     }
 
     /** The eleven query-mode fields (spec §4.2), over the lot and its joined PO, party and quality. */

@@ -114,13 +114,13 @@ const stateNote = computed(() => {
 const stateBadgeClass = computed(() => {
     switch (props.lot.state) {
         case 'hold':
-            return 'border-amber-500/60 bg-amber-500/15 text-amber-700 dark:text-amber-400';
+            return 'border-warning/60 bg-warning-surface text-warning-on-surface';
         case 'cancelled':
-            return 'border-destructive/60 bg-destructive/10 text-destructive';
+            return 'border-destructive/60 bg-destructive-surface text-destructive-on-surface';
         case 'closed':
             return 'bg-muted text-muted-foreground';
         default:
-            return 'border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+            return 'border-success/60 bg-success-surface text-success-on-surface';
     }
 });
 const activeReasons = computed(() =>
@@ -511,7 +511,7 @@ const showing = computed(() => {
 
 <template>
     <Head :title="t('inquiry.lot.title', { lot: lot.lot_no })" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <div class="flex flex-wrap items-center gap-2">
             <h1 class="text-lg font-semibold">
                 {{ t('inquiry.lot.heading') }}

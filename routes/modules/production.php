@@ -5,6 +5,10 @@ use App\Modules\Production\Http\Controllers\IssueController;
 use App\Modules\Production\Http\Controllers\LotController;
 use App\Modules\Production\Http\Controllers\LotRouteController;
 use App\Modules\Production\Http\Controllers\LotStateController;
+use App\Modules\Production\Http\Controllers\LotTimelineController;
+use App\Modules\Production\Http\Controllers\LotTimelineScreenController;
+use App\Modules\Production\Http\Controllers\MachineUtilisationController;
+use App\Modules\Production\Http\Controllers\ProductionAnalyticsController;
 use App\Modules\Production\Http\Controllers\ProductionSheetController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +18,13 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
     // LotController (colour.edit / production.route.manage). Registered above the `lots/{lot}/…` state routes.
     Route::middleware('permission:inquiry.view')->group(function () {
         Route::get('lots', [LotController::class, 'index'])->name('lots.index');
+        // Explicit, above `lots/{lot}` and the state routes below.
+        Route::get('lots/{lot}/timeline', [LotTimelineController::class, 'show'])->whereNumber('lot')->name('lots.timeline');
+        // The screen that draws that JSON; `timeline` is a fixed segment, so it cannot be read as a lot id.
+        Route::get('timeline', [LotTimelineScreenController::class, 'index'])->name('timeline.index');
+        // Dashboard charts. inquiry.view is the widest production read every role holds; the capacity half of
+        // the payload is dropped inside the controller for anyone without production.sheet.view.
+        Route::get('analytics', [ProductionAnalyticsController::class, 'index'])->name('analytics.index');
         Route::put('lots/{lot}', [LotController::class, 'update'])->whereNumber('lot')->name('lots.update');
         Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
     });
@@ -36,6 +47,12 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         Route::post('lots/{lot}/hold', [LotStateController::class, 'hold'])->whereNumber('lot')->name('lots.hold');
         Route::post('lots/{lot}/release', [LotStateController::class, 'release'])->whereNumber('lot')->name('lots.release');
         Route::post('lots/{lot}/cancel', [LotStateController::class, 'cancel'])->whereNumber('lot')->name('lots.cancel');
+    });
+
+    // Capacity/utilisation: a planning read, so it follows the sheet-view permission every floor role has.
+    Route::middleware('permission:production.sheet.view')->group(function () {
+        Route::get('capacity', [MachineUtilisationController::class, 'screen'])->name('capacity.index');
+        Route::get('utilisation', [MachineUtilisationController::class, 'index'])->name('utilisation.index');
     });
 
     // Viewing needs production.sheet.view; the writes are authorised per department by ProductionSheetPolicy.

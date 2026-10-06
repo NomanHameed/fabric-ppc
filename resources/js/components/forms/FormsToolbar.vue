@@ -88,7 +88,7 @@ useFormsKeys(
             class="bg-muted/40 flex flex-wrap items-center gap-1 rounded-md border px-2 py-1"
             :class="
                 mode === 'enterQuery'
-                    ? 'border-amber-500/60 bg-amber-50 dark:bg-amber-950/30'
+                    ? 'border-warning/70 bg-warning-surface'
                     : ''
             "
         >
@@ -124,7 +124,7 @@ useFormsKeys(
             </template>
             <span
                 v-if="mode === 'enterQuery'"
-                class="ms-auto text-xs font-medium text-amber-700 dark:text-amber-400"
+                class="text-warning-on-surface ms-auto text-xs font-medium"
             >
                 {{ t('forms.query_mode') }}
             </span>

@@ -55,7 +55,7 @@ const columns = computed<ColumnDef<ImportSummary>[]>(() => [
 
 <template>
     <Head :title="t('oracle.title')" />
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <h1 class="text-lg font-semibold">{{ t('oracle.title') }}</h1>
         <FormBlock v-if="canRun" :title="t('oracle.upload')">
             <FormField

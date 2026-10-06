@@ -4,6 +4,18 @@
          bootstrap="vendor/autoload.php"
          colors="true"
 >
+    <!--
+        The tests-browser directory is deliberately absent from this file.
+
+        The Pest browser plugin starts a Playwright `run-server` node process as soon as a browser test is
+        COLLECTED - before any suite filter, group filter or beforeEach hook can skip it - and then leaves it
+        behind holding the run's inherited stdout. A piped bare pest run therefore sat for another
+        quarter of an hour after the tests had finished. Listing the directory here would put it back in the
+        default run, because Pest collects PHPUnit's configured suites as well as its own test directory.
+
+        Browser tests are run on purpose, and only then: `composer test:browser`
+        which passes PEST_BROWSER=1 and points Pest at that directory. See its Pest.php.
+    -->
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
@@ -13,9 +25,6 @@
         </testsuite>
         <testsuite name="Concurrency">
             <directory>tests/Concurrency</directory>
-        </testsuite>
-        <testsuite name="Browser">
-            <directory>tests/Browser</directory>
         </testsuite>
     </testsuites>
     <source>
