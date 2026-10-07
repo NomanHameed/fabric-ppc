@@ -46,6 +46,7 @@ return [
         'stock' => 'Greige in stock',
         'issued' => 'Issued, not started',
         'finished' => 'Finished, not dispatched',
+        'unclassified' => 'Unclassified (no stage)',
     ],
     'charts' => [
         'by_department' => 'Production by department',

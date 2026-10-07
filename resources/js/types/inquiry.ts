@@ -42,6 +42,14 @@ export type InquiryLot = LotQuantities & {
     state_changed_at: string | null;
     current_label: string | null;
     process_flag: ProcessFlag;
+    /** The reporting stage, derived from the status unless `stage_overridden` says PPC pinned it. */
+    stage_id: number | null;
+    stage: string | null;
+    stage_process_id: number | null;
+    stage_process: string | null;
+    stage_overridden: boolean;
+    stage_overridden_at: string | null;
+    stage_overridden_by: string | null;
     oracle_missing_at: string | null;
     last_movement_at: string | null;
     loss_reason: string | null;
@@ -154,6 +162,10 @@ export type PoLotRow = LotQuantities & {
     po_type: string | null;
     state: LotState;
     current_label: string | null;
+    stage_id: number | null;
+    stage: string | null;
+    stage_process_id: number | null;
+    stage_process: string | null;
     process_flag: ProcessFlag;
     oracle_missing_at: string | null;
 };

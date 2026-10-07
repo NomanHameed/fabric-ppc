@@ -64,7 +64,7 @@ class InquiryController extends Controller
 
     public function lot(Request $request, Lot $lot): Response
     {
-        $lot->load(['contract.party', 'quality']);
+        $lot->load(['contract.party', 'quality', 'stage', 'stageProcess', 'stageOverrider']);
         $balances = $this->ledger->balances($lot);
         $steps = $lot->routeSteps()->with('operation.department')->get();
         $user = $request->user();
@@ -114,7 +114,8 @@ class InquiryController extends Controller
         $sums = $contract->lots()->toBase()
             ->selectRaw(implode(', ', array_map(fn (string $c): string => "coalesce(sum({$c}), 0) as {$c}", self::QTY_COLUMNS)))
             ->first();
-        $lots = $contract->lots()->with('quality')->orderBy('lot_no')->orderBy('id')->limit(self::ROW_CAP)->get();
+        $lots = $contract->lots()->with(['quality', 'stage', 'stageProcess'])
+            ->orderBy('lot_no')->orderBy('id')->limit(self::ROW_CAP)->get();
 
         return Inertia::render('inquiry/PoInquiry', [
             'contract' => [
@@ -125,6 +126,8 @@ class InquiryController extends Controller
             'lots' => $lots->map(fn (Lot $l): array => [
                 'id' => $l->id, 'lot_no' => $l->lot_no, 'quality' => $l->quality->description, 'design' => $l->design, 'colour' => $l->colour,
                 'colour_status' => $l->colour_status, 'po_type' => $l->po_type, 'state' => $l->state, 'current_label' => $l->current_label,
+                'stage_id' => $l->stage_id, 'stage' => $l->stage?->name,
+                'stage_process_id' => $l->stage_process_id, 'stage_process' => $l->stageProcess?->name,
                 'process_flag' => $this->labeller->processFlag($l), 'oracle_missing_at' => $l->oracle_missing_at?->format('d-m-Y'),
             ] + $this->quantities($l))->values(),
             'lotsTotal' => $total,
@@ -147,6 +150,12 @@ class InquiryController extends Controller
             'po_type' => $lot->po_type, 'state' => $lot->state, 'hold_reason' => $lot->hold_reason, 'cancel_reason' => $lot->cancel_reason,
             'state_changed_at' => $lot->state_changed_at?->format('d-m-Y H:i'),
             'current_label' => $lot->current_label, 'process_flag' => $this->labeller->processFlag($lot),
+            // The reporting stage beside the raw status (both, never one instead of the other).
+            'stage_id' => $lot->stage_id, 'stage' => $lot->stage?->name,
+            'stage_process_id' => $lot->stage_process_id, 'stage_process' => $lot->stageProcess?->name,
+            'stage_overridden' => $lot->isStageOverridden(),
+            'stage_overridden_at' => $lot->stage_overridden_at?->format('d-m-Y H:i'),
+            'stage_overridden_by' => $lot->stageOverrider?->name,
             'oracle_missing_at' => $lot->oracle_missing_at?->format('d-m-Y'), 'last_movement_at' => $lot->last_movement_at?->format('d-m-Y H:i'),
             'loss_reason' => $lot->loss_reason, 'closed_at' => $lot->closed_at?->format('d-m-Y H:i'), 'remarks' => $lot->remarks,
         ] + $this->quantities($lot);

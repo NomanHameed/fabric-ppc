@@ -4,6 +4,7 @@ namespace App\Modules\Production\Services;
 
 use App\Modules\Foundation\Models\Department;
 use App\Modules\Foundation\Models\Operation;
+use App\Modules\Foundation\Models\Stage;
 use App\Modules\Production\Analytics\DashboardData;
 use App\Modules\Production\Capacity\Utilisation;
 use App\Modules\Production\Ledger\Position;
@@ -35,6 +36,9 @@ final class ProductionAnalyticsService
 {
     /** Ledger kinds that represent work done on the floor. */
     private const PRODUCTION_KINDS = ['process', 'reprocess'];
+
+    /** The report's six quantities, as they are stored on the lot (spec §14). */
+    private const QTY_COLUMNS = ['greige_qty', 'stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty'];
 
     /**
      * Signed metres for one movement: forward rows deliver `qty_into_to`, reversals take back what the row
@@ -300,6 +304,63 @@ final class ProductionAnalyticsService
         return $stages;
     }
 
+    /**
+     * The mill's lots grouped **stage -> stage process**, with the report's six quantities and a lot count
+     * per row (spec §13, §14). This is the grouping the Month Wise Fabric Report reads; the dashboard's
+     * `wipByStage()` above stays as it is, because it answers a different question (metres per *department*,
+     * out of the balances).
+     *
+     * **No double counting, by construction.** `lots.stage_id` / `lots.stage_process_id` say where the lot
+     * *is now* — one lot, one process — so a lot contributes its quantities to exactly one row. There is no
+     * stage history to sum over and none is invented here: the figures are the lot's own derived totals,
+     * summed in the database, so the stage split of each quantity always adds back up to the mill total.
+     *
+     * A lot whose status no process claims (and a lot still entirely in stock, which carries no status at
+     * all) lands in the `unclassified` row rather than being dropped, so the rows always total the mill. The
+     * Unmapped Statuses screen is where those statuses are named.
+     *
+     * @param  list<string>|null  $states  lot states to include; null means every state
+     * @return list<array{id: int|null, code: string, name: string, lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float, processes: list<array{id: int|null, code: string, name: string, lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float}>}>
+     */
+    public function byStage(?array $states = ['open', 'hold']): array
+    {
+        $rows = DB::table('lots')
+            ->when($states !== null, fn ($q) => $q->whereIn('lots.state', $states ?? []))
+            ->groupBy('lots.stage_id', 'lots.stage_process_id')
+            ->selectRaw('lots.stage_id, lots.stage_process_id, count(*) as lots, '
+                .implode(', ', array_map(fn (string $c): string => "coalesce(sum(lots.{$c}), 0) as {$c}", self::QTY_COLUMNS)))
+            ->get();
+
+        $stages = Stage::query()->with('processes')->orderBy('sort_order')->orderBy('code')->get();
+        /** @var array<string, object> $byKey stage id . ':' . process id => the grouped row */
+        $byKey = [];
+        foreach ($rows as $row) {
+            $byKey[((int) $row->stage_id).':'.((int) $row->stage_process_id)] = $row;
+        }
+
+        $out = [];
+        foreach ($stages as $stage) {
+            $processes = [];
+            foreach ($stage->processes as $process) {
+                $key = ((int) $stage->getKey()).':'.((int) $process->getKey());
+                $processes[] = ['id' => (int) $process->getKey(), 'code' => $process->code, 'name' => $process->name]
+                    + $this->stageQuantities($byKey[$key] ?? null);
+                unset($byKey[$key]);
+            }
+            $out[] = ['id' => (int) $stage->getKey(), 'code' => $stage->code, 'name' => $stage->name]
+                + $this->sumRows($processes) + ['processes' => $processes];
+        }
+
+        // Whatever no row above claimed: lots with no stage, lots still entirely in stock (no status at all)
+        // and the odd lot left pointing at a process that is no longer in the taxonomy. Summed here rather
+        // than dropped, so the rows always add up to the mill.
+        $unclassified = ['id' => null, 'code' => 'UNCLASSIFIED', 'name' => $this->line('dashboard.stages.unclassified')]
+            + $this->sumRows(array_map(fn (object $row): array => $this->stageQuantities($row), array_values($byKey)));
+        $out[] = $unclassified + ['processes' => [$unclassified]];
+
+        return $out;
+    }
+
     // ---- lookups ---------------------------------------------------------------------------------------
 
     /**
@@ -354,6 +415,47 @@ final class ProductionAnalyticsService
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------
+
+    /**
+     * One grouped row's lot count and quantities; all zero when no lot sits there (the row is still shown,
+     * so the report's shape does not change with the data).
+     *
+     * @return array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float}
+     */
+    private function stageQuantities(?object $row): array
+    {
+        $out = ['lots' => $row === null ? 0 : (int) ($row->lots ?? 0)];
+        foreach (self::QTY_COLUMNS as $column) {
+            $out[$column] = $this->round($row === null ? 0.0 : (float) ($row->{$column} ?? 0));
+        }
+
+        /** @var array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float} */
+        return $out;
+    }
+
+    /**
+     * A stage's own figures: the sum of its processes. Not a second query — and not a separate grouping
+     * either, so a stage total can never disagree with the rows under it.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float}
+     */
+    private function sumRows(array $rows): array
+    {
+        $out = ['lots' => 0];
+        foreach (self::QTY_COLUMNS as $column) {
+            $out[$column] = 0.0;
+        }
+        foreach ($rows as $row) {
+            $out['lots'] += (int) $row['lots'];
+            foreach (self::QTY_COLUMNS as $column) {
+                $out[$column] = $this->round($out[$column] + (float) $row[$column]);
+            }
+        }
+
+        /** @var array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float} */
+        return $out;
+    }
 
     /** @return list<string> */
     private function dates(CarbonImmutable $from, CarbonImmutable $to): array

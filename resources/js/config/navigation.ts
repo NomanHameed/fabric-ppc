@@ -2,6 +2,7 @@ import type { LucideIcon } from '@lucide/vue';
 import {
     Boxes,
     Building2,
+    CircleHelp,
     ClipboardList,
     Clock,
     Cog,
@@ -9,10 +10,12 @@ import {
     Factory,
     FileText,
     Gauge,
+    GitBranch,
     History,
     Layers,
     LayoutGrid,
     ListTree,
+    Milestone,
     PackageOpen,
     Route,
     ScrollText,
@@ -188,6 +191,30 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/masters/lookups',
                 icon: Tags,
                 permission: 'masters.view',
+            },
+            {
+                key: 'stages',
+                titleKey: 'app.nav.stages',
+                href: '/masters/stages',
+                icon: Milestone,
+                permission: 'masters.view',
+            },
+            {
+                key: 'stage_processes',
+                titleKey: 'app.nav.stage_processes',
+                href: '/masters/stage_processes',
+                icon: GitBranch,
+                permission: 'masters.view',
+            },
+            // The status -> stage gap report. It reads lots, so it is a Production route; it is listed here
+            // because the only way to act on it is the Stage Processes master above, and only someone who
+            // may edit that master (`masters.manage`) can do anything with it.
+            {
+                key: 'unmapped_statuses',
+                titleKey: 'production.unmapped.title',
+                href: '/production/unmapped-statuses',
+                icon: CircleHelp,
+                permission: 'masters.manage',
             },
         ],
     },

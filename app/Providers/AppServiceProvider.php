@@ -20,6 +20,10 @@ use App\Modules\Foundation\Masters\Resources\MachineResource;
 use App\Modules\Foundation\Masters\Resources\OperationResource;
 use App\Modules\Foundation\Masters\Resources\QualityResource;
 use App\Modules\Foundation\Masters\Resources\ShiftResource;
+use App\Modules\Foundation\Masters\Resources\StageProcessResource;
+use App\Modules\Foundation\Masters\Resources\StageResource;
+use App\Modules\Foundation\Models\Stage;
+use App\Modules\Foundation\Models\StageProcess;
 use App\Modules\OracleSync\Services\PartyResolver;
 use App\Modules\Production\Lov\ContractLov;
 use App\Modules\Production\Lov\LotLov;
@@ -27,6 +31,7 @@ use App\Modules\Production\Lov\RouteTemplateLov;
 use App\Modules\Production\Models\ProductionSheet;
 use App\Modules\Production\Policies\ProductionSheetPolicy;
 use App\Modules\Production\Services\LedgerService;
+use App\Modules\Production\Status\StatusStageResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +51,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(PartyResolver::class);
         // One per request: TrackDevice resolves the device and everything logged later reads it back.
         $this->app->scoped(DeviceRegistrar::class);
-        $this->app->singleton(LedgerService::class);
+        // Both are scoped, not singletons: the resolver memoises the status -> stage alias map, and a queue
+        // worker must not carry that map (or a ledger holding it) from one job to the next for hours.
+        $this->app->scoped(StatusStageResolver::class);
+        $this->app->scoped(LedgerService::class);
     }
 
     /**
@@ -84,8 +92,18 @@ class AppServiceProvider extends ServiceProvider
             ShiftResource::class,
             QualityResource::class,
             LookupValueResource::class,
+            StageResource::class,
+            StageProcessResource::class,
         ] as $class) {
             $masters->register(new $class);
+        }
+
+        // The alias map is master data the operator edits on those two screens; forget the memoised copy as
+        // soon as it changes, so the next lot resolved in this request uses the alias just saved.
+        $forget = fn () => $this->app->make(StatusStageResolver::class)->flush();
+        foreach ([Stage::class, StageProcess::class] as $model) {
+            $model::saved($forget);
+            $model::deleted($forget);
         }
 
         $this->configureDefaults();

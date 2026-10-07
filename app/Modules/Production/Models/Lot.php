@@ -2,7 +2,11 @@
 
 namespace App\Modules\Production\Models;
 
+use App\Models\User;
 use App\Modules\Foundation\Models\Quality;
+use App\Modules\Foundation\Models\Stage;
+use App\Modules\Foundation\Models\StageProcess;
+use Carbon\CarbonImmutable;
 use Database\Factories\Modules\Production\LotFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +26,10 @@ use OwenIt\Auditing\Contracts\Auditable;
  * @property numeric-string $finished_qty
  * @property numeric-string $dispatched_qty
  * @property numeric-string $loss_qty
+ * @property int|null $stage_id
+ * @property int|null $stage_process_id
+ * @property CarbonImmutable|null $stage_overridden_at
+ * @property int|null $stage_overridden_by
  */
 #[UseFactory(LotFactory::class)]
 class Lot extends Model implements Auditable
@@ -40,6 +48,8 @@ class Lot extends Model implements Auditable
         'oracle_line_id' => 'integer', 'gsm' => 'integer', 'g_width' => 'decimal:2', 'f_width' => 'decimal:2',
         'greige_qty' => 'decimal:2', 'loss_qty' => 'decimal:2', 'closed_at' => 'datetime', 'oracle_missing_at' => 'datetime',
         'state_changed_at' => 'datetime',
+        'stage_id' => 'integer', 'stage_process_id' => 'integer',
+        'stage_overridden_at' => 'datetime', 'stage_overridden_by' => 'integer',
         // derived by the ledger (LedgerService is their only writer)
         'stock_qty' => 'decimal:2', 'issued_qty' => 'decimal:2', 'wip_qty' => 'decimal:2', 'finished_qty' => 'decimal:2',
         'dispatched_qty' => 'decimal:2', 'last_movement_at' => 'datetime',
@@ -55,6 +65,43 @@ class Lot extends Model implements Auditable
     public function quality(): BelongsTo
     {
         return $this->belongsTo(Quality::class);
+    }
+
+    /**
+     * Where the lot sits in the reporting taxonomy. Derived from `current_label` and written by
+     * LedgerService in the same update, so it never disagrees with the label; null when the label resolves
+     * to nothing (an unmapped status, listed on the Unmapped Statuses screen).
+     *
+     * The exception is a manual override: while `stage_overridden_at` is set, PPC has pinned the stage and
+     * the ledger leaves these two columns alone until the override is cleared (`isStageOverridden`).
+     *
+     * @return BelongsTo<Stage, $this>
+     */
+    public function stage(): BelongsTo
+    {
+        return $this->belongsTo(Stage::class);
+    }
+
+    /** @return BelongsTo<StageProcess, $this> */
+    public function stageProcess(): BelongsTo
+    {
+        return $this->belongsTo(StageProcess::class);
+    }
+
+    /**
+     * Who pinned the stage by hand, if anyone.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function stageOverrider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'stage_overridden_by');
+    }
+
+    /** True while the stage is pinned by hand and the ledger must not re-derive it. */
+    public function isStageOverridden(): bool
+    {
+        return $this->stage_overridden_at !== null;
     }
 
     /** @return HasMany<LotRouteStep, $this> */

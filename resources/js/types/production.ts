@@ -18,6 +18,10 @@ export type LotSummary = {
     state: LotState;
     current_label: string | null;
     contract_id: number;
+    stage_id: number | null;
+    stage: string | null;
+    stage_process_id: number | null;
+    stage_process: string | null;
 };
 
 /** A row of the `contracts` LOV (ContractLov::row): open lots with greige in stock, and the open lots' stock in metres. */
@@ -271,6 +275,14 @@ export type LotScreenRow = {
     state_changed_at: string | null;
     current_label: string | null;
     process_flag: ProcessFlag;
+    /** The reporting stage, derived from the status — or pinned by hand (`stage_overridden`). */
+    stage_id: number | null;
+    stage: string | null;
+    stage_process_id: number | null;
+    stage_process: string | null;
+    stage_overridden: boolean;
+    stage_overridden_at: string | null;
+    stage_overridden_by: string | null;
     greige_qty: number;
     stock_qty: number;
     issued_qty: number;
@@ -295,6 +307,24 @@ export type LotScreenPermissions = {
     remarks: boolean;
     hold: boolean;
     route: boolean;
+    /** May pin a lot's reporting stage by hand, and clear the pin (`production.route.manage`). */
+    stage: boolean;
+};
+
+/** What `PUT production/lots/{lot}/stage` accepts: the pinned pair, both required. */
+export type LotStageOverride = {
+    stage_id: number | null;
+    stage_process_id: number | null;
+};
+
+/** One unmapped status as the Unmapped Statuses screen receives it (UnmappedStatusController::index). */
+export type UnmappedStatusRow = {
+    /** The grid's row id: the lowest lot id carrying the status (the lot the row opens). */
+    id: number;
+    label: string;
+    normalised: string | null;
+    lots: number;
+    lot_id: number;
 };
 
 // ---- POs / Contracts screen (ContractController::index) --------------------------------------------------------

@@ -10,6 +10,7 @@ use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Models\LotBalance;
 use App\Modules\Production\Models\LotMovement;
 use App\Modules\Production\Status\LotStatusLabeller;
+use App\Modules\Production\Status\StatusStageResolver;
 use Carbon\CarbonInterface;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * The only writer of lot_movements, lot_balances and the lots.*_qty / current_label / last_movement_at columns.
+ * The only writer of lot_movements, lot_balances and the lots.*_qty / current_label / stage_id /
+ * stage_process_id / last_movement_at columns.
  *
  * Every write runs in a transaction (joining the caller's when there is one), locks the lot row and the lot's
  * balance rows, and leaves balances and totals consistent with the movements when it returns. Balances never
@@ -51,13 +53,17 @@ final class LedgerService
     /** Kinds that move fabric on the floor and therefore need an open lot. */
     private const NEEDS_OPEN_LOT = ['issue', 'process', 'reprocess'];
 
-    /** Lot columns derived from the balances (spec §5.3 "Derived lot values"). */
+    /**
+     * Lot columns derived from the balances (spec §5.3 "Derived lot values"). The ledger also owns
+     * `current_label`, `last_movement_at` and — unless PPC has pinned them — `stage_id` /
+     * `stage_process_id`; refreshTotals() writes whichever of those it derived on the call.
+     */
     private const TOTAL_COLUMNS = ['stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty'];
 
-    /** Every lot column the ledger owns. */
-    private const DERIVED_COLUMNS = [...self::TOTAL_COLUMNS, 'current_label', 'last_movement_at'];
-
-    public function __construct(private readonly LotStatusLabeller $labeller) {}
+    public function __construct(
+        private readonly LotStatusLabeller $labeller,
+        private readonly StatusStageResolver $stages,
+    ) {}
 
     /**
      * Post one movement: $qtyOut leaves $from (if any) and $qtyIn arrives at $to (if any).
@@ -486,18 +492,31 @@ final class LedgerService
      * here, from the balances just written and the locked lot's state, so it can never disagree with them.
      * The caller's instance gets the new values too, so it stays current after the call.
      *
+     * The reporting stage and process are resolved from that same label in this one update, so they cannot
+     * drift from it either: there is no second writer and no later job to run. The resolver memoises the
+     * alias map for the request, so this costs no query per lot. An unmapped status leaves both columns null
+     * (the Unmapped Statuses screen reports it) rather than guessing a stage.
+     *
+     * Unless PPC has pinned the stage by hand (`lots.stage_overridden_at`). Then the two stage columns are
+     * left exactly as they are — the label and every quantity are still written — until the override is
+     * cleared on the Lots screen, which re-derives them there and then. That screen is the only other writer
+     * of those two columns, and only through an audited save with a recorded actor.
+     *
      * @param  array<string, LotBalance>  $balances
      */
     private function refreshTotals(Lot $locked, Lot $callerInstance, array $balances, CarbonInterface|string|null $lastMovementAt): void
     {
         $qtyByPosition = array_map(fn (LotBalance $row): string => $row->qty, $balances);
+        $label = $this->labeller->label($locked, $qtyByPosition);
         $totals = $this->totalsFrom($qtyByPosition, $this->issuedQty($locked, true))
-            + ['current_label' => $this->labeller->label($locked, $qtyByPosition), 'last_movement_at' => $lastMovementAt];
+            + ['current_label' => $label]
+            + ($locked->isStageOverridden() ? [] : $this->stages->resolve($label))
+            + ['last_movement_at' => $lastMovementAt];
 
         Lot::query()->whereKey($locked->getKey())->update($totals);
 
         foreach ([$locked, $callerInstance] as $instance) {
-            $instance->forceFill($totals)->syncOriginalAttributes(self::DERIVED_COLUMNS);
+            $instance->forceFill($totals)->syncOriginalAttributes(array_keys($totals));
         }
     }
 

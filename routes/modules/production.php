@@ -10,6 +10,7 @@ use App\Modules\Production\Http\Controllers\LotTimelineScreenController;
 use App\Modules\Production\Http\Controllers\MachineUtilisationController;
 use App\Modules\Production\Http\Controllers\ProductionAnalyticsController;
 use App\Modules\Production\Http\Controllers\ProductionSheetController;
+use App\Modules\Production\Http\Controllers\UnmappedStatusController;
 use Illuminate\Support\Facades\Route;
 
 // One `production` group; later tasks add their controllers' routes inside it (there is no catch-all here).
@@ -36,6 +37,11 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
     });
 
     Route::middleware('permission:production.route.manage')->group(function () {
+        // The manual stage override on the Lots screen. The controller checks the same permission again
+        // before it validates anything, so the 403 does not depend on this group alone.
+        Route::put('lots/{lot}/stage', [LotController::class, 'overrideStage'])->whereNumber('lot')->name('lots.stage.override');
+        Route::delete('lots/{lot}/stage', [LotController::class, 'clearStageOverride'])->whereNumber('lot')->name('lots.stage.clear');
+
         Route::get('routes', [LotRouteController::class, 'index'])->name('routes.index');
         Route::put('routes/{lot}', [LotRouteController::class, 'update'])->whereNumber('lot')->name('routes.update');
         Route::post('routes/{lot}/steps/{step}/skip', [LotRouteController::class, 'skip'])->whereNumber('lot')->whereNumber('step')->name('routes.skip');
@@ -47,6 +53,16 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         Route::post('lots/{lot}/hold', [LotStateController::class, 'hold'])->whereNumber('lot')->name('lots.hold');
         Route::post('lots/{lot}/release', [LotStateController::class, 'release'])->whereNumber('lot')->name('lots.release');
         Route::post('lots/{lot}/cancel', [LotStateController::class, 'cancel'])->whereNumber('lot')->name('lots.cancel');
+    });
+
+    // Unmapped statuses: a master-data gap report whose only remedy is adding an alias on the Stage
+    // Processes master, so it follows that master's edit permission rather than a read one.
+    Route::middleware('permission:masters.manage')->group(function () {
+        Route::get('unmapped-statuses', [UnmappedStatusController::class, 'index'])->name('unmapped_statuses.index');
+        // Mapping a status from the report itself: the alias is added to the process and the lots on that
+        // status are re-resolved. The controller re-checks the permission before it validates anything.
+        Route::post('unmapped-statuses/{stageProcess}/aliases', [UnmappedStatusController::class, 'map'])
+            ->whereNumber('stageProcess')->name('unmapped_statuses.map');
     });
 
     // Capacity/utilisation: a planning read, so it follows the sheet-view permission every floor role has.

@@ -31,6 +31,8 @@ return [
         'qualities' => 'Qualities',
         'route_templates' => 'Route Templates',
         'lookups' => 'Lookup Lists',
+        'stages' => 'Stages',
+        'stage_processes' => 'Stage Processes',
         'admin' => 'Administration',
         'users' => 'Users',
         'roles' => 'Roles',

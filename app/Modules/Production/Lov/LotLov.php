@@ -43,7 +43,7 @@ class LotLov implements LovDefinition
     {
         $states = array_values(array_intersect(explode(',', (string) ($filters['states'] ?? 'open')), self::STATES)) ?: ['open'];
 
-        return Lot::query()->whereIn('lots.state', $states)->with(['contract.party', 'quality'])
+        return Lot::query()->whereIn('lots.state', $states)->with(['contract.party', 'quality', 'stage', 'stageProcess'])
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')->select('lots.*')
             ->when(filter_var($filters['in_stock'] ?? false, FILTER_VALIDATE_BOOL), fn ($q) => $q->where('lots.stock_qty', '>', 0));
     }
@@ -89,6 +89,9 @@ class LotLov implements LovDefinition
             'g_width' => $m->g_width === null ? null : (float) $m->g_width, 'f_width' => $m->f_width === null ? null : (float) $m->f_width,
             'stock_qty' => (float) $m->stock_qty, 'wip_qty' => (float) $m->wip_qty, 'finished_qty' => (float) $m->finished_qty,
             'state' => $m->state, 'current_label' => $m->current_label, 'contract_id' => $m->contract_id,
+            // The reporting taxonomy, for a picking screen that groups by stage rather than by raw status.
+            'stage_id' => $m->stage_id, 'stage' => $m->stage?->name,
+            'stage_process_id' => $m->stage_process_id, 'stage_process' => $m->stageProcess?->name,
         ];
     }
 }

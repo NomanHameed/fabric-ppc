@@ -9,6 +9,8 @@ import FormBlock from '@/components/forms/FormBlock.vue';
 import FormField from '@/components/forms/FormField.vue';
 import FormsToolbar from '@/components/forms/FormsToolbar.vue';
 import ReasonDialog from '@/components/forms/ReasonDialog.vue';
+import StageProcessSelect from '@/components/stages/StageProcessSelect.vue';
+import StageSelect from '@/components/stages/StageSelect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +30,9 @@ import type {
     LotScreenEdit,
     LotScreenPermissions,
     LotScreenRow,
+    LotStageOverride,
 } from '@/types/production';
+import type { StageFallback } from '@/types/stages';
 
 /**
  * The Lots screen (spec §4.4 screen 3, §4.2): one Oracle-Forms record per lot — a grid of the matches and a
@@ -39,6 +43,13 @@ import type {
  * Block 1 is Oracle's (`Lot::ORACLE_FIELDS`) and block 3 the ledger's, both read-only. Block 2 is the only
  * editable one: `colour_status` with `colour.edit`, `remarks` with `production.route.manage`; Hold / Release /
  * Cancel post to Task 6's endpoints with `production.hold`.
+ *
+ * The reporting stage and process sit beside the status in block 2 and are **read-only**: the ledger derives
+ * them from the status, so typing over them would be typing over a calculation. PPC
+ * (`production.route.manage`) can nevertheless pin them by hand with "Override stage" — the two selects then
+ * become editable until the override is saved or cancelled — and "Clear override" hands the lot back to the
+ * ledger, which re-derives the stage on the spot. An overridden lot is badged, with who pinned it and when,
+ * so a figure a human chose never reads as one the system worked out.
  */
 const props = defineProps<{
     lots: LotScreenRow[];
@@ -60,6 +71,8 @@ const CRITERIA_FIELDS = [
     'po_type',
     'state',
     'current_label',
+    'stage',
+    'stage_process',
     'po_date',
 ] as const;
 
@@ -100,12 +113,120 @@ const flashSelect = useFlashSelect();
 const stateError = ref('');
 const busy = ref(false);
 
+// ---- the stage override ------------------------------------------------------------------------------------
+// Its own form, posted to its own endpoint: the stage is never part of saving colour status or remarks.
+const overriding = ref(false);
+const stageError = ref('');
+const stageForm = useForm<LotStageOverride>({
+    stage_id: null,
+    stage_process_id: null,
+});
+
+/** The lot's own stage, so a stage deactivated since it was pinned can still be named in the select. */
+const stageFallback = computed<StageFallback>(() => {
+    const lot = current.value;
+    return lot === null || lot.stage_id === null || lot.stage === null
+        ? null
+        : { id: lot.stage_id, name: lot.stage };
+});
+const stageProcessFallback = computed<StageFallback>(() => {
+    const lot = current.value;
+    return lot === null ||
+        lot.stage_process_id === null ||
+        lot.stage_process === null
+        ? null
+        : { id: lot.stage_process_id, name: lot.stage_process };
+});
+
+/** Who pinned the stage, and when — never left implicit. */
+const stageOverrideNote = computed(() => {
+    const lot = current.value;
+    return lot === null || !lot.stage_overridden
+        ? ''
+        : t('production.lots.stage_overridden_note', {
+              user: lot.stage_overridden_by ?? '',
+              at: lot.stage_overridden_at ?? '',
+          });
+});
+
+function startOverride(): void {
+    const lot = current.value;
+    if (lot === null) {
+        return;
+    }
+    stageForm.defaults({
+        stage_id: lot.stage_id,
+        stage_process_id: lot.stage_process_id,
+    });
+    stageForm.reset();
+    stageForm.clearErrors();
+    stageError.value = '';
+    overriding.value = true;
+}
+
+function cancelOverride(): void {
+    overriding.value = false;
+    stageError.value = '';
+    stageForm.clearErrors();
+}
+
+function saveOverride(): void {
+    if (currentId.value === null) {
+        return;
+    }
+    busy.value = true;
+    stageError.value = '';
+    stageForm.put(`/production/lots/${currentId.value}/stage`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            overriding.value = false;
+            statusLine.setMessage(
+                t('production.lots.stage_overridden_done'),
+                'success',
+            );
+        },
+        onError: (errors) => {
+            stageError.value = Object.values(errors)[0] ?? '';
+            statusLine.setMessage(stageError.value, 'error');
+        },
+        onFinish: () => {
+            busy.value = false;
+        },
+    });
+}
+
+function clearOverride(): void {
+    if (currentId.value === null) {
+        return;
+    }
+    busy.value = true;
+    stageError.value = '';
+    router.delete(`/production/lots/${currentId.value}/stage`, {
+        preserveScroll: true,
+        onSuccess: () =>
+            statusLine.setMessage(
+                t('production.lots.stage_override_cleared'),
+                'success',
+            ),
+        onError: (errors) => {
+            stageError.value = Object.values(errors)[0] ?? '';
+            statusLine.setMessage(stageError.value, 'error');
+        },
+        onFinish: () => {
+            busy.value = false;
+        },
+    });
+}
+
 function load(id: number | null): void {
     currentId.value = id;
     form.defaults(edits(props.lots.find((l) => l.id === id) ?? null));
     form.reset();
     form.clearErrors();
     stateError.value = '';
+    // A stage override being edited belongs to the record that was on screen, not to the next one.
+    overriding.value = false;
+    stageError.value = '';
 }
 
 watch(
@@ -380,6 +501,21 @@ const columns = computed<ColumnDef<LotScreenRow>[]>(() => [
         width: 130,
         cellClass: 'font-mono',
     },
+    // The reporting taxonomy beside the raw status, never instead of it.
+    {
+        field: 'stage',
+        headerName: t('production.fields.stage'),
+        width: 150,
+        valueFormatter: (p) =>
+            p.data?.stage_overridden
+                ? `${String(p.value ?? '')} *`
+                : String(p.value ?? ''),
+    },
+    {
+        field: 'stage_process',
+        headerName: t('production.fields.stage_process'),
+        width: 170,
+    },
     qtyColumn('greige_qty', 'greige'),
     qtyColumn('stock_qty', 'stock'),
     qtyColumn('issued_qty', 'issued'),
@@ -613,6 +749,113 @@ const rowClassRules = {
                         class="tabular-nums"
                     />
                 </FormField>
+
+                <!-- the reporting stage: derived from the status, or pinned by hand -->
+                <FormField
+                    :label="t('production.fields.stage')"
+                    for="lot-stage"
+                    :span="3"
+                    :error="stageForm.errors.stage_id"
+                >
+                    <StageSelect
+                        id="lot-stage"
+                        v-model="stageForm.stage_id"
+                        :disabled="!overriding"
+                        :fallback="stageFallback"
+                    />
+                </FormField>
+                <FormField
+                    :label="t('production.fields.stage_process')"
+                    for="lot-stage-process"
+                    :span="3"
+                    :error="stageForm.errors.stage_process_id"
+                >
+                    <StageProcessSelect
+                        id="lot-stage-process"
+                        v-model="stageForm.stage_process_id"
+                        :stage-id="stageForm.stage_id"
+                        :disabled="!overriding"
+                        :fallback="stageProcessFallback"
+                    />
+                </FormField>
+                <FormField
+                    :label="t('production.lots.stage_block')"
+                    :span="6"
+                    :error="stageError"
+                >
+                    <div class="flex min-h-9 flex-wrap items-center gap-2">
+                        <Badge
+                            v-if="current.stage_overridden"
+                            variant="outline"
+                            class="border-warning/60 bg-warning-surface text-warning-on-surface"
+                            >{{ t('production.lots.stage_overridden') }}</Badge
+                        >
+                        <template v-if="can.stage">
+                            <Button
+                                v-if="!overriding"
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                :disabled="busy"
+                                @click="guard.guard(() => startOverride())"
+                                >{{
+                                    t('production.lots.stage_override')
+                                }}</Button
+                            >
+                            <template v-else>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="
+                                        busy ||
+                                        stageForm.stage_id === null ||
+                                        stageForm.stage_process_id === null
+                                    "
+                                    @click="saveOverride()"
+                                    >{{
+                                        t('production.lots.stage_override_save')
+                                    }}</Button
+                                >
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="busy"
+                                    @click="cancelOverride()"
+                                    >{{
+                                        t(
+                                            'production.lots.stage_override_cancel',
+                                        )
+                                    }}</Button
+                                >
+                            </template>
+                            <Button
+                                v-if="current.stage_overridden && !overriding"
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                :disabled="busy"
+                                @click="guard.guard(() => clearOverride())"
+                                >{{
+                                    t('production.lots.stage_override_clear')
+                                }}</Button
+                            >
+                        </template>
+                    </div>
+                </FormField>
+                <p class="text-muted-foreground col-span-12 text-xs">
+                    {{
+                        stageOverrideNote !== ''
+                            ? stageOverrideNote
+                            : current.stage_process_id === null
+                              ? t('production.lots.stage_none')
+                              : t('production.lots.stage_derived')
+                    }}
+                    <template v-if="overriding">
+                        {{ t('production.lots.stage_override_hint') }}
+                    </template>
+                </p>
                 <FormField
                     :label="t('production.fields.remarks')"
                     for="lot-remarks"

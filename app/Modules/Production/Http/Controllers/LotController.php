@@ -6,14 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Modules\Activity\Concerns\RecordsUserActions;
 use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Foundation\Models\LookupValue;
+use App\Modules\Foundation\Models\Stage;
+use App\Modules\Foundation\Models\StageProcess;
 use App\Modules\Foundation\Query\QueryCriteria;
 use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Services\LotStateService;
 use App\Modules\Production\Services\ProductionSheetService;
 use App\Modules\Production\Status\LotStatusLabeller;
+use App\Modules\Production\Status\StatusStageResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,6 +31,12 @@ use Inertia\Response;
  * `colour_status` with `colour.edit` (validated against the active `colour_status` lookup list) and `remarks`
  * with `production.route.manage`. Hold / release / cancel stay on `LotStateController` (`production.hold`).
  *
+ * The one thing the screen may write about the reporting stage is an **override**: `production.route.manage`
+ * can pin a lot's stage and process by hand (`overrideStage`) and clear the pin again (`clearStageOverride`),
+ * both audited on the Lot itself. While a lot is pinned the ledger leaves the two columns alone; clearing
+ * re-derives them from the lot's current status on the spot. Neither action is reachable through `update()`:
+ * that method's rules never mention the stage columns, so no payload shape can write them there.
+ *
  * Query mode runs through `QueryCriteria` over the lot and its joined PO, party and quality, so `%` wildcards and
  * the `>`/`<`/`a..b` range forms work on the PO number and the PO date as they do on every other Forms screen.
  * With no criteria the screen opens on the open work (`open` + `hold`), Oracle-Forms style. The grid is capped at
@@ -39,15 +49,22 @@ class LotController extends Controller
     /** Rows the grid shows at most ("showing n of m"); the count beside it is the true number of matches. */
     public const ROW_CAP = 200;
 
-    public function __construct(private readonly LotStatusLabeller $labeller) {}
+    public function __construct(
+        private readonly LotStatusLabeller $labeller,
+        private readonly StatusStageResolver $stages,
+    ) {}
 
     public function index(Request $request): Response
     {
         $criteria = (array) $request->query('q', []);
-        $query = Lot::query()->with(['contract.party', 'quality'])
+        $query = Lot::query()->with(['contract.party', 'quality', 'stage', 'stageProcess', 'stageOverrider'])
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')
             ->join('parties', 'parties.id', '=', 'contracts.party_id')
             ->join('qualities', 'qualities.id', '=', 'lots.quality_id')
+            // Left joins: a lot whose status nothing maps (or which is still all in stock) has no stage, and
+            // an inner join would drop it from the screen entirely.
+            ->leftJoin('stages', 'stages.id', '=', 'lots.stage_id')
+            ->leftJoin('stage_processes', 'stage_processes.id', '=', 'lots.stage_process_id')
             ->select('lots.*');
         QueryCriteria::apply($query, $criteria, self::CRITERIA);
         // Only criteria that actually narrow anything count: an empty box the user left blank (`q[lot_no]=`)
@@ -75,6 +92,8 @@ class LotController extends Controller
                 'remarks' => $user->can('production.route.manage'),
                 'hold' => $user->can('production.hold'),
                 'route' => $user->can('production.route.manage'),
+                // The same group that edits routes may pin a lot's reporting stage by hand.
+                'stage' => $user->can('production.route.manage'),
             ],
             'criteria' => (object) $criteria,
         ]);
@@ -124,6 +143,76 @@ class LotController extends Controller
     }
 
     /**
+     * Pin this lot's reporting stage and process by hand (`production.route.manage`).
+     *
+     * The permission is checked before anything is validated or read off the request, as `update()` does, so
+     * a user who may not do this gets 403 whatever the payload looks like. Only the two validated ids are
+     * ever written: `stage_overridden_at` / `_by` are set from the server's clock and the acting user, never
+     * from the request.
+     *
+     * The pair is checked in PHP rather than inside an `exists` rule whose `where` would take a raw request
+     * value: `stage_process_id` must belong to the submitted `stage_id` and both must be active, and a bad
+     * pair comes back as a field error on the screen, not as a database error.
+     */
+    public function overrideStage(Request $request, Lot $lot): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->can('production.route.manage'), 403);
+
+        $data = $request->validate([
+            'stage_id' => ['required', 'integer', 'exists:stages,id'],
+            'stage_process_id' => ['required', 'integer', 'exists:stage_processes,id'],
+        ]);
+
+        $stage = Stage::query()->whereKey($data['stage_id'])->firstOrFail();
+        $process = StageProcess::query()->whereKey($data['stage_process_id'])->firstOrFail();
+        if ($stage->is_active !== true) {
+            throw ValidationException::withMessages(['stage_id' => __('production.lots.stage_inactive')]);
+        }
+        if ((int) $process->stage_id !== (int) $stage->getKey()) {
+            throw ValidationException::withMessages(['stage_process_id' => __('production.lots.stage_process_mismatch')]);
+        }
+        if ($process->is_active !== true) {
+            throw ValidationException::withMessages(['stage_process_id' => __('production.lots.stage_process_inactive')]);
+        }
+
+        // An audited save (not a query-builder update), so the audits row records who pinned what, and when.
+        $lot->stage_id = (int) $stage->getKey();
+        $lot->stage_process_id = (int) $process->getKey();
+        $lot->stage_overridden_at = now();
+        $lot->stage_overridden_by = $user->id;
+        $lot->save();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('production.lots.stage_overridden_done')]);
+        Inertia::flash('selectedId', $lot->id);
+
+        return back();
+    }
+
+    /**
+     * Drop the override and re-derive the stage from the lot's current status immediately, so the operator
+     * sees the derived value rather than having to wait for the next movement. Its own action, never an
+     * empty-value edge case of the override above.
+     */
+    public function clearStageOverride(Request $request, Lot $lot): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->can('production.route.manage'), 403);
+
+        $ids = $this->stages->resolve($lot->current_label);
+        $lot->stage_id = $ids['stage_id'];
+        $lot->stage_process_id = $ids['stage_process_id'];
+        $lot->stage_overridden_at = null;
+        $lot->stage_overridden_by = null;
+        $lot->save();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('production.lots.stage_override_cleared')]);
+        Inertia::flash('selectedId', $lot->id);
+
+        return back();
+    }
+
+    /**
      * The colour decision, for the action log and the lot timeline.
      *
      * The `audits` row already records the column change; this is the same fact in the words the colour lab
@@ -154,7 +243,7 @@ class LotController extends Controller
         );
     }
 
-    /** The eleven query-mode fields (spec §4.2), over the lot and its joined PO, party and quality. */
+    /** The query-mode fields (spec §4.2), over the lot and its joined PO, party, quality and stage. */
     private const CRITERIA = [
         'lot_no' => ['column' => 'lots.lot_no', 'type' => 'text'],
         'po_no' => ['column' => 'contracts.po_no', 'type' => 'number'],
@@ -166,6 +255,8 @@ class LotController extends Controller
         'po_type' => ['column' => 'lots.po_type', 'type' => 'text'],
         'state' => ['column' => 'lots.state', 'type' => 'text'],
         'current_label' => ['column' => 'lots.current_label', 'type' => 'text'],
+        'stage' => ['column' => 'stages.name', 'type' => 'text'],
+        'stage_process' => ['column' => 'stage_processes.name', 'type' => 'text'],
         'po_date' => ['column' => 'contracts.po_date', 'type' => 'date'],
     ];
 
@@ -190,6 +281,11 @@ class LotController extends Controller
             'po_type' => $lot->po_type, 'state' => $lot->state, 'hold_reason' => $lot->hold_reason, 'cancel_reason' => $lot->cancel_reason,
             'state_changed_at' => $lot->state_changed_at?->format('d-m-Y H:i'),
             'current_label' => $lot->current_label, 'process_flag' => $this->labeller->processFlag($lot),
+            'stage_id' => $lot->stage_id, 'stage' => $lot->stage?->name,
+            'stage_process_id' => $lot->stage_process_id, 'stage_process' => $lot->stageProcess?->name,
+            'stage_overridden' => $lot->isStageOverridden(),
+            'stage_overridden_at' => $lot->stage_overridden_at?->format('d-m-Y H:i'),
+            'stage_overridden_by' => $lot->stageOverrider?->name,
             'greige_qty' => (float) $lot->greige_qty, 'stock_qty' => (float) $lot->stock_qty, 'issued_qty' => (float) $lot->issued_qty,
             'wip_qty' => (float) $lot->wip_qty, 'finished_qty' => (float) $lot->finished_qty,
             'dispatched_qty' => (float) $lot->dispatched_qty, 'loss_qty' => (float) $lot->loss_qty,

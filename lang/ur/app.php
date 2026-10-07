@@ -31,6 +31,8 @@ return [
         'qualities' => 'کوالٹیز',
         'route_templates' => 'روٹ ٹیمپلیٹس',
         'lookups' => 'فہرستیں',
+        'stages' => 'مراحل',
+        'stage_processes' => 'مرحلے کے پراسیس',
         'admin' => 'انتظامیہ',
         'users' => 'صارفین',
         'roles' => 'رولز',
