@@ -24,6 +24,18 @@ return [
         'oracle_missing_at' => 'Missing from Oracle', 'last_movement' => 'Last movement',
         'stage' => 'Stage', 'stage_process' => 'Stage process',
     ],
+    // The flat, Oracle-shaped lot payload (ProductionAnalyticsService::flatLots): the mill's own field names,
+    // so the headers read as the floor's sheets do rather than as the schema does. The `color_*` spelling is
+    // the mill's and is kept, even though the columns behind it are `colour_*`.
+    'flat' => [
+        'lot_no_oracle' => 'Lot # (Oracle)', 'po_no' => 'PO #', 'ref' => 'Ref.',
+        'party_oracle_id' => 'Party code', 'party_oracle_name' => 'Party', 'date_oracle' => 'PO date',
+        'design_oracle_id' => 'Design code', 'color_oracle_id' => 'Colour code', 'color_oracle_name' => 'Colour / Shade',
+        'clr_status_oracle' => 'Colour status', 'po_type_oracle' => 'PO type', 'quality' => 'Quality',
+        'gw_oracle' => 'G/W', 'status_oracle' => 'Status', 'stage_name' => 'Stage', 'stage_process_name' => 'Stage process',
+        'greige_received_oracle' => 'Greige received', 'greige_in_stock_oracle' => 'Greige in stock',
+        'qty_issued' => 'Qty issued', 'wip' => 'WIP', 'finished' => 'Finished', 'dispatch' => 'Dispatch',
+    ],
     'lots' => [
         'title' => 'Lots', 'oracle' => 'Oracle data (read-only)', 'app' => 'PPC data', 'quantities' => 'Quantities',
         'inquiry' => 'Open lot inquiry', 'po_inquiry' => 'Open PO inquiry', 'route' => 'Open lot route',
@@ -62,6 +74,11 @@ return [
         'stage_process_inactive' => 'That stage process is not active.',
         'stage_process_mismatch' => 'That stage process does not belong to the chosen stage.',
         'unmapped' => 'Unmapped statuses',
+        // The grid's two shapes: the app's own columns, or the flat Oracle-shaped payload.
+        'shape' => 'Columns',
+        'shape_nested' => 'App columns',
+        'shape_flat' => 'Oracle columns',
+        'shape_flat_hint' => 'The same lots under the mill\'s own field names; nothing in the database is renamed.',
     ],
     'unmapped' => [
         'title' => 'Unmapped Production Statuses',

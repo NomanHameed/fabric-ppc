@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Production\Http\Controllers\ContractController;
+use App\Modules\Production\Http\Controllers\FabricReportController;
 use App\Modules\Production\Http\Controllers\IssueController;
 use App\Modules\Production\Http\Controllers\LotController;
 use App\Modules\Production\Http\Controllers\LotRouteController;
@@ -26,6 +27,10 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         // Dashboard charts. inquiry.view is the widest production read every role holds; the capacity half of
         // the payload is dropped inside the controller for anyone without production.sheet.view.
         Route::get('analytics', [ProductionAnalyticsController::class, 'index'])->name('analytics.index');
+        // The fabric report's stage -> stage process figures, with `?shape=flat` listing each process's lots
+        // in the flat Oracle-shaped payload. A read of the same lots the Lots screen shows, so it follows the
+        // same permission.
+        Route::get('fabric-report', [FabricReportController::class, 'index'])->name('fabric_report.index');
         Route::put('lots/{lot}', [LotController::class, 'update'])->whereNumber('lot')->name('lots.update');
         Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
     });

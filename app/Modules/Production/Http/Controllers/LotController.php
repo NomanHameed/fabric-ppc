@@ -11,6 +11,7 @@ use App\Modules\Foundation\Models\StageProcess;
 use App\Modules\Foundation\Query\QueryCriteria;
 use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Services\LotStateService;
+use App\Modules\Production\Services\ProductionAnalyticsService;
 use App\Modules\Production\Services\ProductionSheetService;
 use App\Modules\Production\Status\LotStatusLabeller;
 use App\Modules\Production\Status\StatusStageResolver;
@@ -41,6 +42,12 @@ use Inertia\Response;
  * the `>`/`<`/`a..b` range forms work on the PO number and the PO date as they do on every other Forms screen.
  * With no criteria the screen opens on the open work (`open` + `hold`), Oracle-Forms style. The grid is capped at
  * ROW_CAP rows with the true match count beside it ("showing n of m"), as the inquiry screens are.
+ *
+ * The grid has two **selectable shapes** (`?shape=nested|flat`). `nested` is the original `LotScreenRow`.
+ * `flat` adds the Oracle-shaped payload assembled by `ProductionAnalyticsService::flatLots()` — the mill's own
+ * field names over the same unchanged columns — as the extra `flatLots` prop. Additive, both ways: `lots` is
+ * always sent, so the form blocks and every other consumer are untouched, and the criteria the screen ran
+ * narrow both shapes through the same `ProductionAnalyticsService::LOT_CRITERIA` map.
  */
 class LotController extends Controller
 {
@@ -49,14 +56,20 @@ class LotController extends Controller
     /** Rows the grid shows at most ("showing n of m"); the count beside it is the true number of matches. */
     public const ROW_CAP = 200;
 
+    /** The two grid shapes the screen can show: the nested `LotScreenRow`, or the flat Oracle-shaped payload. */
+    public const SHAPES = ['nested', 'flat'];
+
     public function __construct(
         private readonly LotStatusLabeller $labeller,
         private readonly StatusStageResolver $stages,
+        private readonly ProductionAnalyticsService $analytics,
     ) {}
 
     public function index(Request $request): Response
     {
         $criteria = (array) $request->query('q', []);
+        $shape = $request->query('shape');
+        $shape = is_string($shape) && in_array($shape, self::SHAPES, true) ? $shape : 'nested';
         $query = Lot::query()->with(['contract.party', 'quality', 'stage', 'stageProcess', 'stageOverrider'])
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')
             ->join('parties', 'parties.id', '=', 'contracts.party_id')
@@ -66,21 +79,30 @@ class LotController extends Controller
             ->leftJoin('stages', 'stages.id', '=', 'lots.stage_id')
             ->leftJoin('stage_processes', 'stage_processes.id', '=', 'lots.stage_process_id')
             ->select('lots.*');
-        QueryCriteria::apply($query, $criteria, self::CRITERIA);
+        QueryCriteria::apply($query, $criteria, ProductionAnalyticsService::LOT_CRITERIA);
         // Only criteria that actually narrow anything count: an empty box the user left blank (`q[lot_no]=`)
         // is no criterion, so the screen still opens on the open work rather than on every lot ever imported.
         $effective = array_filter($criteria, fn ($v): bool => ! is_array($v) && trim((string) $v) !== '');
-        if ($effective === []) {
-            $query->whereIn('lots.state', ['open', 'hold']); // default query: the open work
+        $states = $effective === [] ? ['open', 'hold'] : null;
+        if ($states !== null) {
+            $query->whereIn('lots.state', $states); // default query: the open work
         }
         $total = (clone $query)->count();
         $lots = $query->orderByDesc('contracts.po_date')->orderBy('contracts.po_no')->orderBy('lots.lot_no')->orderBy('lots.id')
             ->limit(self::ROW_CAP)->get();
         $user = $request->user();
 
+        // The flat, Oracle-shaped payload travels beside the nested rows, never instead of them: the form
+        // blocks, the stage override and every other consumer of `lots` keep reading `LotScreenRow`. It is
+        // sent eagerly only for the shape the URL asked for; the other one is an optional prop, so switching
+        // shapes is a partial reload and the default visit pays for one grid, not two.
+        $flat = fn (): array => $this->analytics->flatLots($criteria, $states, self::ROW_CAP);
+
         return Inertia::render('production/Lots', [
             'lots' => $lots->map(fn (Lot $l): array => $this->row($l))->values(),
             'lotsTotal' => $total,
+            'shape' => $shape,
+            'flatLots' => $shape === 'flat' ? $flat() : Inertia::optional($flat),
             'colourStatuses' => LookupValue::query()->list(ProductionSheetService::COLOUR_STATUS_LIST)->where('is_active', true)->get()
                 ->map(fn (LookupValue $v): array => [
                     'value' => $v->code, 'label' => $v->getAttribute('label'), 'approved' => (bool) ($v->meta['approved'] ?? false),
@@ -242,23 +264,6 @@ class LotController extends Controller
             $request->user(),
         );
     }
-
-    /** The query-mode fields (spec §4.2), over the lot and its joined PO, party, quality and stage. */
-    private const CRITERIA = [
-        'lot_no' => ['column' => 'lots.lot_no', 'type' => 'text'],
-        'po_no' => ['column' => 'contracts.po_no', 'type' => 'number'],
-        'party' => ['column' => 'parties.name', 'type' => 'text'],
-        'quality' => ['column' => 'qualities.description', 'type' => 'text'],
-        'design' => ['column' => 'lots.design', 'type' => 'text'],
-        'colour' => ['column' => 'lots.colour', 'type' => 'text'],
-        'colour_status' => ['column' => 'lots.colour_status', 'type' => 'text'],
-        'po_type' => ['column' => 'lots.po_type', 'type' => 'text'],
-        'state' => ['column' => 'lots.state', 'type' => 'text'],
-        'current_label' => ['column' => 'lots.current_label', 'type' => 'text'],
-        'stage' => ['column' => 'stages.name', 'type' => 'text'],
-        'stage_process' => ['column' => 'stage_processes.name', 'type' => 'text'],
-        'po_date' => ['column' => 'contracts.po_date', 'type' => 'date'],
-    ];
 
     /**
      * One grid/form record: the Oracle fields the screen shows, the PO header, the state (with the reason and

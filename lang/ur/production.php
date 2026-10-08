@@ -24,6 +24,15 @@ return [
         'oracle_missing_at' => 'اوریکل سے غائب', 'last_movement' => 'آخری موومنٹ',
         'stage' => 'مرحلہ', 'stage_process' => 'مرحلے کا پراسیس',
     ],
+    'flat' => [
+        'lot_no_oracle' => 'لاٹ نمبر (اوریکل)', 'po_no' => 'پی او نمبر', 'ref' => 'حوالہ',
+        'party_oracle_id' => 'پارٹی کوڈ', 'party_oracle_name' => 'پارٹی', 'date_oracle' => 'پی او کی تاریخ',
+        'design_oracle_id' => 'ڈیزائن کوڈ', 'color_oracle_id' => 'رنگ کوڈ', 'color_oracle_name' => 'رنگ / شیڈ',
+        'clr_status_oracle' => 'رنگ کی حیثیت', 'po_type_oracle' => 'پی او کی قسم', 'quality' => 'کوالٹی',
+        'gw_oracle' => 'گریج چوڑائی', 'status_oracle' => 'حیثیت', 'stage_name' => 'مرحلہ', 'stage_process_name' => 'مرحلے کا پراسیس',
+        'greige_received_oracle' => 'گریج موصول', 'greige_in_stock_oracle' => 'گریج اسٹاک میں',
+        'qty_issued' => 'جاری شدہ مقدار', 'wip' => 'زیرِ عمل', 'finished' => 'مکمل', 'dispatch' => 'روانہ',
+    ],
     'lots' => [
         'title' => 'لاٹس', 'oracle' => 'اوریکل کا ڈیٹا (صرف پڑھنے کے لیے)', 'app' => 'پی پی سی کا ڈیٹا', 'quantities' => 'مقداریں',
         'inquiry' => 'لاٹ انکوائری کھولیں', 'po_inquiry' => 'پی او انکوائری کھولیں', 'route' => 'لاٹ روٹ کھولیں',
@@ -62,6 +71,10 @@ return [
         'stage_process_inactive' => 'یہ مرحلے کا پراسیس فعال نہیں ہے۔',
         'stage_process_mismatch' => 'یہ پراسیس منتخب کردہ مرحلے کا نہیں ہے۔',
         'unmapped' => 'غیر مقرر اسٹیٹس',
+        'shape' => 'کالم',
+        'shape_nested' => 'ایپ کے کالم',
+        'shape_flat' => 'اوریکل کے کالم',
+        'shape_flat_hint' => 'وہی لاٹس، مل کے اپنے فیلڈ ناموں کے ساتھ؛ ڈیٹابیس میں کسی کالم کا نام تبدیل نہیں ہوا۔',
     ],
     'unmapped' => [
         'title' => 'غیر مقرر پروڈکشن اسٹیٹس',

@@ -26,7 +26,10 @@ import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 import type {
     ColourStatusOption,
+    FlatLotGridRow,
+    FlatLotRow,
     HoldReasonOption,
+    LotGridShape,
     LotScreenEdit,
     LotScreenPermissions,
     LotScreenRow,
@@ -58,6 +61,13 @@ const props = defineProps<{
     holdReasons: HoldReasonOption[];
     can: LotScreenPermissions;
     criteria: Record<string, string>;
+    /**
+     * Which columns the grid shows. The form blocks always read `lots`, whatever this is: the flat shape is
+     * an extra way to read the same records, never a replacement for them.
+     */
+    shape?: LotGridShape;
+    /** The flat Oracle-shaped payload — sent with `?shape=flat`, an optional prop otherwise. */
+    flatLots?: FlatLotRow[];
 }>();
 
 const CRITERIA_FIELDS = [
@@ -356,9 +366,9 @@ function executeQuery(): void {
         const q = inQuery.value ? query.takeCriteria() : {};
         router.get(
             '/production/lots',
-            { q },
+            { q, shape: gridShape.value },
             {
-                only: ['lots', 'lotsTotal', 'criteria'],
+                only: ['lots', 'lotsTotal', 'flatLots', 'shape', 'criteria'],
                 preserveState: true,
                 preserveScroll: true,
                 // a criterion the server rejected must tell the user, not silently drop query mode
@@ -536,6 +546,129 @@ const rowClassRules = {
         p.data !== undefined &&
         (p.data.state === 'cancelled' || p.data.state === 'closed'),
 };
+
+// ---- the flat, Oracle-shaped grid --------------------------------------------------------------------------
+// The same lots under the mill's own field names (ProductionAnalyticsService::flatLots). Only the grid changes:
+// the record form, the stage override and every state action still read `lots`.
+
+const gridShape = computed<LotGridShape>(() => props.shape ?? 'nested');
+
+/** `DataGrid` keys its nodes by `id`; the payload's primary key is `lot_id`, so it is copied over here. */
+const flatRows = computed<FlatLotGridRow[]>(() =>
+    (props.flatLots ?? []).map((r) => ({ ...r, id: r.lot_id })),
+);
+
+/** Fixed 2-dp metres, but a null stays blank: an unmeasured width is not a width of zero. */
+const flatQty = (p: { value: unknown }): string =>
+    p.value === null || p.value === undefined ? '' : formatQty(p.value);
+
+/** A metres column: right-aligned, tabular figures, 2 dp. */
+const flatQtyColumn = (field: keyof FlatLotGridRow) => ({
+    field,
+    headerName: t(`production.flat.${field}`),
+    width: 140,
+    type: 'numericColumn',
+    cellClass: 'text-end tabular-nums',
+    valueFormatter: flatQty,
+});
+
+/** A whole-number identifier column (PO number, party code): right-aligned and tabular, but not metres. */
+const flatIdColumn = (field: keyof FlatLotGridRow, width: number) => ({
+    field,
+    headerName: t(`production.flat.${field}`),
+    width,
+    type: 'numericColumn',
+    cellClass: 'text-end tabular-nums',
+});
+
+/** A plain text column. */
+const flatTextColumn = (
+    field: keyof FlatLotGridRow,
+    width: number,
+    cellClass?: string,
+) => ({
+    field,
+    headerName: t(`production.flat.${field}`),
+    width,
+    ...(cellClass === undefined ? {} : { cellClass }),
+});
+
+/**
+ * The flat grid's columns. The payload's own order, with one deliberate move: `status_oracle` sits beside
+ * `stage_name` / `stage_process_name`, because the raw status and the reporting stage it resolves to are read
+ * together — the stage never replaces the status. The three id columns the payload also carries (`stage_id`,
+ * `stage_process_id`, `lot_id`) are not shown: they are keys, not figures.
+ */
+const flatColumns = computed<ColumnDef<FlatLotGridRow>[]>(() => [
+    {
+        ...flatTextColumn('lot_no_oracle', 120, 'tabular-nums'),
+        pinned: 'left',
+    },
+    flatIdColumn('po_no', 100),
+    flatTextColumn('ref', 110),
+    flatIdColumn('party_oracle_id', 110),
+    {
+        field: 'party_oracle_name',
+        headerName: t('production.flat.party_oracle_name'),
+        flex: 2,
+        minWidth: 160,
+    },
+    flatTextColumn('date_oracle', 110, 'tabular-nums'),
+    flatTextColumn('design_oracle_id', 120),
+    flatTextColumn('color_oracle_id', 120),
+    {
+        field: 'color_oracle_name',
+        headerName: t('production.flat.color_oracle_name'),
+        flex: 1,
+        minWidth: 140,
+    },
+    flatTextColumn('clr_status_oracle', 130),
+    flatTextColumn('po_type_oracle', 110),
+    {
+        field: 'quality',
+        headerName: t('production.flat.quality'),
+        flex: 2,
+        minWidth: 180,
+    },
+    {
+        field: 'gw_oracle',
+        headerName: t('production.flat.gw_oracle'),
+        width: 90,
+        type: 'numericColumn',
+        cellClass: 'text-end tabular-nums',
+        valueFormatter: flatQty,
+    },
+    flatTextColumn('status_oracle', 130, 'font-mono'),
+    flatTextColumn('stage_name', 150),
+    flatTextColumn('stage_process_name', 170),
+    flatQtyColumn('greige_received_oracle'),
+    flatQtyColumn('greige_in_stock_oracle'),
+    flatQtyColumn('qty_issued'),
+    flatQtyColumn('wip'),
+    flatQtyColumn('finished'),
+    flatQtyColumn('dispatch'),
+]);
+
+/**
+ * Swap the grid's columns. A server round trip rather than a client-side remap, because the flat shape is
+ * assembled in SQL — and behind the unsaved guard, as every other in-page navigation on this screen is.
+ */
+function switchShape(shape: LotGridShape): void {
+    if (shape === gridShape.value) {
+        return;
+    }
+    guard.guard(() => {
+        router.get(
+            '/production/lots',
+            { q: props.criteria, shape },
+            {
+                only: ['lots', 'lotsTotal', 'flatLots', 'shape', 'criteria'],
+                preserveState: true,
+                preserveScroll: true,
+            },
+        );
+    });
+}
 </script>
 
 <template>
@@ -962,8 +1095,9 @@ const rowClassRules = {
             {{ t('production.lots.none') }}
         </p>
 
+        <!-- the app's own columns -->
         <DataGrid
-            v-if="lots.length > 0"
+            v-if="gridShape === 'nested' && lots.length > 0"
             :rows="lots"
             :columns="columns"
             :selected-id="currentId"
@@ -973,6 +1107,26 @@ const rowClassRules = {
                 (r) => guard.guard(() => router.visit(`/inquiry/lots/${r.id}`))
             "
         />
+
+        <!-- the flat, Oracle-shaped payload: the same lots, the mill's own field names -->
+        <template v-if="gridShape === 'flat'">
+            <p class="text-muted-foreground text-xs">
+                {{ t('production.lots.shape_flat_hint') }}
+            </p>
+            <DataGrid
+                v-if="flatRows.length > 0"
+                :rows="flatRows"
+                :columns="flatColumns"
+                :selected-id="currentId"
+                @row-selected="(r) => guard.guard(() => load(r.lot_id))"
+                @row-activated="
+                    (r) =>
+                        guard.guard(() =>
+                            router.visit(`/inquiry/lots/${r.lot_id}`),
+                        )
+                "
+            />
+        </template>
 
         <ConfirmSaveDialog
             :open="guard.dialogOpen.value"

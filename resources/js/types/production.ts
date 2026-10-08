@@ -295,6 +295,58 @@ export type LotScreenRow = {
     remarks: string | null;
 };
 
+/**
+ * The flat, Oracle-shaped lot payload — `ProductionAnalyticsService::flatLots()`, key for key and in the same
+ * order (`FLAT_KEYS`). These are the mill's own field names, not the schema's: the database still has
+ * `colour_code` / `colour` / `g_width` / `greige_qty` / `stock_qty` / `issued_qty` / `wip_qty` /
+ * `finished_qty` / `dispatched_qty` / `current_label`, and nothing was renamed to produce this shape.
+ *
+ * `color_*` keeps the mill's spelling on purpose, even though the columns behind it are `colour_*`.
+ *
+ * Metres are numbers, not the driver's decimal strings. A null stays null: an unset greige width or an
+ * unresolved stage is absent, never `0` or `''`. `date_oracle` is already dd-mm-yyyy.
+ *
+ * The last four keys are additive: the stage names the report groups by, and `lot_id`, the real primary key
+ * the grid links to the Lot Inquiry with.
+ */
+export type FlatLotRow = {
+    party_oracle_id: number | null;
+    party_oracle_name: string;
+    po_no: number;
+    ref: string | null;
+    design_oracle_id: string | null;
+    color_oracle_id: string | null;
+    color_oracle_name: string | null;
+    clr_status_oracle: string | null;
+    po_type_oracle: string;
+    date_oracle: string | null;
+    lot_no_oracle: string;
+    quality: string;
+    gw_oracle: number | null;
+    status_oracle: string | null;
+    greige_received_oracle: number;
+    greige_in_stock_oracle: number;
+    qty_issued: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
+    stage_id: number | null;
+    stage_name: string | null;
+    stage_process_id: number | null;
+    stage_process_name: string | null;
+    lot_id: number;
+};
+
+/**
+ * A flat row as the grid holds it. `DataGrid` keys its nodes by `id`, and the payload has no such key by
+ * design (it is exactly the 25 fields above), so the page adds `id = lot_id` on the way in. Client-side only:
+ * nothing is sent back from this grid.
+ */
+export type FlatLotGridRow = FlatLotRow & { id: number };
+
+/** Which columns the Lots grid shows: the app's own `LotScreenRow`, or the flat Oracle-shaped payload. */
+export type LotGridShape = 'nested' | 'flat';
+
 /** What `PUT production/lots/{lot}` accepts — the two app-owned fields, each behind its own permission. */
 export type LotScreenEdit = {
     colour_status: string | null;
