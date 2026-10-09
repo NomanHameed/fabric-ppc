@@ -36,7 +36,11 @@ type IssueForm = {
 };
 type LotView = Pick<
     LotSummary,
-    'party' | 'quality' | 'design' | 'colour' | 'stock_qty'
+    | 'party'
+    | 'quality'
+    | 'design'
+    | 'color_oracle_name'
+    | 'greige_in_stock_oracle'
 >;
 
 const blank = (): IssueForm => ({
@@ -81,12 +85,12 @@ function load(id: number | null): void {
               party: row.party,
               quality: row.quality ?? '',
               design: row.design,
-              colour: row.colour,
-              stock_qty: row.stock_qty,
+              color_oracle_name: row.color_oracle_name,
+              greige_in_stock_oracle: row.greige_in_stock_oracle,
           }
         : null;
     lotDisplay.value = row
-        ? `${row.lot_no} · ${row.po_no} · ${row.design ?? ''} · ${row.colour ?? ''}`
+        ? `${row.lot_no_oracle} · ${row.po_no} · ${row.design ?? ''} · ${row.color_oracle_name ?? ''}`
         : '';
     statusLine.setMessage(row ? t('production.issue.viewing') : '', 'info');
     statusLine.setHint('');
@@ -121,17 +125,17 @@ function onLot(row: LovRow): void {
     const picked = row as unknown as LotSummary;
     lot.value = picked;
     form.clearErrors('lot_id');
-    if (picked.stock_qty <= 0) {
+    if (picked.greige_in_stock_oracle <= 0) {
         // The LOV filters these out, but a stale row must still not pre-fill a quantity nobody can issue.
         form.qty = '';
         form.setError('lot_id', t('production.issue.no_stock'));
         statusLine.setHint('');
         return;
     }
-    form.qty = picked.stock_qty;
+    form.qty = picked.greige_in_stock_oracle;
     statusLine.setHint(
         t('production.issue.available_hint', {
-            qty: formatQty(picked.stock_qty),
+            qty: formatQty(picked.greige_in_stock_oracle),
         }),
     );
 }
@@ -174,7 +178,7 @@ async function issueContract(): Promise<void> {
             t('production.issue.confirm_all', {
                 po: contract.value?.code ?? '',
                 n: String(contract.value?.open_lots ?? 0),
-                qty: formatQty(contract.value?.stock_qty ?? 0),
+                qty: formatQty(contract.value?.greige_in_stock_oracle ?? 0),
             }),
         ))
     ) {
@@ -229,11 +233,19 @@ function onAction(action: FormsAction): void {
 
 const columns = computed<ColumnDef<IssueRow>[]>(() => [
     { field: 'moved_at', headerName: t('production.fields.date'), flex: 1 },
-    { field: 'lot_no', headerName: t('production.fields.lot_no'), flex: 1 },
+    {
+        field: 'lot_no_oracle',
+        headerName: t('production.fields.lot_no_oracle'),
+        flex: 1,
+    },
     { field: 'po_no', headerName: t('production.fields.po_no'), flex: 1 },
     { field: 'party', headerName: t('production.fields.party'), flex: 2 },
     { field: 'design', headerName: t('production.fields.design'), flex: 1 },
-    { field: 'colour', headerName: t('production.fields.colour'), flex: 1 },
+    {
+        field: 'color_oracle_name',
+        headerName: t('production.fields.color_oracle_name'),
+        flex: 1,
+    },
     {
         field: 'qty',
         headerName: t('production.fields.qty'),
@@ -269,7 +281,7 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
         />
         <FormBlock :title="t('production.issue.per_lot')">
             <FormField
-                :label="`${t('production.fields.lot_no')} *`"
+                :label="`${t('production.fields.lot_no_oracle')} *`"
                 for="f-lot"
                 :span="4"
                 :error="form.errors.lot_id"
@@ -294,12 +306,17 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
             <FormField :label="t('production.fields.design')" :span="3">
                 <Input :model-value="lot?.design ?? ''" disabled />
             </FormField>
-            <FormField :label="t('production.fields.colour')" :span="3">
-                <Input :model-value="lot?.colour ?? ''" disabled />
+            <FormField
+                :label="t('production.fields.color_oracle_name')"
+                :span="3"
+            >
+                <Input :model-value="lot?.color_oracle_name ?? ''" disabled />
             </FormField>
             <FormField :label="t('production.issue.available')" :span="2">
                 <Input
-                    :model-value="lot ? formatQty(lot.stock_qty) : ''"
+                    :model-value="
+                        lot ? formatQty(lot.greige_in_stock_oracle) : ''
+                    "
                     disabled
                     class="text-end tabular-nums"
                 />
@@ -378,7 +395,11 @@ const columns = computed<ColumnDef<IssueRow>[]>(() => [
             </FormField>
             <FormField :label="t('production.issue.available')" :span="3">
                 <Input
-                    :model-value="contract ? formatQty(contract.stock_qty) : ''"
+                    :model-value="
+                        contract
+                            ? formatQty(contract.greige_in_stock_oracle)
+                            : ''
+                    "
                     disabled
                     class="text-end tabular-nums"
                 />

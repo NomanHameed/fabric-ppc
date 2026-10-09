@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    $this->lot = Lot::factory()->create(['greige_qty' => 1000]);
+    $this->lot = Lot::factory()->create(['greige_received_oracle' => 1000]);
     $this->ledger = app(LedgerService::class);
     $this->import = fn (Lot $lot, float $qty = 1000) => $this->ledger->post($lot, 'import', null, Position::stock(), 0, $qty, ['userId' => $this->user->id]);
 });
@@ -27,17 +27,17 @@ it('posts an import into STOCK and fills the lot totals', function () {
     expect($m->kind)->toBe('import')->and($m->from_position)->toBeNull()->and($m->to_position)->toBe('STOCK')
         ->and($m->qty_out_of_from)->toBe('0.00')->and($m->qty_into_to)->toBe('1000.00')->and($m->user_id)->toBe($this->user->id)
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 1000.0])
-        ->and((float) $lot->stock_qty)->toBe(1000.0)->and((float) $lot->issued_qty)->toBe(0.0)->and((float) $lot->wip_qty)->toBe(0.0)
-        ->and((float) $lot->finished_qty)->toBe(0.0)->and((float) $lot->dispatched_qty)->toBe(0.0)->and((float) $lot->loss_qty)->toBe(0.0)
+        ->and((float) $lot->greige_in_stock_oracle)->toBe(1000.0)->and((float) $lot->qty_issued)->toBe(0.0)->and((float) $lot->wip)->toBe(0.0)
+        ->and((float) $lot->finished)->toBe(0.0)->and((float) $lot->dispatch)->toBe(0.0)->and((float) $lot->loss_qty)->toBe(0.0)
         ->and($lot->last_movement_at)->not->toBeNull()
         ->and($lot->last_movement_at->equalTo($m->moved_at))->toBeTrue();
 });
 
 it('keeps the caller\'s lot instance current after a post', function () {
     ($this->import)($this->lot);
-    expect($this->lot->stock_qty)->toBe('1000.00')->and($this->lot->isDirty())->toBeFalse();
+    expect($this->lot->greige_in_stock_oracle)->toBe('1000.00')->and($this->lot->isDirty())->toBeFalse();
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 250, 250);
-    expect($this->lot->stock_qty)->toBe('750.00')->and($this->lot->wip_qty)->toBe('250.00')->and($this->lot->isDirty())->toBeFalse();
+    expect($this->lot->greige_in_stock_oracle)->toBe('750.00')->and($this->lot->wip)->toBe('250.00')->and($this->lot->isDirty())->toBeFalse();
 });
 
 it('issues part of the stock to the floor', function () {
@@ -45,8 +45,8 @@ it('issues part of the stock to the floor', function () {
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 400, 400);
     $lot = $this->lot->fresh();
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 600.0, 'ISSUED' => 400.0])
-        ->and((float) $lot->stock_qty)->toBe(600.0)
-        ->and((float) $lot->issued_qty)->toBe(400.0)->and((float) $lot->wip_qty)->toBe(400.0);
+        ->and((float) $lot->greige_in_stock_oracle)->toBe(600.0)
+        ->and((float) $lot->qty_issued)->toBe(400.0)->and((float) $lot->wip)->toBe(400.0);
 });
 
 it('keeps gain and shrink per operation on a process movement', function () {
@@ -55,11 +55,11 @@ it('keeps gain and shrink per operation on a process movement', function () {
     $this->ledger->post($this->lot, 'process', Position::issued(), Position::step(11), 1000, 1020);
     $lot = $this->lot->fresh();
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 0.0, 'STEP:11' => 1020.0])
-        ->and((float) $lot->wip_qty)->toBe(1020.0)->and((float) $lot->issued_qty)->toBe(1000.0);
+        ->and((float) $lot->wip)->toBe(1020.0)->and((float) $lot->qty_issued)->toBe(1000.0);
     $this->ledger->post($this->lot, 'process', Position::step(11), Position::finished(), 1020, 990);
     $lot = $this->lot->fresh();
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 0.0, 'STEP:11' => 0.0, 'FINISHED' => 990.0])
-        ->and((float) $lot->finished_qty)->toBe(990.0)->and((float) $lot->wip_qty)->toBe(0.0);
+        ->and((float) $lot->finished)->toBe(990.0)->and((float) $lot->wip)->toBe(0.0);
     $this->ledger->assertInvariant($lot);
 });
 
@@ -74,8 +74,8 @@ it('records reprocess in place and dispatch/loss as terminal counters', function
     $this->ledger->post($this->lot, 'loss', Position::finished(), Position::loss(), 95, 95, ['reason' => 'CUT_PIECES']);
     $lot = $this->lot->fresh();
     expect($this->ledger->balances($lot)['FINISHED'])->toBe(0.0)
-        ->and((float) $lot->dispatched_qty)->toBe(900.0)->and((float) $lot->loss_qty)->toBe(95.0)
-        ->and((float) $lot->finished_qty)->toBe(0.0)->and((float) $lot->wip_qty)->toBe(0.0);
+        ->and((float) $lot->dispatch)->toBe(900.0)->and((float) $lot->loss_qty)->toBe(95.0)
+        ->and((float) $lot->finished)->toBe(0.0)->and((float) $lot->wip)->toBe(0.0);
     $this->ledger->assertInvariant($lot);
 });
 
@@ -89,7 +89,7 @@ it('never lets metres leave a terminal position except by reversal', function ()
     $rev = $this->ledger->reverse($dispatch, $this->user->id, 'wrong lot');
     expect($rev->from_position)->toBe('DISPATCHED')->and($rev->to_position)->toBe('FINISHED')
         ->and($this->ledger->balances($this->lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 0.0, 'FINISHED' => 1000.0, 'DISPATCHED' => 0.0])
-        ->and((float) $this->lot->fresh()->dispatched_qty)->toBe(0.0);
+        ->and((float) $this->lot->fresh()->dispatch)->toBe(0.0);
 });
 
 // ---- spec §5.3 "Validation": no overdraw, override posts an adjustment first ---------------------------------
@@ -105,7 +105,7 @@ it('rejects taking more than a position holds, reporting what is available', fun
             ->and($e->getMessage())->toContain('1,000.00')->and($e->getMessage())->toContain('Greige in stock');
     }
     expect(LotMovement::count())->toBe(1)->and($this->ledger->balances($this->lot))->toBe(['STOCK' => 1000.0])
-        ->and((float) $this->lot->fresh()->stock_qty)->toBe(1000.0);
+        ->and((float) $this->lot->fresh()->greige_in_stock_oracle)->toBe(1000.0);
 });
 
 it('treats a position the lot never had as holding nothing', function () {
@@ -122,7 +122,7 @@ it('posts an adjustment first on an override, so the ledger never goes negative'
         ->and($adj->from_position)->toBeNull()->and($adj->to_position)->toBe('STOCK')->and($adj->user_id)->toBe($this->user->id)
         ->and($issue->kind)->toBe('issue')->and($issue->reason)->toBe('Oracle qty short')->and($issue->id)->toBe($adj->id + 1)
         ->and($this->ledger->balances($this->lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 150.0])
-        ->and((float) $this->lot->fresh()->issued_qty)->toBe(150.0); // net issued, not greige − STOCK
+        ->and((float) $this->lot->fresh()->qty_issued)->toBe(150.0); // net issued, not greige − STOCK
     $this->ledger->assertInvariant($this->lot);
 });
 
@@ -134,7 +134,7 @@ it('reverses an override pair in reverse order: the issue first, then the adjust
     expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 150.0, 'ISSUED' => 0.0]);
     $this->ledger->reverse($adj, $this->user->id);
     expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 100.0, 'ISSUED' => 0.0])
-        ->and((float) $this->lot->fresh()->issued_qty)->toBe(0.0);
+        ->and((float) $this->lot->fresh()->qty_issued)->toBe(0.0);
     $this->ledger->assertInvariant($this->lot);
 });
 
@@ -162,7 +162,7 @@ it('reverses a movement with a new row and restores the balances', function () {
         ->and($rev->reason)->toBe('typo')->and($rev->from_position)->toBe('ISSUED')->and($rev->to_position)->toBe('STOCK')
         ->and($rev->reversalOf->is($issue))->toBeTrue()
         ->and($this->ledger->balances($this->lot))->toBe(['STOCK' => 1000.0, 'ISSUED' => 0.0])
-        ->and((float) $this->lot->fresh()->issued_qty)->toBe(0.0)
+        ->and((float) $this->lot->fresh()->qty_issued)->toBe(0.0)
         ->and(LotMovement::count())->toBe(3)
         ->and($issue->fresh()->getAttributes())->toEqual($issue->getAttributes()); // the original row is untouched
     $this->ledger->assertInvariant($this->lot);
@@ -181,7 +181,7 @@ it('reverses a movement only once', function () {
     $this->ledger->reverse($issue, $this->user->id);
     expect(fn () => $this->ledger->reverse($issue, $this->user->id))->toThrow(DomainException::class, 'already been reversed')
         ->and(LotMovement::count())->toBe(3)
-        ->and((float) $this->lot->fresh()->issued_qty)->toBe(0.0); // the reversal nets the issue out
+        ->and((float) $this->lot->fresh()->qty_issued)->toBe(0.0); // the reversal nets the issue out
 });
 
 it('backstops the single-reversal rule with a unique index on reversal_of_id', function () {
@@ -233,12 +233,12 @@ it('rejects floor movements on a lot that is not open', function () {
     expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 1000.0, 'LOSS' => 5.0]);
 });
 
-it('leaves issued_qty alone when metres are lost straight from STOCK', function () {
+it('leaves qty_issued alone when metres are lost straight from STOCK', function () {
     ($this->import)($this->lot);
     $this->lot->update(['state' => 'hold']);
     $this->ledger->post($this->lot, 'loss', Position::stock(), Position::loss(), 5, 5, ['reason' => 'DAMAGED']);
     $lot = $this->lot->fresh();
-    expect((float) $lot->stock_qty)->toBe(995.0)->and((float) $lot->loss_qty)->toBe(5.0)->and((float) $lot->issued_qty)->toBe(0.0);
+    expect((float) $lot->greige_in_stock_oracle)->toBe(995.0)->and((float) $lot->loss_qty)->toBe(5.0)->and((float) $lot->qty_issued)->toBe(0.0);
     $this->ledger->assertInvariant($lot);
 });
 
@@ -361,7 +361,7 @@ it('adds and subtracts two-decimal quantities without float drift', function () 
     expect(fn () => $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 0.01, 0.01))->toThrow(InsufficientQuantity::class);
     $this->ledger->post($this->lot, 'reprocess', Position::issued(), Position::issued(), 0.3, 0.3); // exactly what is there is fine
     $this->ledger->assertInvariant($this->lot);
-    expect($this->lot->fresh()->wip_qty)->toBe('0.30');
+    expect($this->lot->fresh()->wip)->toBe('0.30');
 });
 
 it('rounds quantities to two decimals at the boundary', function () {
@@ -413,41 +413,41 @@ it('detects a tampered balance and rebuilds from the movements', function () {
     ($this->import)($this->lot);
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
     LotBalance::where('lot_id', $this->lot->id)->where('position', 'STOCK')->update(['qty' => 999]);
-    Lot::whereKey($this->lot->id)->update(['stock_qty' => 1, 'wip_qty' => 1]);
+    Lot::whereKey($this->lot->id)->update(['greige_in_stock_oracle' => 1, 'wip' => 1]);
     try {
         $this->ledger->assertInvariant($this->lot);
         $this->fail('expected LedgerInvariantViolation');
     } catch (LedgerInvariantViolation $e) {
         expect($e->differences)->toBe([
             'STOCK' => ['balance' => 999.0, 'expected' => 900.0],
-            'lots.stock_qty' => ['balance' => 1.0, 'expected' => 900.0],
-            'lots.wip_qty' => ['balance' => 1.0, 'expected' => 100.0],
+            'lots.greige_in_stock_oracle' => ['balance' => 1.0, 'expected' => 900.0],
+            'lots.wip' => ['balance' => 1.0, 'expected' => 100.0],
         ])->and($e->getMessage())->toContain('STOCK');
     }
     $this->ledger->rebuild($this->lot);
     $this->ledger->assertInvariant($this->lot);
     $lot = $this->lot->fresh();
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 900.0, 'ISSUED' => 100.0])
-        ->and((float) $lot->stock_qty)->toBe(900.0)->and((float) $lot->wip_qty)->toBe(100.0)->and((float) $lot->issued_qty)->toBe(100.0)
+        ->and((float) $lot->greige_in_stock_oracle)->toBe(900.0)->and((float) $lot->wip)->toBe(100.0)->and((float) $lot->qty_issued)->toBe(100.0)
         ->and($lot->last_movement_at)->not->toBeNull()
-        ->and($this->lot->stock_qty)->toBe('900.00');
+        ->and($this->lot->greige_in_stock_oracle)->toBe('900.00');
 });
 
 it('detects a tampered lot total even when the balances are right', function () {
     ($this->import)($this->lot);
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
     $this->ledger->post($this->lot, 'process', Position::issued(), Position::finished(), 100, 100);
-    Lot::whereKey($this->lot->id)->update(['finished_qty' => 99]);
+    Lot::whereKey($this->lot->id)->update(['finished' => 99]);
     try {
         $this->ledger->assertInvariant($this->lot);
         $this->fail('expected LedgerInvariantViolation');
     } catch (LedgerInvariantViolation $e) {
-        expect($e->differences)->toBe(['lots.finished_qty' => ['balance' => 99.0, 'expected' => 100.0]])
-            ->and($e->getMessage())->toContain('lots.finished_qty');
+        expect($e->differences)->toBe(['lots.finished' => ['balance' => 99.0, 'expected' => 100.0]])
+            ->and($e->getMessage())->toContain('lots.finished');
     }
     $this->ledger->rebuild($this->lot);
     $this->ledger->assertInvariant($this->lot);
-    expect((float) $this->lot->fresh()->finished_qty)->toBe(100.0);
+    expect((float) $this->lot->fresh()->finished)->toBe(100.0);
 });
 
 it('passes a lot with no movements, no balances and zero totals', function () {
@@ -478,6 +478,6 @@ it('holds the whole-lot sum identity across every kind of movement', function ()
     // greige + adjustments + Σ(out − in) over process/reprocess lines
     $expected = 1000 + 20 + (1050 - 1020) + (1000 - 1050) + (98 - 100);
     expect($sumOfPositions)->toBe($netOfMovements)->and($sumOfPositions)->toBe((float) $expected)
-        ->and((float) $lot->stock_qty + (float) $lot->wip_qty + (float) $lot->finished_qty + (float) $lot->dispatched_qty + (float) $lot->loss_qty)->toBe((float) $expected);
+        ->and((float) $lot->greige_in_stock_oracle + (float) $lot->wip + (float) $lot->finished + (float) $lot->dispatch + (float) $lot->loss_qty)->toBe((float) $expected);
     $this->ledger->assertInvariant($lot);
 });

@@ -9,7 +9,6 @@ import FormBlock from '@/components/forms/FormBlock.vue';
 import FormField from '@/components/forms/FormField.vue';
 import FormsToolbar from '@/components/forms/FormsToolbar.vue';
 import ReasonDialog from '@/components/forms/ReasonDialog.vue';
-import StageProcessSelect from '@/components/stages/StageProcessSelect.vue';
 import StageSelect from '@/components/stages/StageSelect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,7 @@ import { useUnsavedGuard } from '@/composables/useUnsavedGuard';
 import type { FormsAction } from '@/forms/keymap';
 import type { ColumnDef } from '@/lib/agGrid';
 import { formatQty } from '@/lib/dates';
+import { flatLotGridColumns } from '@/lib/flatLotColumns';
 import { useFlashSelect } from '@/lib/flashSelect';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
@@ -44,7 +44,7 @@ import type { StageFallback } from '@/types/stages';
  * Oracle import and are never deleted here.
  *
  * Block 1 is Oracle's (`Lot::ORACLE_FIELDS`) and block 3 the ledger's, both read-only. Block 2 is the only
- * editable one: `colour_status` with `colour.edit`, `remarks` with `production.route.manage`; Hold / Release /
+ * editable one: `clr_status_oracle` with `colour.edit`, `remarks` with `production.route.manage`; Hold / Release /
  * Cancel post to Task 6's endpoints with `production.hold`.
  *
  * The reporting stage and process sit beside the status in block 2 and are **read-only**: the ledger derives
@@ -71,18 +71,20 @@ const props = defineProps<{
 }>();
 
 const CRITERIA_FIELDS = [
-    'lot_no',
+    'lot_no_oracle',
     'po_no',
     'party',
     'quality',
     'design',
-    'colour',
-    'colour_status',
-    'po_type',
+    // Oracle's own design code, which the flat grid shows as its own column — a different
+    // column from `design` above, so a criterion of its own (`LOT_CRITERIA['design_oracle_id']`).
+    'design_oracle_id',
+    'color_oracle_name',
+    'clr_status_oracle',
+    'po_type_oracle',
     'state',
-    'current_label',
+    'status_oracle',
     'stage',
-    'stage_process',
     'po_date',
 ] as const;
 
@@ -103,11 +105,11 @@ const showing = computed(() =>
         : '',
 );
 
-const blank = (): LotScreenEdit => ({ colour_status: null, remarks: null });
+const blank = (): LotScreenEdit => ({ clr_status_oracle: null, remarks: null });
 const edits = (lot: LotScreenRow | null): LotScreenEdit =>
     lot === null
         ? blank()
-        : { colour_status: lot.colour_status, remarks: lot.remarks };
+        : { clr_status_oracle: lot.clr_status_oracle, remarks: lot.remarks };
 
 const form = useForm<LotScreenEdit>(edits(current.value));
 const query = useQueryMode<Record<string, string | null>>([...CRITERIA_FIELDS]);
@@ -127,10 +129,7 @@ const busy = ref(false);
 // Its own form, posted to its own endpoint: the stage is never part of saving colour status or remarks.
 const overriding = ref(false);
 const stageError = ref('');
-const stageForm = useForm<LotStageOverride>({
-    stage_id: null,
-    stage_process_id: null,
-});
+const stageForm = useForm<LotStageOverride>({ stage_id: null });
 
 /** The lot's own stage, so a stage deactivated since it was pinned can still be named in the select. */
 const stageFallback = computed<StageFallback>(() => {
@@ -139,15 +138,6 @@ const stageFallback = computed<StageFallback>(() => {
         ? null
         : { id: lot.stage_id, name: lot.stage };
 });
-const stageProcessFallback = computed<StageFallback>(() => {
-    const lot = current.value;
-    return lot === null ||
-        lot.stage_process_id === null ||
-        lot.stage_process === null
-        ? null
-        : { id: lot.stage_process_id, name: lot.stage_process };
-});
-
 /** Who pinned the stage, and when — never left implicit. */
 const stageOverrideNote = computed(() => {
     const lot = current.value;
@@ -164,10 +154,7 @@ function startOverride(): void {
     if (lot === null) {
         return;
     }
-    stageForm.defaults({
-        stage_id: lot.stage_id,
-        stage_process_id: lot.stage_process_id,
-    });
+    stageForm.defaults({ stage_id: lot.stage_id });
     stageForm.reset();
     stageForm.clearErrors();
     stageError.value = '';
@@ -322,7 +309,7 @@ async function hold(): Promise<void> {
         return;
     }
     const reason = await prompt.ask({
-        title: t('production.lots.hold_title', { lot: lot.lot_no }),
+        title: t('production.lots.hold_title', { lot: lot.lot_no_oracle }),
         label: t('production.lots.reason_label'),
         options: props.holdReasons,
     });
@@ -336,7 +323,7 @@ async function release(): Promise<void> {
     if (
         lot !== null &&
         (await confirm.ask(
-            t('production.lots.release_confirm', { lot: lot.lot_no }),
+            t('production.lots.release_confirm', { lot: lot.lot_no_oracle }),
         ))
     ) {
         post('release', {});
@@ -349,7 +336,7 @@ async function cancel(): Promise<void> {
         return;
     }
     const reason = await prompt.ask({
-        title: t('production.lots.cancel_title', { lot: lot.lot_no }),
+        title: t('production.lots.cancel_title', { lot: lot.lot_no_oracle }),
         message: t('production.lots.cancel_hint'),
         label: t('production.lots.reason_label'),
         options: props.holdReasons,
@@ -368,7 +355,7 @@ function executeQuery(): void {
             '/production/lots',
             { q, shape: gridShape.value },
             {
-                only: ['lots', 'lotsTotal', 'flatLots', 'shape', 'criteria'],
+                only: reloadOnly(gridShape.value),
                 preserveState: true,
                 preserveScroll: true,
                 // a criterion the server rejected must tell the user, not silently drop query mode
@@ -474,8 +461,8 @@ const qtyColumn = (field: keyof LotScreenRow, key: string) => ({
 
 const columns = computed<ColumnDef<LotScreenRow>[]>(() => [
     {
-        field: 'lot_no',
-        headerName: t('production.fields.lot_no'),
+        field: 'lot_no_oracle',
+        headerName: t('production.fields.lot_no_oracle'),
         width: 100,
         pinned: 'left',
     },
@@ -487,15 +474,19 @@ const columns = computed<ColumnDef<LotScreenRow>[]>(() => [
     },
     { field: 'party', headerName: t('production.fields.party'), flex: 2 },
     { field: 'design', headerName: t('production.fields.design'), flex: 1 },
-    { field: 'colour', headerName: t('production.fields.colour'), flex: 1 },
     {
-        field: 'colour_status',
-        headerName: t('production.fields.colour_status'),
+        field: 'color_oracle_name',
+        headerName: t('production.fields.color_oracle_name'),
+        flex: 1,
+    },
+    {
+        field: 'clr_status_oracle',
+        headerName: t('production.fields.clr_status_oracle'),
         width: 130,
     },
     {
-        field: 'po_type',
-        headerName: t('production.fields.po_type'),
+        field: 'po_type_oracle',
+        headerName: t('production.fields.po_type_oracle'),
         width: 110,
     },
     {
@@ -506,7 +497,7 @@ const columns = computed<ColumnDef<LotScreenRow>[]>(() => [
     },
     { field: 'quality', headerName: t('production.fields.quality'), flex: 2 },
     {
-        field: 'current_label',
+        field: 'status_oracle',
         headerName: t('production.fields.label'),
         width: 130,
         cellClass: 'font-mono',
@@ -521,17 +512,12 @@ const columns = computed<ColumnDef<LotScreenRow>[]>(() => [
                 ? `${String(p.value ?? '')} *`
                 : String(p.value ?? ''),
     },
-    {
-        field: 'stage_process',
-        headerName: t('production.fields.stage_process'),
-        width: 170,
-    },
-    qtyColumn('greige_qty', 'greige'),
-    qtyColumn('stock_qty', 'stock'),
-    qtyColumn('issued_qty', 'issued'),
-    qtyColumn('wip_qty', 'wip'),
-    qtyColumn('finished_qty', 'finished'),
-    qtyColumn('dispatched_qty', 'dispatched'),
+    qtyColumn('greige_received_oracle', 'greige'),
+    qtyColumn('greige_in_stock_oracle', 'stock'),
+    qtyColumn('qty_issued', 'issued'),
+    qtyColumn('wip', 'wip'),
+    qtyColumn('finished', 'finished'),
+    qtyColumn('dispatch', 'dispatched'),
     {
         field: 'state',
         headerName: t('production.fields.state'),
@@ -551,103 +537,37 @@ const rowClassRules = {
 // The same lots under the mill's own field names (ProductionAnalyticsService::flatLots). Only the grid changes:
 // the record form, the stage override and every state action still read `lots`.
 
+/** The shapes the toggle offers, in order; `LotController::SHAPES`. */
+const SHAPES: LotGridShape[] = ['nested', 'flat'];
+
 const gridShape = computed<LotGridShape>(() => props.shape ?? 'nested');
+
+/**
+ * The props a reload of the grid needs. `flatLots` is asked for **only** for the flat shape: it is an
+ * optional prop, and naming it in `only` is what makes the server assemble it — so a nested-shape F8 that
+ * listed it anyway would pay for the second grid it is not going to draw.
+ */
+const reloadOnly = (shape: LotGridShape): string[] => [
+    'lots',
+    'lotsTotal',
+    'shape',
+    'criteria',
+    ...(shape === 'flat' ? ['flatLots'] : []),
+];
 
 /** `DataGrid` keys its nodes by `id`; the payload's primary key is `lot_id`, so it is copied over here. */
 const flatRows = computed<FlatLotGridRow[]>(() =>
     (props.flatLots ?? []).map((r) => ({ ...r, id: r.lot_id })),
 );
 
-/** Fixed 2-dp metres, but a null stays blank: an unmeasured width is not a width of zero. */
-const flatQty = (p: { value: unknown }): string =>
-    p.value === null || p.value === undefined ? '' : formatQty(p.value);
-
-/** A metres column: right-aligned, tabular figures, 2 dp. */
-const flatQtyColumn = (field: keyof FlatLotGridRow) => ({
-    field,
-    headerName: t(`production.flat.${field}`),
-    width: 140,
-    type: 'numericColumn',
-    cellClass: 'text-end tabular-nums',
-    valueFormatter: flatQty,
-});
-
-/** A whole-number identifier column (PO number, party code): right-aligned and tabular, but not metres. */
-const flatIdColumn = (field: keyof FlatLotGridRow, width: number) => ({
-    field,
-    headerName: t(`production.flat.${field}`),
-    width,
-    type: 'numericColumn',
-    cellClass: 'text-end tabular-nums',
-});
-
-/** A plain text column. */
-const flatTextColumn = (
-    field: keyof FlatLotGridRow,
-    width: number,
-    cellClass?: string,
-) => ({
-    field,
-    headerName: t(`production.flat.${field}`),
-    width,
-    ...(cellClass === undefined ? {} : { cellClass }),
-});
-
 /**
- * The flat grid's columns. The payload's own order, with one deliberate move: `status_oracle` sits beside
- * `stage_name` / `stage_process_name`, because the raw status and the reporting stage it resolves to are read
- * together — the stage never replaces the status. The three id columns the payload also carries (`stage_id`,
- * `stage_process_id`, `lot_id`) are not shown: they are keys, not figures.
+ * The flat grid's columns, from the one declaration both readers of the flat payload share
+ * (`@/lib/flatLotColumns`): this screen's grid and R1, the Month Wise Fabric Report. Declared there rather
+ * than here so the mill never sees its own fields in two different orders.
  */
-const flatColumns = computed<ColumnDef<FlatLotGridRow>[]>(() => [
-    {
-        ...flatTextColumn('lot_no_oracle', 120, 'tabular-nums'),
-        pinned: 'left',
-    },
-    flatIdColumn('po_no', 100),
-    flatTextColumn('ref', 110),
-    flatIdColumn('party_oracle_id', 110),
-    {
-        field: 'party_oracle_name',
-        headerName: t('production.flat.party_oracle_name'),
-        flex: 2,
-        minWidth: 160,
-    },
-    flatTextColumn('date_oracle', 110, 'tabular-nums'),
-    flatTextColumn('design_oracle_id', 120),
-    flatTextColumn('color_oracle_id', 120),
-    {
-        field: 'color_oracle_name',
-        headerName: t('production.flat.color_oracle_name'),
-        flex: 1,
-        minWidth: 140,
-    },
-    flatTextColumn('clr_status_oracle', 130),
-    flatTextColumn('po_type_oracle', 110),
-    {
-        field: 'quality',
-        headerName: t('production.flat.quality'),
-        flex: 2,
-        minWidth: 180,
-    },
-    {
-        field: 'gw_oracle',
-        headerName: t('production.flat.gw_oracle'),
-        width: 90,
-        type: 'numericColumn',
-        cellClass: 'text-end tabular-nums',
-        valueFormatter: flatQty,
-    },
-    flatTextColumn('status_oracle', 130, 'font-mono'),
-    flatTextColumn('stage_name', 150),
-    flatTextColumn('stage_process_name', 170),
-    flatQtyColumn('greige_received_oracle'),
-    flatQtyColumn('greige_in_stock_oracle'),
-    flatQtyColumn('qty_issued'),
-    flatQtyColumn('wip'),
-    flatQtyColumn('finished'),
-    flatQtyColumn('dispatch'),
-]);
+const flatColumns = computed<ColumnDef<FlatLotGridRow>[]>(() =>
+    flatLotGridColumns(),
+);
 
 /**
  * Swap the grid's columns. A server round trip rather than a client-side remap, because the flat shape is
@@ -662,7 +582,7 @@ function switchShape(shape: LotGridShape): void {
             '/production/lots',
             { q: props.criteria, shape },
             {
-                only: ['lots', 'lotsTotal', 'flatLots', 'shape', 'criteria'],
+                only: reloadOnly(shape),
                 preserveState: true,
                 preserveScroll: true,
             },
@@ -679,6 +599,29 @@ function switchShape(shape: LotGridShape): void {
                 {{ t('production.lots.title') }}
             </h1>
             <div class="ms-auto flex flex-wrap items-center gap-2">
+                <!--
+                    Which columns the grid shows. A server round trip, behind the unsaved guard, because the
+                    flat shape is assembled in SQL (see `switchShape`).
+                -->
+                <div
+                    class="flex items-center gap-1"
+                    role="group"
+                    :aria-label="t('production.lots.shape')"
+                >
+                    <Button
+                        v-for="s in SHAPES"
+                        :key="s"
+                        type="button"
+                        size="sm"
+                        :variant="gridShape === s ? 'secondary' : 'ghost'"
+                        :aria-pressed="gridShape === s"
+                        :data-testid="`shape-${s}`"
+                        class="h-7 text-xs"
+                        @click="switchShape(s)"
+                    >
+                        {{ t(`production.lots.shape_${s}`) }}
+                    </Button>
+                </div>
                 <Badge
                     v-if="!hasCriteria"
                     variant="outline"
@@ -726,9 +669,12 @@ function switchShape(shape: LotGridShape): void {
         <template v-else-if="current">
             <!-- block 1: Oracle's, read-only -->
             <FormBlock :title="t('production.lots.oracle')">
-                <FormField :label="t('production.fields.lot_no')" :span="2">
+                <FormField
+                    :label="t('production.fields.lot_no_oracle')"
+                    :span="2"
+                >
                     <Input
-                        :model-value="current.lot_no"
+                        :model-value="current.lot_no_oracle"
                         readonly
                         class="tabular-nums"
                     />
@@ -768,15 +714,21 @@ function switchShape(shape: LotGridShape): void {
                 <FormField :label="t('production.fields.design')" :span="2">
                     <Input :model-value="current.design ?? ''" readonly />
                 </FormField>
-                <FormField :label="t('production.fields.colour')" :span="2">
-                    <Input :model-value="current.colour ?? ''" readonly />
+                <FormField
+                    :label="t('production.fields.color_oracle_name')"
+                    :span="2"
+                >
+                    <Input
+                        :model-value="current.color_oracle_name ?? ''"
+                        readonly
+                    />
                 </FormField>
-                <FormField :label="t('production.fields.g_width')" :span="1">
+                <FormField :label="t('production.fields.gw_oracle')" :span="1">
                     <Input
                         :model-value="
-                            current.g_width === null
+                            current.gw_oracle === null
                                 ? ''
-                                : formatQty(current.g_width)
+                                : formatQty(current.gw_oracle)
                         "
                         readonly
                         class="text-end tabular-nums"
@@ -793,8 +745,11 @@ function switchShape(shape: LotGridShape): void {
                         class="text-end tabular-nums"
                     />
                 </FormField>
-                <FormField :label="t('production.fields.po_type')" :span="2">
-                    <Input :model-value="current.po_type" readonly />
+                <FormField
+                    :label="t('production.fields.po_type_oracle')"
+                    :span="2"
+                >
+                    <Input :model-value="current.po_type_oracle" readonly />
                 </FormField>
                 <p class="text-muted-foreground col-span-12 text-xs">
                     {{ t('production.lots.oracle_hint') }}
@@ -814,14 +769,14 @@ function switchShape(shape: LotGridShape): void {
             <!-- block 2: the app's, editable per permission -->
             <FormBlock :title="t('production.lots.app')">
                 <FormField
-                    :label="t('production.fields.colour_status')"
+                    :label="t('production.fields.clr_status_oracle')"
                     for="colour-status"
                     :span="3"
-                    :error="form.errors.colour_status"
+                    :error="form.errors.clr_status_oracle"
                 >
                     <select
                         id="colour-status"
-                        v-model="form.colour_status"
+                        v-model="form.clr_status_oracle"
                         :disabled="!can.colour"
                         class="bg-background h-9 rounded-md border px-2 text-sm"
                     >
@@ -860,7 +815,7 @@ function switchShape(shape: LotGridShape): void {
                 </FormField>
                 <FormField :label="t('production.fields.label')" :span="2">
                     <Input
-                        :model-value="current.current_label ?? ''"
+                        :model-value="current.status_oracle ?? ''"
                         readonly
                         class="font-mono"
                     />
@@ -898,20 +853,6 @@ function switchShape(shape: LotGridShape): void {
                     />
                 </FormField>
                 <FormField
-                    :label="t('production.fields.stage_process')"
-                    for="lot-stage-process"
-                    :span="3"
-                    :error="stageForm.errors.stage_process_id"
-                >
-                    <StageProcessSelect
-                        id="lot-stage-process"
-                        v-model="stageForm.stage_process_id"
-                        :stage-id="stageForm.stage_id"
-                        :disabled="!overriding"
-                        :fallback="stageProcessFallback"
-                    />
-                </FormField>
-                <FormField
                     :label="t('production.lots.stage_block')"
                     :span="6"
                     :error="stageError"
@@ -941,9 +882,7 @@ function switchShape(shape: LotGridShape): void {
                                     variant="outline"
                                     size="sm"
                                     :disabled="
-                                        busy ||
-                                        stageForm.stage_id === null ||
-                                        stageForm.stage_process_id === null
+                                        busy || stageForm.stage_id === null
                                     "
                                     @click="saveOverride()"
                                     >{{
@@ -981,7 +920,7 @@ function switchShape(shape: LotGridShape): void {
                     {{
                         stageOverrideNote !== ''
                             ? stageOverrideNote
-                            : current.stage_process_id === null
+                            : current.stage_id === null
                               ? t('production.lots.stage_none')
                               : t('production.lots.stage_derived')
                     }}
@@ -1070,12 +1009,15 @@ function switchShape(shape: LotGridShape): void {
             <FormBlock :title="t('production.lots.quantities')">
                 <FormField
                     v-for="q in [
-                        { key: 'greige', value: current.greige_qty },
-                        { key: 'stock', value: current.stock_qty },
-                        { key: 'issued', value: current.issued_qty },
-                        { key: 'wip', value: current.wip_qty },
-                        { key: 'finished', value: current.finished_qty },
-                        { key: 'dispatched', value: current.dispatched_qty },
+                        {
+                            key: 'greige',
+                            value: current.greige_received_oracle,
+                        },
+                        { key: 'stock', value: current.greige_in_stock_oracle },
+                        { key: 'issued', value: current.qty_issued },
+                        { key: 'wip', value: current.wip },
+                        { key: 'finished', value: current.finished },
+                        { key: 'dispatched', value: current.dispatch },
                         { key: 'loss', value: current.loss_qty },
                     ]"
                     :key="q.key"

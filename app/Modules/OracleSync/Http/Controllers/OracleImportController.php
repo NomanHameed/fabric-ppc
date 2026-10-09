@@ -61,7 +61,7 @@ class OracleImportController extends Controller
     {
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : $this->defaultTab($import);
         $rows = $import->rows()->where('action', $tab)->orderBy('id')->limit(2000)->get();
-        $lots = Lot::query()->with(['contract.party', 'quality'])->whereIn('id', $rows->pluck('lot_id')->filter())->get()->keyBy('id');
+        $lots = Lot::query()->with('contract.party')->whereIn('id', $rows->pluck('lot_id')->filter())->get()->keyBy('id');
 
         return Inertia::render('oracle/ImportPreview', [
             'import' => $this->summary($import->load('uploader')) + [
@@ -75,10 +75,10 @@ class OracleImportController extends Controller
                 return [
                     'id' => $r->id, 'row_no' => $r->row_no, 'oracle_line_id' => $r->oracle_line_id, 'action' => $r->action,
                     'message' => $r->message ? Str::after($r->message, ':') : null, 'diff' => $r->diff,
-                    'lot_no' => $p['lot_no'] ?? $lot?->lot_no, 'po_no' => $p['po_no'] ?? $lot?->contract->po_no,
+                    'lot_no_oracle' => $p['lot_no_oracle'] ?? $lot?->lot_no_oracle, 'po_no' => $p['po_no'] ?? $lot?->contract->po_no,
                     'party' => $p['party_name'] ?? $lot?->contract->party->name, 'design' => $p['design'] ?? $lot?->design,
-                    'colour' => $p['colour'] ?? $lot?->colour, 'quality' => $p['quality_description'] ?? $lot?->quality->description,
-                    'greige_qty' => $p['greige_qty'] ?? ($lot ? (float) $lot->greige_qty : null),
+                    'color_oracle_name' => $p['color_oracle_name'] ?? $lot?->color_oracle_name, 'quality' => $p['quality_description'] ?? $lot?->quality,
+                    'greige_received_oracle' => $p['greige_received_oracle'] ?? ($lot ? (float) $lot->greige_received_oracle : null),
                 ];
             }),
             'canRun' => $request->user()->can('oracle.import.run'),

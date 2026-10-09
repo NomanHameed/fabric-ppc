@@ -33,7 +33,7 @@ beforeEach(function () {
     $this->routes = app(LotRouteService::class);
     $this->sheets = app(ProductionSheetService::class);
     // HALF BLEACH route: SINGING (SINGEING) → SINGLE BLEACH (JIGGER_DYEING) → DRY (DRYING) → WHITE FINISH FOR SANFORIZING (FINISH_STENTER) → SANFORIZE (SANFO_CALENDER)
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 1000, 'colour_status' => 'APPROVED', 'g_width' => 63, 'f_width' => 58]);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 1000, 'clr_status_oracle' => 'APPROVED', 'gw_oracle' => 63, 'f_width' => 58]);
     $this->routes->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 1000);
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 1000, 1000);
@@ -76,7 +76,7 @@ it('posts a line on the next pending step of the sheet department and advances t
         ->and((float) $m->qty_out_of_from)->toBe(1000.0)->and((float) $m->qty_into_to)->toBe(995.0)
         ->and($m->user_id)->toBe($this->ppc->id)->and($m->source_id)->toBe($line->id)->and($m->source_type)->toBe($line->getMorphClass())
         ->and($m->moved_at->format('d-m-Y H:i'))->toBe('11-09-2026 12:00')
-        ->and($this->lot->fresh()->current_label)->toBe('BLEACHING/')
+        ->and($this->lot->fresh()->status_oracle)->toBe('BLEACHING/')
         ->and($sheet->entered_by)->toBe($this->ppc->id);
 });
 
@@ -87,7 +87,7 @@ it('moves the step status partial → done as the metres go through, and back to
 
     $second = $this->sheets->save(null, ($this->header)('SINGEING', 'SINGEING', '2026-09-12'), [($this->line)(['qty_in' => 600, 'qty_out' => 600])], $this->ppc);
     expect($s1->fresh()->status)->toBe('done')->and($this->ledger->balances($this->lot)["STEP:{$s1->id}"])->toBe(998.0)
-        ->and((float) $this->lot->fresh()->wip_qty)->toBe(998.0);
+        ->and((float) $this->lot->fresh()->wip)->toBe(998.0);
 
     $this->sheets->delete($second, $this->ppc);
     expect($s1->fresh()->status)->toBe('partial');
@@ -110,8 +110,8 @@ it('walks a lot to FINISHED through every department, posting each line from pre
             ->and($line->movements()->first()->from_position)->toBe($this->routes->previousPosition($step)->value())
             ->and($line->movements()->first()->to_position)->toBe($this->routes->targetPosition($step)->value());
     }
-    expect($this->ledger->balances($this->lot)['FINISHED'])->toBe(995.0)->and((float) $this->lot->fresh()->finished_qty)->toBe(995.0)
-        ->and((float) $this->lot->fresh()->wip_qty)->toBe(0.0)->and($this->lot->fresh()->current_label)->toBe('RF-INSP/');
+    expect($this->ledger->balances($this->lot)['FINISHED'])->toBe(995.0)->and((float) $this->lot->fresh()->finished)->toBe(995.0)
+        ->and((float) $this->lot->fresh()->wip)->toBe(0.0)->and($this->lot->fresh()->status_oracle)->toBe('RF-INSP/');
 });
 
 it('takes an explicit route step and validates it against the lot', function () {
@@ -121,7 +121,7 @@ it('takes an explicit route step and validates it against the lot', function () 
         [($this->line)(['operation_id' => ($this->op)('JIGGER_DYEING', 'SINGLE BLEACH')->id, 'lot_route_step_id' => $bleach->id, 'qty_in' => 10, 'qty_out' => 10])], $this->ppc));
     expect($errors)->toHaveKey('lines.0.qty_in')->and($errors['lines.0.qty_in'][0])->toContain('0.00');
 
-    $other = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $other = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($other);
     $foreign = $other->routeSteps->first();
     $errors = ($this->errors)(fn () => $this->sheets->save(null, ($this->header)('SINGEING', 'SINGEING'), [($this->line)(['lot_route_step_id' => $foreign->id])], $this->ppc));
@@ -174,7 +174,7 @@ it('reports the available metres and honours a production.override with reason',
     expect($movements->pluck('kind')->all())->toBe(['adjustment', 'process'])
         ->and($movements->first()->to_position)->toBe('ISSUED')->and((float) $movements->first()->qty_into_to)->toBe(200.0)->and($movements->first()->reason)->toBe('Oracle short by 200')
         ->and($this->ledger->balances($this->lot)['STEP:'.$this->lot->routeSteps->first()->id])->toBe(1200.0)
-        ->and((float) $this->lot->fresh()->wip_qty)->toBe(1200.0);
+        ->and((float) $this->lot->fresh()->wip)->toBe(1200.0);
 });
 
 it('refuses a quantity override from a user without production.override', function () {
@@ -233,7 +233,7 @@ it('needs a known reprocess reason, and treats a reprocess-kind operation as rep
 });
 
 it('refuses an unplanned line when nothing is on the floor', function () {
-    $stock = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100, 'colour_status' => 'APPROVED']);
+    $stock = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100, 'clr_status_oracle' => 'APPROVED']);
     $this->ledger->post($stock, 'import', null, Position::stock(), 0, 100); // no route, nothing issued
     $errors = ($this->errors)(fn () => $this->sheets->save(null, ($this->header)('SINGEING', 'SINGEING'), [($this->line)(['lot_id' => $stock->id, 'qty_in' => 10, 'qty_out' => 10])], $this->ppc));
     expect($errors)->toHaveKey('lines.0.qty_in');
@@ -262,7 +262,7 @@ it('edits and deletes lines through reversals, never by touching movements', fun
     expect($this->ledger->balances($this->lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 1000.0, "STEP:{$s1->id}" => 0.0])
         ->and($s1->fresh()->status)->toBe('pending')->and(ProductionSheet::count())->toBe(0)->and(ProductionLine::count())->toBe(0)
         ->and(LotMovement::where('lot_id', $this->lot->id)->where('kind', 'process')->count())->toBe(4) // the delete added one more reversal, nothing was removed
-        ->and((float) $this->lot->fresh()->wip_qty)->toBe(1000.0);
+        ->and((float) $this->lot->fresh()->wip)->toBe(1000.0);
 });
 
 it('re-posts every line on the new date when the sheet date changes', function () {
@@ -337,7 +337,7 @@ it('refuses to change or delete a line whose metres have already moved on, until
     // bleaching took the singeing output: the singeing line's movement can no longer be reversed
     $line = $first->lines->first();
     $errors = ($this->errors)(fn () => $this->sheets->save($first, ($this->header)('SINGEING', 'SINGEING'), [['id' => $line->id] + ($this->line)(['qty_in' => 1000, 'qty_out' => 500])], $this->ppc));
-    expect($errors)->toHaveKey('lines.0.qty_in')->and($errors['lines.0.qty_in'][0])->toContain($this->lot->lot_no);
+    expect($errors)->toHaveKey('lines.0.qty_in')->and($errors['lines.0.qty_in'][0])->toContain($this->lot->lot_no_oracle);
     $errors = ($this->errors)(fn () => $this->sheets->delete($first->fresh(), $this->ppc));
     expect($errors)->toHaveKey('lines')->and(ProductionSheet::count())->toBe(2);
     // undo the bleaching first, then the singeing line can change
@@ -362,12 +362,12 @@ it('rejects a line id that is not on the sheet', function () {
 // ---- colour gate (spec §5.4) -----------------------------------------------------------------------------------
 
 it('gates dyeing on an unapproved colour and logs the override', function () {
-    $this->lot->update(['colour_status' => 'DIP']);
+    $this->lot->update(['clr_status_oracle' => 'DIP']);
     $this->sheets->save(null, ($this->header)('SINGEING', 'SINGEING'), [($this->line)()], $this->ppc); // singeing is not gated
     $bleach = ($this->line)(['operation_id' => ($this->op)('JIGGER_DYEING', 'SINGLE BLEACH')->id, 'qty_in' => 995, 'qty_out' => 990]);
 
     $errors = ($this->errors)(fn () => $this->sheets->save(null, ($this->header)('JIGGER_DYEING', 'JIGGER', '2026-09-12'), [$bleach], $this->ppc));
-    expect($errors)->toHaveKey('lines.0.colour_override_reason')->and($errors['lines.0.colour_override_reason'][0])->toContain($this->lot->lot_no)->toContain('DIP')->toContain('SINGLE BLEACH')
+    expect($errors)->toHaveKey('lines.0.colour_override_reason')->and($errors['lines.0.colour_override_reason'][0])->toContain($this->lot->lot_no_oracle)->toContain('DIP')->toContain('SINGLE BLEACH')
         ->and(ProductionSheet::count())->toBe(1)->and(LotMovement::where('kind', 'process')->count())->toBe(1);
 
     $sheet = $this->sheets->save(null, ($this->header)('JIGGER_DYEING', 'JIGGER', '2026-09-12'), [array_merge($bleach, ['colour_override_reason' => 'Party accepted lab dip verbally'])], $this->ppc);
@@ -386,7 +386,7 @@ it('gates dyeing on an unapproved colour and logs the override', function () {
 });
 
 it('keeps a logged override through edits: the same reason from anyone, a new reason only from an approver', function () {
-    $this->lot->update(['colour_status' => 'DIP']);
+    $this->lot->update(['clr_status_oracle' => 'DIP']);
     $this->sheets->save(null, ($this->header)('SINGEING', 'SINGEING'), [($this->line)()], $this->ppc);
     $bleach = ($this->line)(['operation_id' => ($this->op)('JIGGER_DYEING', 'SINGLE BLEACH')->id, 'qty_in' => 995, 'qty_out' => 990, 'colour_override_reason' => 'Verbal OK']);
     $sheet = $this->sheets->save(null, ($this->header)('JIGGER_DYEING', 'JIGGER', '2026-09-12'), [$bleach], $this->ppc);
@@ -413,10 +413,10 @@ it('keeps a logged override through edits: the same reason from anyone, a new re
         ->and(ColourOverride::count())->toBe(1);
 
     // the colour approved after the fact: a re-post keeps the logged decision; moving the line to another lot drops it
-    $this->lot->update(['colour_status' => 'APPROVED']);
+    $this->lot->update(['clr_status_oracle' => 'APPROVED']);
     $this->sheets->save($sheet->fresh(), ($this->header)('JIGGER_DYEING', 'JIGGER', '2026-09-12'), [['id' => $line->id] + array_merge($bleach, ['qty_out' => 975])], $this->ppc);
     expect(ColourOverride::count())->toBe(1)->and($override->fresh()->production_line_id)->toBe($line->id)->and((float) $line->fresh()->qty_out)->toBe(975.0);
-    $other = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100, 'colour_status' => 'APPROVED']);
+    $other = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100, 'clr_status_oracle' => 'APPROVED']);
     $this->routes->assign($other);
     $this->ledger->post($other, 'import', null, Position::stock(), 0, 100);
     $this->ledger->post($other, 'issue', Position::stock(), Position::issued(), 100, 100);
@@ -426,7 +426,7 @@ it('keeps a logged override through edits: the same reason from anyone, a new re
 });
 
 it('refuses a colour override from a user without colour.override.approve', function () {
-    $this->lot->update(['colour_status' => 'DIP']);
+    $this->lot->update(['clr_status_oracle' => 'DIP']);
     $this->sheets->save(null, ($this->header)('SINGEING', 'SINGEING'), [($this->line)()], $this->ppc);
     $bleach = ($this->line)(['operation_id' => ($this->op)('JIGGER_DYEING', 'SINGLE BLEACH')->id, 'qty_in' => 1, 'qty_out' => 1]);
     $incharge = User::factory()->create()->assignRole('dept_incharge');
@@ -443,12 +443,12 @@ it('gates a finishing operation by finish_type and passes every approved status'
     }
     $finishLine = ($this->line)(['operation_id' => $finish->id, 'qty_in' => 100, 'qty_out' => 100]);
     foreach (['DIP', 'REJECTED', null] as $status) {
-        $this->lot->update(['colour_status' => $status]);
+        $this->lot->update(['clr_status_oracle' => $status]);
         $errors = ($this->errors)(fn () => $this->sheets->save(null, ($this->header)('FINISH_STENTER', 'STENTER-1'), [$finishLine], $this->ppc));
         expect($errors)->toHaveKey('lines.0.colour_override_reason');
     }
     foreach (['APPROVED', 'MWS_APP', 'DIRECT_PROD'] as $i => $status) {
-        $this->lot->update(['colour_status' => $status]);
+        $this->lot->update(['clr_status_oracle' => $status]);
         $this->sheets->save(null, ($this->header)('FINISH_STENTER', 'STENTER-1', '2026-09-1'.$i), [$finishLine], $this->ppc);
     }
     expect(ColourOverride::count())->toBe(0)->and(ProductionSheet::count())->toBe(6);
@@ -485,7 +485,7 @@ it('computes the sheet totals: fresh, reprocess, stretching, by output type', fu
 // ---- batch split ---------------------------------------------------------------------------------------------
 
 it('accepts a split batch: lines with one batch no, proportional to what is available', function () {
-    $other = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 500, 'colour_status' => 'APPROVED']);
+    $other = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 500, 'clr_status_oracle' => 'APPROVED']);
     $this->routes->assign($other);
     $this->ledger->post($other, 'import', null, Position::stock(), 0, 500);
     $this->ledger->post($other, 'issue', Position::stock(), Position::issued(), 500, 500);

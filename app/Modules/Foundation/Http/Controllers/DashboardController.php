@@ -20,7 +20,7 @@ class DashboardController extends Controller
             'stats' => [
                 'open_lots' => (clone $open)->count(),
                 'open_contracts' => (clone $open)->distinct('contract_id')->count('contract_id'),
-                'open_greige_qty' => (float) (clone $open)->sum('greige_qty'),
+                'open_greige_qty' => (float) (clone $open)->sum('greige_received_oracle'),
                 'parties' => Party::query()->where('is_active', true)->count(),
                 'missing_from_oracle' => (clone $open)->whereNotNull('oracle_missing_at')->count(),
             ],

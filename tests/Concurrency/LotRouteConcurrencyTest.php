@@ -27,7 +27,7 @@ beforeEach(function () {
     $this->seed([FoundationSeeder::class, RouteTemplateSeeder::class]);
     $this->routes = app(LotRouteService::class);
     $this->ledger = app(LedgerService::class);
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 100);
 

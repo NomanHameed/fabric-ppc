@@ -10,7 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 
 /**
- * lots.current_label, from the first rule that applies (spec §5.3 "Current status label"), and the report's
+ * lots.status_oracle, from the first rule that applies (spec §5.3 "Current status label"), and the report's
  * Pending / Complete process flag. The label texts are the tracker's own status codes (they print verbatim in
  * the Month Wise Fabric Report), so they are not translated.
  *
@@ -98,8 +98,8 @@ final class LotStatusLabeller
             return self::FLAG_COMPLETE;
         }
 
-        return (float) $lot->greige_qty > 0
-            && round((float) $lot->stock_qty + (float) $lot->wip_qty + (float) $lot->finished_qty, 2) <= 0
+        return (float) $lot->greige_received_oracle > 0
+            && round((float) $lot->greige_in_stock_oracle + (float) $lot->wip + (float) $lot->finished, 2) <= 0
             ? self::FLAG_COMPLETE
             : self::FLAG_PENDING;
     }

@@ -23,7 +23,7 @@ beforeEach(function () {
     $this->seed([RolesAndPermissionsSeeder::class, FoundationSeeder::class, RouteTemplateSeeder::class]);
     $this->ppc = User::factory()->create()->assignRole(Permissions::ROLE_PPC);
     // Back-dated so the import movement (moved_at = the lot's created_at) really is the first event.
-    $this->lot = Lot::factory()->create(['greige_qty' => 1000, 'po_type' => 'DYED', 'created_at' => now()->subDays(10)]);
+    $this->lot = Lot::factory()->create(['greige_received_oracle' => 1000, 'po_type_oracle' => 'DYED', 'created_at' => now()->subDays(10)]);
     app(LotIntakeService::class)->receive($this->lot, $this->ppc->id);
     $this->lot->refresh();
 });
@@ -115,7 +115,7 @@ it('picks up colour overrides and recorded user actions', function () {
         'lot_id' => $this->lot->id, 'reason' => 'Party confirmed by phone',
         'approved_by' => $lab->id, 'approved_at' => now(),
     ]);
-    app(ActionLogger::class)->log(ActionKeys::COLOUR_APPROVED, $this->lot, ['colour' => 'NAVY BLUE', 'lot' => $this->lot->lot_no], $lab);
+    app(ActionLogger::class)->log(ActionKeys::COLOUR_APPROVED, $this->lot, ['colour' => 'NAVY BLUE', 'lot' => $this->lot->lot_no_oracle], $lab);
 
     $types = timelineTypes($this->lot);
 
@@ -138,7 +138,7 @@ it('serves the timeline over http to anyone with inquiry.view', function () {
 
     $this->actingAs($this->ppc)->getJson("/production/lots/{$this->lot->id}/timeline")
         ->assertOk()
-        ->assertJsonPath('lot.lot_no', $this->lot->lot_no)
+        ->assertJsonPath('lot.lot_no_oracle', $this->lot->lot_no_oracle)
         ->assertJsonPath('events.0.type', TimelineEventType::LOADED)
         // the `lot.issued` action IssueService records, and then the ledger movement itself
         ->assertJsonPath('events.1.type', TimelineEventType::ACTION)

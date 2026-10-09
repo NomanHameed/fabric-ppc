@@ -14,7 +14,6 @@ type Fields = Record<string, unknown>;
 const post = vi.fn();
 const visit = vi.fn();
 let selectedId: number | string | null | undefined;
-let stageIdSeen: number | null = null;
 
 function makeForm(initial: Fields) {
     const form = reactive({
@@ -95,36 +94,6 @@ vi.mock('@/components/stages/StageSelect.vue', () => ({
     }),
 }));
 
-vi.mock('@/components/stages/StageProcessSelect.vue', () => ({
-    default: defineComponent({
-        name: 'StageProcessSelect',
-        props: {
-            modelValue: { type: Number, default: null },
-            stageId: { type: Number, default: null },
-        },
-        emits: ['update:modelValue'],
-        setup:
-            (props, { emit }) =>
-            () => {
-                stageIdSeen = props.stageId as number | null;
-                return h(
-                    'select',
-                    {
-                        'data-testid': 'process-select',
-                        onChange: (e: Event) =>
-                            emit(
-                                'update:modelValue',
-                                Number((e.target as HTMLSelectElement).value),
-                            ),
-                    },
-                    [41, 42].map((id) =>
-                        h('option', { value: String(id) }, `Process ${id}`),
-                    ),
-                );
-            },
-    }),
-}));
-
 const row: UnmappedStatusRow = {
     id: 12,
     label: 'WEIRD ONE/',
@@ -154,7 +123,6 @@ beforeEach(() => {
     post.mockClear();
     visit.mockClear();
     selectedId = undefined;
-    stageIdSeen = null;
 });
 
 describe('Unmapped Statuses report', () => {
@@ -172,40 +140,22 @@ describe('Unmapped Statuses report', () => {
         expect(wrapper.find('[data-testid="stage-select"]').exists()).toBe(
             true,
         );
-        expect(wrapper.find('[data-testid="process-select"]').exists()).toBe(
-            true,
-        );
         expect(selectedId).toBe(12);
         wrapper.unmount();
     });
 
-    it('filters the process list by the chosen stage', async () => {
+    it('posts nothing until a stage is chosen and the mapping confirmed', async () => {
         const wrapper = await mountReport();
         await wrapper.get('[data-testid="row-12"]').trigger('click');
         await flushPromises();
 
-        expect(stageIdSeen).toBeNull();
-
-        await wrapper.get('[data-testid="stage-select"]').setValue('4');
-        await flushPromises();
-
-        expect(stageIdSeen).toBe(4);
-        wrapper.unmount();
-    });
-
-    it('posts nothing until a process is chosen and the mapping confirmed', async () => {
-        const wrapper = await mountReport();
-        await wrapper.get('[data-testid="row-12"]').trigger('click');
-        await flushPromises();
-
-        // confirm is off with no process chosen, and clicking it posts nothing
+        // confirm is off with no stage chosen, and clicking it posts nothing
         const confirm = textButton(wrapper, 'production.unmapped.map_confirm');
         expect(confirm?.attributes('disabled')).toBe('');
         await confirm?.trigger('click');
         expect(post).not.toHaveBeenCalled();
 
         await wrapper.get('[data-testid="stage-select"]').setValue('4');
-        await wrapper.get('[data-testid="process-select"]').setValue('41');
         await flushPromises();
 
         await textButton(wrapper, 'production.unmapped.map_confirm')?.trigger(
@@ -215,7 +165,7 @@ describe('Unmapped Statuses report', () => {
 
         expect(post).toHaveBeenCalledTimes(1);
         expect(post.mock.calls[0][0]).toBe(
-            '/production/unmapped-statuses/41/aliases',
+            '/production/unmapped-statuses/4/aliases',
         );
         wrapper.unmount();
     });
@@ -245,7 +195,7 @@ describe('Unmapped Statuses report', () => {
         await textButton(wrapper, 'production.unmapped.open_master')?.trigger(
             'click',
         );
-        expect(visit).toHaveBeenCalledWith('/masters/stage_processes');
+        expect(visit).toHaveBeenCalledWith('/masters/stages');
         wrapper.unmount();
     });
 });

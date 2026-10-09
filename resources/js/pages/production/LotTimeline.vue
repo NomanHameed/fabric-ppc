@@ -27,21 +27,21 @@ import type { TimelineResponse } from '@/types/analytics';
  */
 type LotHeader = {
     id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     po_no: number;
     contract_id: number;
     party: string;
     quality: string | null;
     design: string | null;
-    colour: string | null;
-    colour_status: string | null;
-    po_type: string;
+    color_oracle_name: string | null;
+    clr_status_oracle: string | null;
+    po_type_oracle: string;
     state: string;
-    current_label: string | null;
-    greige_qty: number;
-    wip_qty: number;
-    finished_qty: number;
-    dispatched_qty: number;
+    status_oracle: string | null;
+    greige_received_oracle: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
 };
 
 const props = defineProps<{ lot: LotHeader | null; types: string[] }>();
@@ -49,7 +49,7 @@ const props = defineProps<{ lot: LotHeader | null; types: string[] }>();
 const { locale } = useI18n();
 
 const lotId = ref<number | null>(props.lot?.id ?? null);
-const lotDisplay = ref(props.lot?.lot_no ?? '');
+const lotDisplay = ref(props.lot?.lot_no_oracle ?? '');
 const events = ref<TimelineResponse['events']>([]);
 const loading = ref(false);
 const failed = ref(false);
@@ -153,10 +153,10 @@ const quantities = computed(() =>
     props.lot === null
         ? []
         : [
-              { key: 'greige', value: props.lot.greige_qty },
-              { key: 'wip', value: props.lot.wip_qty },
-              { key: 'finished', value: props.lot.finished_qty },
-              { key: 'dispatched', value: props.lot.dispatched_qty },
+              { key: 'greige', value: props.lot.greige_received_oracle },
+              { key: 'wip', value: props.lot.wip },
+              { key: 'finished', value: props.lot.finished },
+              { key: 'dispatched', value: props.lot.dispatch },
           ],
 );
 
@@ -171,7 +171,7 @@ const place = (event: TimelineResponse['events'][number]): string | null =>
         <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1 class="text-lg font-semibold">{{ t('timeline.title') }}</h1>
             <span v-if="lot" class="text-muted-foreground text-sm tabular-nums">
-                {{ lot.lot_no }}
+                {{ lot.lot_no_oracle }}
             </span>
             <div class="ms-auto flex flex-wrap items-center gap-3">
                 <Link
@@ -191,7 +191,7 @@ const place = (event: TimelineResponse['events'][number]): string | null =>
 
         <FormBlock :title="t('timeline.screen.lot_block')">
             <FormField
-                :label="t('production.fields.lot_no')"
+                :label="t('production.fields.lot_no_oracle')"
                 for="f-lot"
                 :span="4"
                 :hint="t('timeline.screen.lot_hint')"
@@ -224,14 +224,20 @@ const place = (event: TimelineResponse['events'][number]): string | null =>
                 <FormField :label="t('production.fields.quality')" :span="5">
                     <Input :model-value="lot.quality ?? ''" readonly />
                 </FormField>
-                <FormField :label="t('production.fields.colour')" :span="3">
-                    <Input :model-value="lot.colour ?? ''" readonly />
+                <FormField
+                    :label="t('production.fields.color_oracle_name')"
+                    :span="3"
+                >
+                    <Input
+                        :model-value="lot.color_oracle_name ?? ''"
+                        readonly
+                    />
                 </FormField>
                 <FormField
-                    :label="t('production.fields.current_label')"
+                    :label="t('production.fields.status_oracle')"
                     :span="4"
                 >
-                    <Input :model-value="lot.current_label ?? ''" readonly />
+                    <Input :model-value="lot.status_oracle ?? ''" readonly />
                 </FormField>
                 <FormField
                     v-for="q in quantities"

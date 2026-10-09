@@ -35,6 +35,14 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
     });
 
+    // R1, the Month Wise Fabric Report screen (spec §7.1). A mill-wide month report with no department
+    // dimension at all, so it follows `reports.all` — the "Reports: all" column of spec §8 — and not
+    // `reports.department`, which exists for the per-department reports a Dept In-charge may see.
+    // The JSON endpoint above keeps `inquiry.view`: it is the stage figures the dashboard reads, not R1.
+    Route::middleware('permission:reports.all')->group(function () {
+        Route::get('reports/fabric', [FabricReportController::class, 'screen'])->name('fabric_report.screen');
+    });
+
     Route::middleware('permission:production.issue')->group(function () {
         Route::get('issue', [IssueController::class, 'index'])->name('issue.index');
         Route::post('issue', [IssueController::class, 'store'])->name('issue.store');
@@ -60,14 +68,14 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         Route::post('lots/{lot}/cancel', [LotStateController::class, 'cancel'])->whereNumber('lot')->name('lots.cancel');
     });
 
-    // Unmapped statuses: a master-data gap report whose only remedy is adding an alias on the Stage
-    // Processes master, so it follows that master's edit permission rather than a read one.
+    // Unmapped statuses: a master-data gap report whose only remedy is adding an alias on the Stages
+    // master, so it follows that master's edit permission rather than a read one.
     Route::middleware('permission:masters.manage')->group(function () {
         Route::get('unmapped-statuses', [UnmappedStatusController::class, 'index'])->name('unmapped_statuses.index');
-        // Mapping a status from the report itself: the alias is added to the process and the lots on that
+        // Mapping a status from the report itself: the alias is added to the stage and the lots on that
         // status are re-resolved. The controller re-checks the permission before it validates anything.
-        Route::post('unmapped-statuses/{stageProcess}/aliases', [UnmappedStatusController::class, 'map'])
-            ->whereNumber('stageProcess')->name('unmapped_statuses.map');
+        Route::post('unmapped-statuses/{stage}/aliases', [UnmappedStatusController::class, 'map'])
+            ->whereNumber('stage')->name('unmapped_statuses.map');
     });
 
     // Capacity/utilisation: a planning read, so it follows the sheet-view permission every floor role has.

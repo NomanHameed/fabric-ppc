@@ -48,12 +48,12 @@ it('seeds contracts and lots whose ledger balances hold', function () {
 });
 
 it('seeds lots in a variety of positions, so every screen has something', function () {
-    expect(Lot::query()->where('stock_qty', '>', 0)->exists())->toBeTrue()
-        ->and(Lot::query()->where('wip_qty', '>', 0)->exists())->toBeTrue()
-        ->and(Lot::query()->where('dispatched_qty', '>', 0)->exists())->toBeTrue()
+    expect(Lot::query()->where('greige_in_stock_oracle', '>', 0)->exists())->toBeTrue()
+        ->and(Lot::query()->where('wip', '>', 0)->exists())->toBeTrue()
+        ->and(Lot::query()->where('dispatch', '>', 0)->exists())->toBeTrue()
         ->and(Lot::query()->where('loss_qty', '>', 0)->exists())->toBeTrue()
         ->and(Lot::query()->where('state', 'hold')->exists())->toBeTrue()
-        ->and(Lot::query()->distinct()->count('po_type'))->toBeGreaterThan(1);
+        ->and(Lot::query()->distinct()->count('po_type_oracle'))->toBeGreaterThan(1);
 });
 
 it('seeds machine capacity and a month of allocations', function () {

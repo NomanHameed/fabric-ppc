@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Foundation\Models\Stage;
 use App\Modules\Production\Status\StatusStageResolver;
 
 /*
@@ -12,15 +13,17 @@ use App\Modules\Production\Status\StatusStageResolver;
 function stageAliasRows(): array
 {
     return [
-        ['stage_id' => 1, 'stage_process_id' => 11, 'aliases' => ['BLEACHING']],
-        ['stage_id' => 2, 'stage_process_id' => 21, 'aliases' => ['DYEING']],
-        ['stage_id' => 4, 'stage_process_id' => 41, 'aliases' => ['SANFO/CAL']],
-        ['stage_id' => 4, 'stage_process_id' => 42, 'aliases' => ['SANFO/CAL RP']],
-        ['stage_id' => 8, 'stage_process_id' => 81, 'aliases' => ['ON.AAP', 'SB.ON APP']],
-        ['stage_id' => 14, 'stage_process_id' => 141, 'aliases' => ['DISPATCHED', 'RF-DISP', 'DISP *']],
-        ['stage_id' => 15, 'stage_process_id' => 151, 'aliases' => ['*CANCEL*']],
+        ['stage_id' => 1, 'aliases' => ['BLEACHING']],
+        ['stage_id' => 2, 'aliases' => ['DYEING']],
+        ['stage_id' => 4, 'aliases' => ['SANFO/CAL']],
+        ['stage_id' => 4, 'aliases' => ['SANFO/CAL RP']],
+        ['stage_id' => 8, 'aliases' => ['ON.AAP', 'SB.ON APP']],
+        ['stage_id' => 14, 'aliases' => ['DISPATCHED', 'RF-DISP', 'DISP *']],
+        ['stage_id' => 15, 'aliases' => ['*CANCEL*']],
         // A blank alias is master-data noise and must claim nothing at all.
-        ['stage_id' => 15, 'stage_process_id' => 152, 'aliases' => ['CLOSED', '  ']],
+        ['stage_id' => 15, 'aliases' => ['CLOSED', '  ']],
+        // `#BLANK` is the sentinel the Greige stage claims: a lot with no status at all.
+        ['stage_id' => 16, 'aliases' => [Stage::BLANK_ALIAS]],
     ];
 }
 
@@ -54,70 +57,85 @@ it('normalises a null status to null', function () {
     expect(StatusStageResolver::normalise(null))->toBeNull();
 });
 
-it('resolves the same process however the status is written', function (string $raw) {
-    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => 2, 'stage_process_id' => 21]);
+it('resolves the same stage however the status is written', function (string $raw) {
+    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => 2]);
 })->with(['DYEING', 'dyeing', 'DYEING/', 'DYEING /', ' Dyeing / ']);
 
-it('resolves the dispatch family by pattern and anything cancelled by substring', function (string $raw, int $stage, int $process) {
-    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => $stage, 'stage_process_id' => $process]);
+it('resolves the dispatch family by pattern and anything cancelled by substring', function (string $raw, int $stage) {
+    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => $stage]);
 })->with([
-    ['DISP 11-09-26/', 14, 141],
-    ['DISP 1-1-26', 14, 141],
-    ['DISPATCHED/', 14, 141],          // an exact alias, not the DISP * pattern
-    ['RF-DISP', 14, 141],
-    ['ANYTHING CANCEL', 15, 151],
-    ['CANCELLED/', 15, 151],
-    ['cancel', 15, 151],
-    ['SB.ON APP', 8, 81],
-    ['SANFO/CAL', 4, 41],
-    ['SANFO/CAL RP/', 4, 42],          // the longer exact alias, not the shorter one
+    ['DISP 11-09-26/', 14],
+    ['DISP 1-1-26', 14],
+    ['DISPATCHED/', 14],          // an exact alias, not the DISP * pattern
+    ['RF-DISP', 14],
+    ['ANYTHING CANCEL', 15],
+    ['CANCELLED/', 15],
+    ['cancel', 15],
+    ['SB.ON APP', 8],
+    ['SANFO/CAL', 4],
+    ['SANFO/CAL RP/', 4],         // the longer exact alias, not the shorter one
 ]);
 
-it('leaves an unknown status, a blank one and a null one unresolved', function (?string $raw) {
-    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => null, 'stage_process_id' => null]);
+it('leaves an unknown status unresolved', function (?string $raw) {
+    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => null]);
 })->with([
     'unknown' => ['SOMETHING NOBODY MAPPED'],
+    're-dispatch' => ['REDISP 01-01-26'],
+]);
+
+it('gives a blank status to the stage that claims #BLANK, however it is blank', function (?string $raw) {
+    // A lot that has never been issued carries no status (LotStatusLabeller rule 6); the Greige stage
+    // claims it through the sentinel, instead of it falling into the report's unclassified row. A blank
+    // *alias* still claims nothing — only the sentinel does.
+    expect(stageResolver()->resolve($raw))->toBe(['stage_id' => 16]);
+})->with([
     'empty' => [''],
     'slash only' => ['/'],
     'null' => [null],
-    // A blank alias on a process claims nothing, so a blank status does not land on it.
     'spaces' => ['   '],
 ]);
+
+it('leaves a blank status unresolved when no stage claims #BLANK', function () {
+    $resolver = stageResolver([['stage_id' => 1, 'aliases' => ['DYEING']]]);
+
+    expect($resolver->resolve(null))->toBe(['stage_id' => null])
+        ->and($resolver->resolve(''))->toBe(['stage_id' => null]);
+});
 
 it('says whether a status is mapped', function () {
     $resolver = stageResolver();
 
     expect($resolver->isMapped('DYEING/'))->toBeTrue()
         ->and($resolver->isMapped('NOT A STATUS'))->toBeFalse()
-        // Nothing to map is not the same as a mapping gap.
-        ->and($resolver->isMapped(null))->toBeFalse()
-        ->and($resolver->isMapped(''))->toBeFalse();
+        // A blank status is mapped only because a stage claims the sentinel.
+        ->and($resolver->isMapped(null))->toBeTrue()
+        ->and(stageResolver([['stage_id' => 1, 'aliases' => ['DYEING']]])->isMapped(null))->toBeFalse();
 });
 
 it('prefers the more specific wildcard when two could match', function () {
     $resolver = stageResolver([
-        ['stage_id' => 1, 'stage_process_id' => 1, 'aliases' => ['*']],
-        ['stage_id' => 2, 'stage_process_id' => 2, 'aliases' => ['DISP *']],
+        ['stage_id' => 1, 'aliases' => ['*']],
+        ['stage_id' => 2, 'aliases' => ['DISP *']],
     ]);
 
-    expect($resolver->resolve('DISP 11-09-26/'))->toBe(['stage_id' => 2, 'stage_process_id' => 2])
-        ->and($resolver->resolve('WHATEVER'))->toBe(['stage_id' => 1, 'stage_process_id' => 1]);
+    expect($resolver->resolve('DISP 11-09-26/'))->toBe(['stage_id' => 2])
+        ->and($resolver->resolve('WHATEVER'))->toBe(['stage_id' => 1]);
 });
 
-it('gives an alias claimed twice to the process that comes first', function () {
+it('gives an alias claimed twice to the stage that comes first', function () {
     $resolver = stageResolver([
-        ['stage_id' => 1, 'stage_process_id' => 1, 'aliases' => ['DYEING']],
-        ['stage_id' => 2, 'stage_process_id' => 2, 'aliases' => ['DYEING']],
+        ['stage_id' => 1, 'aliases' => ['DYEING']],
+        ['stage_id' => 2, 'aliases' => ['DYEING']],
     ]);
 
-    expect($resolver->resolve('DYEING'))->toBe(['stage_id' => 1, 'stage_process_id' => 1]);
+    expect($resolver->resolve('DYEING'))->toBe(['stage_id' => 1]);
 });
 
 it('anchors a wildcard alias instead of matching anywhere', function () {
-    $resolver = stageResolver([['stage_id' => 1, 'stage_process_id' => 1, 'aliases' => ['DISP *']]]);
+    $resolver = stageResolver([['stage_id' => 1, 'aliases' => ['DISP *']]]);
 
-    expect($resolver->resolve('REDISP 11-09-26'))->toBe(['stage_id' => null, 'stage_process_id' => null])
-        ->and($resolver->resolve('DISP 11-09-26 EXTRA'))->toBe(['stage_id' => 1, 'stage_process_id' => 1]);
+    expect($resolver->resolve('REDISP 11-09-26'))->toBe(['stage_id' => null])
+        ->and($resolver->resolve('DISP 11-09-26 EXTRA'))->toBe(['stage_id' => 1]);
 });
 
 it('reads the aliases once and again after a flush', function () {
@@ -126,8 +144,8 @@ it('reads the aliases once and again after a flush', function () {
         $calls++;
 
         return $calls === 1
-            ? [['stage_id' => 1, 'stage_process_id' => 1, 'aliases' => ['DYEING']]]
-            : [['stage_id' => 9, 'stage_process_id' => 9, 'aliases' => ['DYEING']]];
+            ? [['stage_id' => 1, 'aliases' => ['DYEING']]]
+            : [['stage_id' => 9, 'aliases' => ['DYEING']]];
     });
 
     $resolver->resolve('DYEING');
@@ -135,6 +153,6 @@ it('reads the aliases once and again after a flush', function () {
     expect($calls)->toBe(1); // memoised: a backfill over every lot is one read, not one per lot
 
     $resolver->flush();
-    expect($resolver->resolve('DYEING'))->toBe(['stage_id' => 9, 'stage_process_id' => 9])
+    expect($resolver->resolve('DYEING'))->toBe(['stage_id' => 9])
         ->and($calls)->toBe(2);
 });

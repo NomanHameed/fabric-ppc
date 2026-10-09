@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * The only writer of lot_movements, lot_balances and the lots.*_qty / current_label / stage_id /
- * stage_process_id / last_movement_at columns.
+ * The only writer of lot_movements, lot_balances and the lots quantity / status_oracle / stage_id /
+ * last_movement_at columns.
  *
  * Every write runs in a transaction (joining the caller's when there is one), locks the lot row and the lot's
  * balance rows, and leaves balances and totals consistent with the movements when it returns. Balances never
@@ -42,7 +42,7 @@ use InvalidArgumentException;
  * comparisons run through bcmath, so no float drift can reach the ledger.
  *
  * @phpstan-type Opts array{source?: Model|null, movedAt?: CarbonInterface|null, userId?: int|null, reason?: string|null, reversalOf?: int|null}
- * @phpstan-type Totals array{stock_qty: numeric-string, issued_qty: numeric-string, wip_qty: numeric-string, finished_qty: numeric-string, dispatched_qty: numeric-string, loss_qty: numeric-string}
+ * @phpstan-type Totals array{greige_in_stock_oracle: numeric-string, qty_issued: numeric-string, wip: numeric-string, finished: numeric-string, dispatch: numeric-string, loss_qty: numeric-string}
  */
 final class LedgerService
 {
@@ -55,10 +55,10 @@ final class LedgerService
 
     /**
      * Lot columns derived from the balances (spec §5.3 "Derived lot values"). The ledger also owns
-     * `current_label`, `last_movement_at` and — unless PPC has pinned them — `stage_id` /
-     * `stage_process_id`; refreshTotals() writes whichever of those it derived on the call.
+     * `status_oracle`, `last_movement_at` and — unless PPC has pinned it — `stage_id`;
+     * refreshTotals() writes whichever of those it derived on the call.
      */
-    private const TOTAL_COLUMNS = ['stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty'];
+    private const TOTAL_COLUMNS = ['greige_in_stock_oracle', 'qty_issued', 'wip', 'finished', 'dispatch', 'loss_qty'];
 
     public function __construct(
         private readonly LotStatusLabeller $labeller,
@@ -477,11 +477,11 @@ final class LedgerService
         }
 
         return [
-            'stock_qty' => $qtyByPosition[Position::STOCK] ?? self::ZERO,
-            'issued_qty' => $issuedQty,
-            'wip_qty' => $wip,
-            'finished_qty' => $qtyByPosition[Position::FINISHED] ?? self::ZERO,
-            'dispatched_qty' => $qtyByPosition[Position::DISPATCHED] ?? self::ZERO,
+            'greige_in_stock_oracle' => $qtyByPosition[Position::STOCK] ?? self::ZERO,
+            'qty_issued' => $issuedQty,
+            'wip' => $wip,
+            'finished' => $qtyByPosition[Position::FINISHED] ?? self::ZERO,
+            'dispatch' => $qtyByPosition[Position::DISPATCHED] ?? self::ZERO,
             'loss_qty' => $qtyByPosition[Position::LOSS] ?? self::ZERO,
         ];
     }
@@ -492,15 +492,15 @@ final class LedgerService
      * here, from the balances just written and the locked lot's state, so it can never disagree with them.
      * The caller's instance gets the new values too, so it stays current after the call.
      *
-     * The reporting stage and process are resolved from that same label in this one update, so they cannot
-     * drift from it either: there is no second writer and no later job to run. The resolver memoises the
-     * alias map for the request, so this costs no query per lot. An unmapped status leaves both columns null
-     * (the Unmapped Statuses screen reports it) rather than guessing a stage.
+     * The reporting stage is resolved from that same label in this one update, so it cannot drift from it
+     * either: there is no second writer and no later job to run. The resolver memoises the alias map for the
+     * request, so this costs no query per lot. An unmapped status leaves `stage_id` null (the Unmapped
+     * Statuses screen reports it) rather than guessing a stage.
      *
-     * Unless PPC has pinned the stage by hand (`lots.stage_overridden_at`). Then the two stage columns are
-     * left exactly as they are — the label and every quantity are still written — until the override is
-     * cleared on the Lots screen, which re-derives them there and then. That screen is the only other writer
-     * of those two columns, and only through an audited save with a recorded actor.
+     * Unless PPC has pinned the stage by hand (`lots.stage_overridden_at`). Then `stage_id` is left exactly
+     * as it is — the label and every quantity are still written — until the override is cleared on the Lots
+     * screen, which re-derives it there and then. That screen is the only other writer of the column, and
+     * only through an audited save with a recorded actor.
      *
      * @param  array<string, LotBalance>  $balances
      */
@@ -509,8 +509,8 @@ final class LedgerService
         $qtyByPosition = array_map(fn (LotBalance $row): string => $row->qty, $balances);
         $label = $this->labeller->label($locked, $qtyByPosition);
         $totals = $this->totalsFrom($qtyByPosition, $this->issuedQty($locked, true))
-            + ['current_label' => $label]
-            + ($locked->isStageOverridden() ? [] : $this->stages->resolve($label))
+            + ['status_oracle' => $label]
+            + ($locked->isStageOverridden() ? [] : ['stage_id' => $this->stages->stageId($label)])
             + ['last_movement_at' => $lastMovementAt];
 
         Lot::query()->whereKey($locked->getKey())->update($totals);

@@ -29,8 +29,8 @@ class SearchController extends Controller
         $contracts = collect();
         $lotsTotal = 0;
         if ($q !== '' && ctype_digit($q)) {
-            $lotQuery = Lot::query()->with(['contract.party', 'quality'])
-                ->when(strlen($q) <= 4, fn ($b) => $b->where('lot_no', 'like', '%'.$q), fn ($b) => $b->where('lot_no', $q));
+            $lotQuery = Lot::query()->with('contract.party')
+                ->when(strlen($q) <= 4, fn ($b) => $b->where('lot_no_oracle', 'like', '%'.$q), fn ($b) => $b->where('lot_no_oracle', $q));
             $lotsTotal = (clone $lotQuery)->count();
             $lots = $lotQuery->orderByDesc('id')->limit(self::ROW_CAP)->get();
             $contracts = strlen($q) > 4 ? Contract::query()->with('party')->where('po_no', (int) $q)->get() : collect();
@@ -45,9 +45,9 @@ class SearchController extends Controller
         return Inertia::render('inquiry/SearchResults', [
             'q' => $q,
             'lots' => $lots->map(fn (Lot $l): array => [
-                'id' => $l->id, 'lot_no' => $l->lot_no, 'po_no' => $l->contract->po_no, 'party' => $l->contract->party->name,
-                'design' => $l->design, 'colour' => $l->colour, 'quality' => $l->quality->description, 'state' => $l->state, 'current_label' => $l->current_label,
-                'stock_qty' => (float) $l->stock_qty, 'wip_qty' => (float) $l->wip_qty, 'finished_qty' => (float) $l->finished_qty,
+                'id' => $l->id, 'lot_no_oracle' => $l->lot_no_oracle, 'po_no' => $l->contract->po_no, 'party' => $l->contract->party->name,
+                'design' => $l->design, 'color_oracle_name' => $l->color_oracle_name, 'quality' => $l->quality, 'state' => $l->state, 'status_oracle' => $l->status_oracle,
+                'greige_in_stock_oracle' => (float) $l->greige_in_stock_oracle, 'wip' => (float) $l->wip, 'finished' => (float) $l->finished,
             ])->values(),
             'lotsTotal' => $lotsTotal,
             'contracts' => $contracts->map(fn (Contract $c): array => [

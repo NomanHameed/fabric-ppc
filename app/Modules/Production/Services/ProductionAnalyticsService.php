@@ -11,6 +11,7 @@ use App\Modules\Production\Capacity\Utilisation;
 use App\Modules\Production\Ledger\Position;
 use App\Modules\Production\Models\LotMovement;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -87,64 +88,104 @@ final class ProductionAnalyticsService
      * The flat payload's key => source column, which is also the `select` list `flatLots()` runs. Kept as one
      * map so the payload's shape, its SQL projection and the key order above can never drift apart.
      *
+     * Twenty-three of the twenty-five keys now read **straight off `lots`**: the physical rename moved the
+     * mill's own field names onto the table, and the party code and name, the PO number, its reference and
+     * its date and the quality description are denormalised copies on the lot. Only `stage_name` still comes
+     * from a join (one left join on `stages`), and `stage_process_id` / `stage_process_name` come from
+     * nowhere at all — see FLAT_NULL_KEYS.
+     *
      * @var array<string, string>
      */
     private const FLAT_COLUMNS = [
-        'party_oracle_id' => 'parties.oracle_code',
-        'party_oracle_name' => 'parties.name',
-        'po_no' => 'contracts.po_no',
-        'ref' => 'contracts.ref_no',
-        'design_oracle_id' => 'lots.design_code',
-        'color_oracle_id' => 'lots.colour_code',
-        'color_oracle_name' => 'lots.colour',
-        'clr_status_oracle' => 'lots.colour_status',
-        'po_type_oracle' => 'lots.po_type',
-        'date_oracle' => 'contracts.po_date',
-        'lot_no_oracle' => 'lots.lot_no',
-        'quality' => 'qualities.description',
-        'gw_oracle' => 'lots.g_width',
-        'status_oracle' => 'lots.current_label',
-        'greige_received_oracle' => 'lots.greige_qty',
-        'greige_in_stock_oracle' => 'lots.stock_qty',
-        'qty_issued' => 'lots.issued_qty',
-        'wip' => 'lots.wip_qty',
-        'finished' => 'lots.finished_qty',
-        'dispatch' => 'lots.dispatched_qty',
+        'party_oracle_id' => 'lots.party_oracle_id',
+        'party_oracle_name' => 'lots.party_oracle_name',
+        'po_no' => 'lots.po_no',
+        'ref' => 'lots.ref',
+        'design_oracle_id' => 'lots.design_oracle_id',
+        'color_oracle_id' => 'lots.color_oracle_id',
+        'color_oracle_name' => 'lots.color_oracle_name',
+        'clr_status_oracle' => 'lots.clr_status_oracle',
+        'po_type_oracle' => 'lots.po_type_oracle',
+        'date_oracle' => 'lots.date_oracle',
+        'lot_no_oracle' => 'lots.lot_no_oracle',
+        'quality' => 'lots.quality',
+        'gw_oracle' => 'lots.gw_oracle',
+        'status_oracle' => 'lots.status_oracle',
+        'greige_received_oracle' => 'lots.greige_received_oracle',
+        'greige_in_stock_oracle' => 'lots.greige_in_stock_oracle',
+        'qty_issued' => 'lots.qty_issued',
+        'wip' => 'lots.wip',
+        'finished' => 'lots.finished',
+        'dispatch' => 'lots.dispatch',
         'stage_id' => 'lots.stage_id',
         'stage_name' => 'stages.name',
-        'stage_process_id' => 'lots.stage_process_id',
-        'stage_process_name' => 'stage_processes.name',
         'lot_id' => 'lots.id',
     ];
 
     /**
-     * The Lots screen's query-mode fields (spec §4.2), over the lot and its joined PO, party, quality and
-     * stage. It lives here rather than on LotController because `flatLots()` applies the same map, so query
-     * mode narrows the flat shape exactly as it narrows the nested one.
+     * The two keys with no column behind them any more.
+     *
+     * `lots.stage_process_id` is gone and resolution is stage-only, so there is no stage process to name.
+     * The keys stay, always null, because the 25-key payload is a published contract the grid, the report
+     * and `FlatLotPayloadTest` all read by position — dropping two keys would be a breaking change to a
+     * shape that is otherwise untouched by this rename. They are the obvious next thing to retire.
+     *
+     * @var list<string>
+     */
+    public const FLAT_NULL_KEYS = ['stage_process_id', 'stage_process_name'];
+
+    /**
+     * The Lots screen's query-mode fields (spec §4.2). Every one of them but the stage name is a column on
+     * `lots` now — the PO number, the party, the quality and the PO date are denormalised copies — so query
+     * mode costs the lot table and, for `stage`, one left join.
+     *
+     * It lives here rather than on LotController because `flatLots()` applies the same map, so query mode
+     * narrows the flat shape exactly as it narrows the nested one.
      *
      * @var array<string, array{column: string, type: string}>
      */
     public const LOT_CRITERIA = [
-        'lot_no' => ['column' => 'lots.lot_no', 'type' => 'text'],
-        'po_no' => ['column' => 'contracts.po_no', 'type' => 'number'],
-        'party' => ['column' => 'parties.name', 'type' => 'text'],
-        'quality' => ['column' => 'qualities.description', 'type' => 'text'],
+        'lot_no_oracle' => ['column' => 'lots.lot_no_oracle', 'type' => 'text'],
+        'po_no' => ['column' => 'lots.po_no', 'type' => 'number'],
+        'party' => ['column' => 'lots.party_oracle_name', 'type' => 'text'],
+        'quality' => ['column' => 'lots.quality', 'type' => 'text'],
         'design' => ['column' => 'lots.design', 'type' => 'text'],
-        'colour' => ['column' => 'lots.colour', 'type' => 'text'],
-        'colour_status' => ['column' => 'lots.colour_status', 'type' => 'text'],
-        'po_type' => ['column' => 'lots.po_type', 'type' => 'text'],
+        // Oracle's own design code (`lots.design_oracle_id`), which the flat payload exposes under the same
+        // name and shows in a column of its own. Its **own** criterion rather than a widening of `design`
+        // above: the two are different facts in different columns, each with its own visible header, and a
+        // criterion that matched either would make `%` and `#NULL` ambiguous about which of the two it meant.
+        'design_oracle_id' => ['column' => 'lots.design_oracle_id', 'type' => 'text'],
+        'color_oracle_name' => ['column' => 'lots.color_oracle_name', 'type' => 'text'],
+        'clr_status_oracle' => ['column' => 'lots.clr_status_oracle', 'type' => 'text'],
+        'po_type_oracle' => ['column' => 'lots.po_type_oracle', 'type' => 'text'],
         'state' => ['column' => 'lots.state', 'type' => 'text'],
-        'current_label' => ['column' => 'lots.current_label', 'type' => 'text'],
+        'status_oracle' => ['column' => 'lots.status_oracle', 'type' => 'text'],
         'stage' => ['column' => 'stages.name', 'type' => 'text'],
-        'stage_process' => ['column' => 'stage_processes.name', 'type' => 'text'],
-        'po_date' => ['column' => 'contracts.po_date', 'type' => 'date'],
+        // `datetime`, not `date`: `lots.date_oracle` is a DATETIME copy of `contracts.po_date`, and the
+        // `datetime` form spans the whole of both end days rather than comparing against midnight.
+        'po_date' => ['column' => 'lots.date_oracle', 'type' => 'datetime'],
     ];
 
     /** Ledger kinds that represent work done on the floor. */
     private const PRODUCTION_KINDS = ['process', 'reprocess'];
 
     /** The report's six quantities, as they are stored on the lot (spec §14). */
-    private const QTY_COLUMNS = ['greige_qty', 'stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty'];
+    private const QTY_COLUMNS = ['greige_received_oracle', 'greige_in_stock_oracle', 'qty_issued', 'wip', 'finished', 'dispatch'];
+
+    /** R1's Process parameter (spec §7.1): the pending work, the finished work, or both. */
+    public const PROCESSES = ['pending', 'complete', 'all'];
+
+    /**
+     * "Complete", in SQL — the same rule `LotStatusLabeller::processFlag()` applies in PHP, so the report's
+     * Process parameter and the Pending/Complete badge on the Lots screen can never disagree: a lot is
+     * complete once it is closed or cancelled, or once it had greige and has nothing left in stock, in
+     * process or finished. Everything else is pending.
+     *
+     * `round(…, 2)` matches the PHP rule's own rounding and spells the same thing on MySQL and SQLite. All
+     * six columns are NOT NULL with a `0` default, so there is no null to swallow the `not (…)` of pending.
+     */
+    private const COMPLETE_SQL = "(lots.state in ('closed', 'cancelled') or (lots.greige_received_oracle > 0 "
+        .'and round(lots.greige_in_stock_oracle + lots.wip + lots.finished, 2) <= 0))';
 
     /**
      * Signed metres for one movement: forward rows deliver `qty_into_to`, reversals take back what the row
@@ -411,58 +452,71 @@ final class ProductionAnalyticsService
     }
 
     /**
-     * The mill's lots grouped **stage -> stage process**, with the report's six quantities and a lot count
-     * per row (spec §13, §14). This is the grouping the Month Wise Fabric Report reads; the dashboard's
+     * The mill's lots grouped **by stage**, with the report's six quantities and a lot count per row
+     * (spec §13, §14). This is the grouping the Month Wise Fabric Report reads; the dashboard's
      * `wipByStage()` above stays as it is, because it answers a different question (metres per *department*,
      * out of the balances).
      *
-     * **No double counting, by construction.** `lots.stage_id` / `lots.stage_process_id` say where the lot
-     * *is now* — one lot, one process — so a lot contributes its quantities to exactly one row. There is no
-     * stage history to sum over and none is invented here: the figures are the lot's own derived totals,
-     * summed in the database, so the stage split of each quantity always adds back up to the mill total.
+     * **One grouping level.** `lots.stage_process_id` is gone and `StatusStageResolver` resolves a status to
+     * a stage and nothing finer, so the report has stage subtotals and a grand total, not three levels.
      *
-     * A lot whose status no process claims (and a lot still entirely in stock, which carries no status at
-     * all) lands in the `unclassified` row rather than being dropped, so the rows always total the mill. The
-     * Unmapped Statuses screen is where those statuses are named.
+     * **No double counting, by construction.** `lots.stage_id` says where the lot *is now* — one lot, one
+     * stage — so a lot contributes its quantities to exactly one row. There is no stage history to sum over
+     * and none is invented here: the figures are the lot's own derived totals, summed in the database, so
+     * the stage split of each quantity always adds back up to the mill total.
+     *
+     * A lot whose status no stage claims lands in the `unclassified` row rather than being dropped, so the
+     * rows always total the mill. The Unmapped Statuses screen is where those statuses are named. (A lot
+     * still entirely in greige stock carries no status at all and is claimed by the Greige stage, through
+     * that stage's `#BLANK` alias.)
+     *
+     * The report's parameters narrow this grouping exactly as they narrow the rows under it
+     * (`flatLots()`), through the **same** `LOT_CRITERIA` map and the same Process rule — otherwise a
+     * filtered report would print one filter's totals over another filter's rows. The stage join the
+     * criteria may need is added only when there are criteria, so the dashboard's unfiltered call still
+     * reads `lots` alone.
      *
      * @param  list<string>|null  $states  lot states to include; null means every state
-     * @return list<array{id: int|null, code: string, name: string, lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float, processes: list<array{id: int|null, code: string, name: string, lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float}>}>
+     * @param  array<string, mixed>  $criteria  query-mode criteria, parsed by `QueryCriteria` over `LOT_CRITERIA`
+     * @param  string|null  $process  'pending' | 'complete'; null or 'all' for both
+     * @return list<array{id: int|null, code: string, name: string, lots: int, greige_received_oracle: float, greige_in_stock_oracle: float, qty_issued: float, wip: float, finished: float, dispatch: float}>
      */
-    public function byStage(?array $states = ['open', 'hold']): array
+    public function byStage(?array $states = ['open', 'hold'], array $criteria = [], ?string $process = null): array
     {
-        $rows = DB::table('lots')
+        $grouped = DB::table('lots');
+        if ($criteria !== []) {
+            $this->joinLotSources($grouped);
+            QueryCriteria::apply($grouped, $criteria, self::LOT_CRITERIA);
+        }
+        $this->applyProcess($grouped, $process);
+
+        $rows = $grouped
             ->when($states !== null, fn ($q) => $q->whereIn('lots.state', $states ?? []))
-            ->groupBy('lots.stage_id', 'lots.stage_process_id')
-            ->selectRaw('lots.stage_id, lots.stage_process_id, count(*) as lots, '
+            ->groupBy('lots.stage_id')
+            ->selectRaw('lots.stage_id, count(*) as lots, '
                 .implode(', ', array_map(fn (string $c): string => "coalesce(sum(lots.{$c}), 0) as {$c}", self::QTY_COLUMNS)))
             ->get();
 
-        $stages = Stage::query()->with('processes')->orderBy('sort_order')->orderBy('code')->get();
-        /** @var array<string, object> $byKey stage id . ':' . process id => the grouped row */
-        $byKey = [];
+        $stages = Stage::query()->orderBy('sort_order')->orderBy('code')->get();
+        /** @var array<int, object> $byStage stage id => the grouped row */
+        $byStage = [];
         foreach ($rows as $row) {
-            $byKey[((int) $row->stage_id).':'.((int) $row->stage_process_id)] = $row;
+            $byStage[(int) $row->stage_id] = $row;
         }
 
         $out = [];
         foreach ($stages as $stage) {
-            $processes = [];
-            foreach ($stage->processes as $process) {
-                $key = ((int) $stage->getKey()).':'.((int) $process->getKey());
-                $processes[] = ['id' => (int) $process->getKey(), 'code' => $process->code, 'name' => $process->name]
-                    + $this->stageQuantities($byKey[$key] ?? null);
-                unset($byKey[$key]);
-            }
-            $out[] = ['id' => (int) $stage->getKey(), 'code' => $stage->code, 'name' => $stage->name]
-                + $this->sumRows($processes) + ['processes' => $processes];
+            $key = (int) $stage->getKey();
+            $out[] = ['id' => $key, 'code' => $stage->code, 'name' => $stage->name]
+                + $this->stageQuantities($byStage[$key] ?? null);
+            unset($byStage[$key]);
         }
 
-        // Whatever no row above claimed: lots with no stage, lots still entirely in stock (no status at all)
-        // and the odd lot left pointing at a process that is no longer in the taxonomy. Summed here rather
-        // than dropped, so the rows always add up to the mill.
-        $unclassified = ['id' => null, 'code' => 'UNCLASSIFIED', 'name' => $this->line('dashboard.stages.unclassified')]
-            + $this->sumRows(array_map(fn (object $row): array => $this->stageQuantities($row), array_values($byKey)));
-        $out[] = $unclassified + ['processes' => [$unclassified]];
+        // Whatever no stage above claimed: lots with no stage, and the odd lot left pointing at a stage that
+        // is no longer in the taxonomy. Summed here rather than dropped, so the rows always add up to the
+        // mill.
+        $out[] = ['id' => null, 'code' => 'UNCLASSIFIED', 'name' => $this->line('dashboard.stages.unclassified')]
+            + $this->sumRows(array_map(fn (object $row): array => $this->stageQuantities($row), array_values($byStage)));
 
         return $out;
     }
@@ -473,16 +527,15 @@ final class ProductionAnalyticsService
      * The flat lot payload: one row per lot, 25 keys in `FLAT_KEYS` order, named the way the mill names its
      * own fields rather than the way the schema does.
      *
-     * **The schema is untouched on purpose.** `colour_code`, `colour`, `colour_status`, `g_width`,
-     * `greige_qty`, `stock_qty`, `issued_qty`, `wip_qty`, `finished_qty`, `dispatched_qty` and
-     * `current_label` keep their names in the database; this method is the projection that renames them, so
-     * no migration, rename or drop is needed and every existing reader (`LotScreenRow`, the inquiry payloads,
-     * the ledger) keeps working untouched.
+     * **The schema now says the same thing the payload does.** The columns were renamed in place and the
+     * party code and name, the PO number, its reference and its date and the quality description were
+     * denormalised onto the lot, so this is no longer a translation layer: twenty-three of the twenty-five
+     * keys are `lots.*` read under their own names. `stage_process_id` and `stage_process_name` survive as
+     * constant nulls (`FLAT_NULL_KEYS`) only to keep the published 25-key shape.
      *
-     * **One query, always.** The party, PO, quality, stage and stage process come from joins in the same
-     * statement — never from lazy relations — so a page of rows costs exactly one query however many rows it
-     * holds. `stages` and `stage_processes` are left-joined: a lot whose status no process claims (and a lot
-     * still entirely in stock, which carries no status at all) has no stage, and an inner join would drop it.
+     * **One query, always.** The stage name comes from a join in the same statement — never from a lazy
+     * relation — so a page of rows costs exactly one query however many rows it holds. `stages` is
+     * left-joined: a lot whose status no stage claims has no stage, and an inner join would drop it.
      *
      * Quantities come back as floats, not the driver's `decimal` strings, so a grid can right-align and total
      * them without parsing. A null stays null — an unset greige width or an unresolved stage reads as absent,
@@ -491,27 +544,27 @@ final class ProductionAnalyticsService
      * @param  array<string, mixed>  $criteria  query-mode criteria, parsed by `QueryCriteria` over `LOT_CRITERIA`
      * @param  list<string>|null  $states  lot states to include; null means every state
      * @param  int|null  $limit  rows at most; null for all of them
+     * @param  string|null  $process  'pending' | 'complete'; null or 'all' for both
      * @return list<FlatLotRow>
      */
-    public function flatLots(array $criteria = [], ?array $states = null, ?int $limit = null): array
+    public function flatLots(array $criteria = [], ?array $states = null, ?int $limit = null, ?string $process = null): array
     {
-        $query = DB::table('lots')
-            ->join('contracts', 'contracts.id', '=', 'lots.contract_id')
-            ->join('parties', 'parties.id', '=', 'contracts.party_id')
-            ->join('qualities', 'qualities.id', '=', 'lots.quality_id')
-            ->leftJoin('stages', 'stages.id', '=', 'lots.stage_id')
-            ->leftJoin('stage_processes', 'stage_processes.id', '=', 'lots.stage_process_id')
-            ->select(array_map(
-                fn (string $key): string => self::FLAT_COLUMNS[$key].' as '.$key,
-                self::FLAT_KEYS,
-            ));
+        $select = [];
+        // FLAT_COLUMNS holds every key that has a column behind it, already in FLAT_KEYS order; the two
+        // FLAT_NULL_KEYS are absent from it by construction, so this is the whole projection.
+        foreach (self::FLAT_COLUMNS as $key => $column) {
+            $select[] = $column.' as '.$key;
+        }
+        $query = DB::table('lots')->select($select);
+        $this->joinLotSources($query);
 
         QueryCriteria::apply($query, $criteria, self::LOT_CRITERIA);
+        $this->applyProcess($query, $process);
         if ($states !== null) {
             $query->whereIn('lots.state', $states);
         }
-        $query->orderByDesc('contracts.po_date')->orderBy('contracts.po_no')
-            ->orderBy('lots.lot_no')->orderBy('lots.id');
+        $query->orderByDesc('lots.date_oracle')->orderBy('lots.po_no')
+            ->orderBy('lots.lot_no_oracle')->orderBy('lots.id');
         if ($limit !== null) {
             $query->limit($limit);
         }
@@ -523,19 +576,21 @@ final class ProductionAnalyticsService
      * How many lots the same criteria match, for the screen's "showing n of m". Its own query by design:
      * `flatLots()` stays one statement, and the count is only wanted where a cap can hide rows.
      *
+     * The fabric report screen is that place: its rows are capped at `FabricReportController::ROW_CAP`
+     * across the whole report, while its totals are summed over every match, so the screen has to be able
+     * to say how many matches there really were.
+     *
      * @param  array<string, mixed>  $criteria
      * @param  list<string>|null  $states
+     * @param  string|null  $process  'pending' | 'complete'; null or 'all' for both
      */
-    public function flatLotsCount(array $criteria = [], ?array $states = null): int
+    public function flatLotsCount(array $criteria = [], ?array $states = null, ?string $process = null): int
     {
-        $query = DB::table('lots')
-            ->join('contracts', 'contracts.id', '=', 'lots.contract_id')
-            ->join('parties', 'parties.id', '=', 'contracts.party_id')
-            ->join('qualities', 'qualities.id', '=', 'lots.quality_id')
-            ->leftJoin('stages', 'stages.id', '=', 'lots.stage_id')
-            ->leftJoin('stage_processes', 'stage_processes.id', '=', 'lots.stage_process_id');
+        $query = DB::table('lots');
+        $this->joinLotSources($query);
 
         QueryCriteria::apply($query, $criteria, self::LOT_CRITERIA);
+        $this->applyProcess($query, $process);
         if ($states !== null) {
             $query->whereIn('lots.state', $states);
         }
@@ -544,66 +599,134 @@ final class ProductionAnalyticsService
     }
 
     /**
-     * The fabric report with its lots listed flat under each process.
+     * The fabric report: the stage grouping with each stage's lots listed flat under it.
      *
-     * The **grouping is unchanged**: stage → stage process, exactly as `byStage()` returns it, with the same
-     * totals and the same `unclassified` row. The only addition is a `rows` list on each process, holding the
-     * flat payloads of the lots that process claims; a lot no process claims lands under `unclassified`'s own
-     * pseudo-process, the same place its quantities already go, so the rows under the report always add up to
-     * the rows in it.
+     * The **grouping is `byStage()`'s**, unchanged — one row per stage with the report's six quantities and a
+     * lot count, plus the `unclassified` row — and the only addition is a `rows` list on each stage, holding
+     * the flat payloads of the lots that stage claims. A lot no stage claims lands under `unclassified`, the
+     * same place its quantities already go, so the rows under the report always add up to the rows in it.
      *
-     * The lots are read with **one** `flatLots()` query and bucketed in PHP, not queried per process.
+     * Two levels, not three: a stage subtotal per stage and one grand total. There is no stage process to
+     * group by any more.
+     *
+     * The lots are read with **one** `flatLots()` query and bucketed in PHP, not queried per stage.
+     *
+     * **The totals are not the sum of the rows listed.** They come from the grouped query, which sees every
+     * match; the rows are capped at `$limit` across the whole report. So when more lots match than the cap
+     * allows, a stage can print a total with fewer rows (or none) beneath it — which is why `rows_total`
+     * is returned beside them and why the screen must say the report was truncated.
      *
      * @param  list<string>|null  $states  lot states to include; null means every state
      * @param  int|null  $limit  flat rows at most, across the whole report
-     * @return array{stages: list<array<string, mixed>>, rows_total: int}
+     * @param  array<string, mixed>  $criteria  the report's parameters, over `LOT_CRITERIA`
+     * @param  string|null  $process  'pending' | 'complete'; null or 'all' for both
+     * @return array{stages: list<array<string, mixed>>, rows_total: int, totals: array{lots: int, greige_received_oracle: float, greige_in_stock_oracle: float, qty_issued: float, wip: float, finished: float, dispatch: float}}
      */
-    public function fabricReport(?array $states = ['open', 'hold'], ?int $limit = null): array
-    {
-        $stages = $this->byStage($states);
-        $rows = $this->flatLots([], $states, $limit);
+    public function fabricReport(
+        ?array $states = ['open', 'hold'],
+        ?int $limit = null,
+        array $criteria = [],
+        ?string $process = null,
+    ): array {
+        $stages = $this->byStage($states, $criteria, $process);
+        $rows = $this->flatLots($criteria, $states, $limit, $process);
 
-        /** @var array<string, list<FlatLotRow>> $byKey stage id . ':' . process id => its lots */
-        $byKey = [];
+        /** @var array<int, list<FlatLotRow>> $byStage stage id (0 for none) => its lots */
+        $byStage = [];
         foreach ($rows as $row) {
-            $byKey[((int) $row['stage_id']).':'.((int) $row['stage_process_id'])][] = $row;
+            $byStage[(int) $row['stage_id']][] = $row;
         }
 
         $out = [];
-        $unclassified = null;
-        foreach ($stages as $i => $stage) {
-            $out[$i] = $stage;
+        $claimed = [];
+        foreach ($stages as $stage) {
             if ($stage['id'] === null) {
-                $unclassified = $i; // filled after the loop, from whatever no real process claimed
+                $out[] = $stage; // the unclassified row, filled after the loop
+                $claimed[] = null;
 
                 continue;
             }
-            $processes = [];
-            foreach ($stage['processes'] as $process) {
-                $key = ((int) $stage['id']).':'.((int) $process['id']);
-                $processes[] = array_merge($process, ['rows' => $byKey[$key] ?? []]);
-                unset($byKey[$key]);
-            }
-            $out[$i] = array_merge($stage, ['processes' => $processes]);
+            $claimed[] = (int) $stage['id'];
+            $out[] = array_merge($stage, ['rows' => $byStage[(int) $stage['id']] ?? []]);
         }
 
-        // The unclassified row's pseudo-process: a lot with no stage at all, and a lot still pointing at a
-        // process that has left the taxonomy. Exactly where `byStage()` already puts their quantities.
-        if ($unclassified !== null) {
-            $leftovers = [];
-            foreach ($byKey as $bucket) {
+        // The unclassified row's own lots: a lot with no stage at all, and a lot still pointing at a stage
+        // that has left the taxonomy. Exactly where `byStage()` already puts their quantities.
+        $leftovers = [];
+        foreach ($byStage as $stageId => $bucket) {
+            if (! in_array($stageId, $claimed, true)) {
                 foreach ($bucket as $row) {
                     $leftovers[] = $row;
                 }
             }
-            $stage = $out[$unclassified];
-            $out[$unclassified] = array_merge($stage, ['processes' => array_map(
-                fn (array $process): array => array_merge($process, ['rows' => $leftovers]),
-                $stage['processes'],
-            )]);
+        }
+        foreach ($out as $i => $stage) {
+            if ($stage['id'] === null) {
+                $out[$i] = array_merge($stage, ['rows' => $leftovers]);
+            }
         }
 
-        return ['stages' => array_values($out), 'rows_total' => count($rows)];
+        // The grand total: the sum of the stage subtotals, so the report's two levels are one arithmetic
+        // rather than two queries that could disagree.
+        return ['stages' => $out, 'rows_total' => count($rows), 'totals' => $this->sumRows($out)];
+    }
+
+    /**
+     * The months R1's Month parameter offers (spec §7.1: All | Mmm-yy, based on PO date), newest first.
+     *
+     * Enumerated in PHP from the first and last PO date on a lot (`lots.date_oracle`, the denormalised copy,
+     * so no join is needed to find the months the report can offer), rather than with a
+     * `date_format` / `strftime` grouping — those are spelled differently on MySQL and SQLite, and this is
+     * two aggregates over an indexed column either way. Capped so a stray 1970 PO date cannot turn the
+     * dropdown into six hundred entries.
+     *
+     * @return list<array{value: string, label: string}> `value` is `YYYY-MM`, `label` the mill's `Mmm-yy`
+     */
+    public function reportMonths(int $limit = 120): array
+    {
+        /** @var object{first: string|null, last: string|null}|null $range */
+        $range = DB::table('lots')
+            ->selectRaw('min(lots.date_oracle) as first, max(lots.date_oracle) as last')
+            ->first();
+
+        if ($range === null || $range->first === null || $range->last === null) {
+            return [];
+        }
+
+        $month = CarbonImmutable::parse($this->dayOf((string) $range->last))->startOfMonth();
+        $first = CarbonImmutable::parse($this->dayOf((string) $range->first))->startOfMonth();
+
+        $months = [];
+        while ($month->greaterThanOrEqualTo($first) && count($months) < $limit) {
+            $months[] = ['value' => $month->format('Y-m'), 'label' => $month->format('M-y')];
+            $month = $month->subMonth();
+        }
+
+        return $months;
+    }
+
+    /**
+     * The flat payload's one join: the lot's reporting stage, for its name.
+     *
+     * The party, the PO and the quality used to be joined here; they are columns on `lots` now. `stages` is
+     * **left**-joined: a lot whose status no stage claims has no stage, and an inner join would drop it from
+     * the report entirely.
+     */
+    private function joinLotSources(QueryBuilder $query): void
+    {
+        $query->leftJoin('stages', 'stages.id', '=', 'lots.stage_id');
+    }
+
+    /** R1's Process parameter, as a predicate. `null` and `'all'` narrow nothing. */
+    private function applyProcess(QueryBuilder $query, ?string $process): void
+    {
+        if ($process === null || $process === 'all') {
+            return;
+        }
+
+        $process === 'complete'
+            ? $query->whereRaw(self::COMPLETE_SQL)
+            : $query->whereRaw('not '.self::COMPLETE_SQL);
     }
 
     /**
@@ -643,8 +766,9 @@ final class ProductionAnalyticsService
             'dispatch' => $qty('dispatch'),
             'stage_id' => $row->stage_id === null ? null : (int) $row->stage_id,
             'stage_name' => $text('stage_name'),
-            'stage_process_id' => $row->stage_process_id === null ? null : (int) $row->stage_process_id,
-            'stage_process_name' => $text('stage_process_name'),
+            // No column behind these two since resolution became stage-only; see FLAT_NULL_KEYS.
+            'stage_process_id' => null,
+            'stage_process_name' => null,
             'lot_id' => (int) $row->lot_id,
         ];
 
@@ -710,7 +834,7 @@ final class ProductionAnalyticsService
      * One grouped row's lot count and quantities; all zero when no lot sits there (the row is still shown,
      * so the report's shape does not change with the data).
      *
-     * @return array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float}
+     * @return array{lots: int, greige_received_oracle: float, greige_in_stock_oracle: float, qty_issued: float, wip: float, finished: float, dispatch: float}
      */
     private function stageQuantities(?object $row): array
     {
@@ -719,7 +843,7 @@ final class ProductionAnalyticsService
             $out[$column] = $this->round($row === null ? 0.0 : (float) ($row->{$column} ?? 0));
         }
 
-        /** @var array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float} */
+        /** @var array{lots: int, greige_received_oracle: float, greige_in_stock_oracle: float, qty_issued: float, wip: float, finished: float, dispatch: float} */
         return $out;
     }
 
@@ -728,7 +852,7 @@ final class ProductionAnalyticsService
      * either, so a stage total can never disagree with the rows under it.
      *
      * @param  list<array<string, mixed>>  $rows
-     * @return array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float}
+     * @return array{lots: int, greige_received_oracle: float, greige_in_stock_oracle: float, qty_issued: float, wip: float, finished: float, dispatch: float}
      */
     private function sumRows(array $rows): array
     {
@@ -743,7 +867,7 @@ final class ProductionAnalyticsService
             }
         }
 
-        /** @var array{lots: int, greige_qty: float, stock_qty: float, issued_qty: float, wip_qty: float, finished_qty: float, dispatched_qty: float} */
+        /** @var array{lots: int, greige_received_oracle: float, greige_in_stock_oracle: float, qty_issued: float, wip: float, finished: float, dispatch: float} */
         return $out;
     }
 

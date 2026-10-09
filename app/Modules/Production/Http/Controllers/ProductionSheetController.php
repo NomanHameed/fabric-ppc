@@ -83,7 +83,7 @@ class ProductionSheetController extends Controller
                 'remarks' => $selected->remarks, 'can_edit' => $canEdit($selected->department_id),
                 'lines' => $selected->lines->map(fn (ProductionLine $l): array => [
                     'id' => $l->id, 'batch_no' => $l->batch_no, 'lot_id' => $l->lot_id,
-                    'lot' => "{$l->lot->lot_no} · {$l->lot->contract->po_no} · {$l->lot->design} · {$l->lot->colour}",
+                    'lot' => "{$l->lot->lot_no_oracle} · {$l->lot->contract->po_no} · {$l->lot->design} · {$l->lot->color_oracle_name}",
                     'lot_route_step_id' => $l->lot_route_step_id, 'operation_id' => $l->operation_id, 'operation' => $l->operation->name,
                     'is_stretch' => (bool) $l->operation->is_stretch, 'is_reprocess' => $l->is_reprocess, 'reprocess_reason' => $l->reprocess_reason,
                     'qty_in' => (float) $l->qty_in, 'qty_out' => (float) $l->qty_out, 'output_type' => $l->output_type,
@@ -270,7 +270,7 @@ class ProductionSheetController extends Controller
     {
         $names = [
             'sheet_date' => 'sheet_date', 'shift_id' => 'shift', 'department_id' => 'department', 'machine_id' => 'machine',
-            'downtime_minutes' => 'downtime', 'remarks' => 'remarks', 'lines.*.batch_no' => 'batch_no', 'lines.*.lot_id' => 'lot_no',
+            'downtime_minutes' => 'downtime', 'remarks' => 'remarks', 'lines.*.batch_no' => 'batch_no', 'lines.*.lot_id' => 'lot_no_oracle',
             'lines.*.lot_route_step_id' => 'step', 'lines.*.operation_id' => 'operation', 'lines.*.is_reprocess' => 'reprocess',
             'lines.*.reprocess_reason' => 'reprocess_reason', 'lines.*.qty_in' => 'qty_in', 'lines.*.qty_out' => 'qty_out',
             'lines.*.output_type' => 'output_type', 'lines.*.g_width' => 'g_width', 'lines.*.f_width' => 'f_width', 'lines.*.remarks' => 'remarks',

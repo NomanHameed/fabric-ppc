@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Put this on a controller or service and recording an action is one line:
  *
- *     $this->recordAction(ActionKeys::COLOUR_APPROVED, $lot, ['lot' => $lot->lot_no, 'colour' => $lot->colour]);
+ *     $this->recordAction(ActionKeys::COLOUR_APPROVED, $lot, ['lot' => $lot->lot_no_oracle, 'colour' => $lot->color_oracle_name]);
  */
 trait RecordsUserActions
 {

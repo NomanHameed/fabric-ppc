@@ -5,7 +5,6 @@ namespace App\Modules\Production\Models;
 use App\Models\User;
 use App\Modules\Foundation\Models\Quality;
 use App\Modules\Foundation\Models\Stage;
-use App\Modules\Foundation\Models\StageProcess;
 use Carbon\CarbonImmutable;
 use Database\Factories\Modules\Production\LotFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -20,14 +19,13 @@ use OwenIt\Auditing\Contracts\Auditable;
 /**
  * Derived columns (LedgerService is their only writer):
  *
- * @property numeric-string $stock_qty
- * @property numeric-string $issued_qty
- * @property numeric-string $wip_qty
- * @property numeric-string $finished_qty
- * @property numeric-string $dispatched_qty
+ * @property numeric-string $greige_in_stock_oracle
+ * @property numeric-string $qty_issued
+ * @property numeric-string $wip
+ * @property numeric-string $finished
+ * @property numeric-string $dispatch
  * @property numeric-string $loss_qty
  * @property int|null $stage_id
- * @property int|null $stage_process_id
  * @property CarbonImmutable|null $stage_overridden_at
  * @property int|null $stage_overridden_by
  */
@@ -36,23 +34,33 @@ class Lot extends Model implements Auditable
 {
     use AuditableTrait, HasFactory;
 
-    /** Fields owned by Oracle; the import compares and overwrites exactly these. */
+    /**
+     * Fields owned by Oracle; the import compares and overwrites exactly these.
+     *
+     * The six denormalised copies (`party_oracle_id`, `party_oracle_name`, `po_no`, `ref`, `date_oracle`,
+     * `quality`) are Oracle's too: they come off the same export row as `contract_id` and `quality_id`, so
+     * the import must restate them or a changed PO date would show the old one on the lot while the
+     * contract carried the new one.
+     */
     public const ORACLE_FIELDS = [
-        'lot_no', 'contract_id', 'quality_id', 'gsm', 'design_code', 'design', 'colour_code', 'colour',
-        'g_width', 'f_width', 'po_type', 'greige_qty',
+        'lot_no_oracle', 'contract_id', 'quality_id', 'party_oracle_id', 'party_oracle_name', 'po_no', 'ref',
+        'date_oracle', 'quality', 'gsm', 'design_oracle_id', 'design', 'color_oracle_id', 'color_oracle_name',
+        'gw_oracle', 'f_width', 'po_type_oracle', 'greige_received_oracle',
     ];
 
     protected $guarded = ['id'];
 
     protected $casts = [
-        'oracle_line_id' => 'integer', 'gsm' => 'integer', 'g_width' => 'decimal:2', 'f_width' => 'decimal:2',
-        'greige_qty' => 'decimal:2', 'loss_qty' => 'decimal:2', 'closed_at' => 'datetime', 'oracle_missing_at' => 'datetime',
+        'oracle_line_id' => 'integer', 'gsm' => 'integer', 'gw_oracle' => 'decimal:2', 'f_width' => 'decimal:2',
+        'greige_received_oracle' => 'decimal:2', 'loss_qty' => 'decimal:2', 'closed_at' => 'datetime', 'oracle_missing_at' => 'datetime',
         'state_changed_at' => 'datetime',
-        'stage_id' => 'integer', 'stage_process_id' => 'integer',
+        // The denormalised copies of the PO, its party and the quality (see ORACLE_FIELDS).
+        'party_oracle_id' => 'integer', 'po_no' => 'integer', 'date_oracle' => 'datetime',
+        'stage_id' => 'integer',
         'stage_overridden_at' => 'datetime', 'stage_overridden_by' => 'integer',
         // derived by the ledger (LedgerService is their only writer)
-        'stock_qty' => 'decimal:2', 'issued_qty' => 'decimal:2', 'wip_qty' => 'decimal:2', 'finished_qty' => 'decimal:2',
-        'dispatched_qty' => 'decimal:2', 'last_movement_at' => 'datetime',
+        'greige_in_stock_oracle' => 'decimal:2', 'qty_issued' => 'decimal:2', 'wip' => 'decimal:2', 'finished' => 'decimal:2',
+        'dispatch' => 'decimal:2', 'last_movement_at' => 'datetime',
     ];
 
     /** @return BelongsTo<Contract, $this> */
@@ -61,31 +69,35 @@ class Lot extends Model implements Auditable
         return $this->belongsTo(Contract::class);
     }
 
-    /** @return BelongsTo<Quality, $this> */
-    public function quality(): BelongsTo
+    /**
+     * The quality master row.
+     *
+     * Deliberately **not** called `quality`: `lots.quality` is now a column (the denormalised description
+     * the report prints), and Eloquent resolves an attribute before a relation — `$lot->quality` would hand
+     * back the string and the relation would be unreachable. Anything that only wants the description reads
+     * the column; this relation is for the rest of the master row (`LotRouteService` matches a route
+     * template on it).
+     *
+     * @return BelongsTo<Quality, $this>
+     */
+    public function qualityRecord(): BelongsTo
     {
-        return $this->belongsTo(Quality::class);
+        return $this->belongsTo(Quality::class, 'quality_id');
     }
 
     /**
-     * Where the lot sits in the reporting taxonomy. Derived from `current_label` and written by
+     * Where the lot sits in the reporting taxonomy. Derived from `status_oracle` and written by
      * LedgerService in the same update, so it never disagrees with the label; null when the label resolves
      * to nothing (an unmapped status, listed on the Unmapped Statuses screen).
      *
      * The exception is a manual override: while `stage_overridden_at` is set, PPC has pinned the stage and
-     * the ledger leaves these two columns alone until the override is cleared (`isStageOverridden`).
+     * the ledger leaves this column alone until the override is cleared (`isStageOverridden`).
      *
      * @return BelongsTo<Stage, $this>
      */
     public function stage(): BelongsTo
     {
         return $this->belongsTo(Stage::class);
-    }
-
-    /** @return BelongsTo<StageProcess, $this> */
-    public function stageProcess(): BelongsTo
-    {
-        return $this->belongsTo(StageProcess::class);
     }
 
     /**

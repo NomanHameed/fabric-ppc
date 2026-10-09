@@ -54,28 +54,28 @@ function event(i: number, type = 'moved') {
 
 function events(count: number) {
     return {
-        lot: { id: 7, lot_no: '640101', state: 'open' },
+        lot: { id: 7, lot_no_oracle: '640101', state: 'open' },
         events: Array.from({ length: count }, (_, i) => event(i + 1)),
     };
 }
 
 const lot = {
     id: 7,
-    lot_no: '640101',
+    lot_no_oracle: '640101',
     po_no: 4321,
     contract_id: 3,
     party: 'Al-Karam',
     quality: 'Poplin 60x60',
     design: null,
-    colour: 'Navy',
-    colour_status: 'approved',
-    po_type: 'local',
+    color_oracle_name: 'Navy',
+    clr_status_oracle: 'approved',
+    po_type_oracle: 'local',
     state: 'open',
-    current_label: 'Dyeing',
-    greige_qty: 1000,
-    wip_qty: 400,
-    finished_qty: 500,
-    dispatched_qty: 100,
+    status_oracle: 'Dyeing',
+    greige_received_oracle: 1000,
+    wip: 400,
+    finished: 500,
+    dispatch: 100,
 };
 
 async function mountTimeline(response = events(3)) {

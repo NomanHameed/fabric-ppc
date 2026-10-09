@@ -9,8 +9,9 @@ use Database\Seeders\StageSeeder;
 
 /*
  * The Stages and Stage Processes masters (spec §18) and the read API behind the two selects (spec §16).
- * The aliases are edited here as one comma-separated line and stored as JSON — that round trip is the
- * mapping itself, so it is tested rather than assumed.
+ * The aliases are edited on the **Stages** master as one comma-separated line and stored as JSON — that
+ * round trip is the mapping itself, so it is tested rather than assumed. A stage process no longer carries
+ * aliases: resolution is stage-only.
  */
 
 beforeEach(function () {
@@ -29,7 +30,7 @@ it('lists both masters with their field metadata', function () {
         ->assertInertia(fn ($page) => $page->component('masters/MasterForm')
             ->where('resource.key', 'stages')
             ->where('resource.canEdit', false)
-            ->has('resource.fields', 5)
+            ->has('resource.fields', 6)
             ->has('rows', 15));
 
     $this->actingAs($this->ppc)->get('/masters/stage_processes')->assertOk()
@@ -60,14 +61,21 @@ it('refuses to delete a stage its processes still point at, so it is deactivated
     expect(Stage::whereKey($stage->id)->exists())->toBeTrue();
 });
 
-it('refuses to delete a process a lot still points at', function () {
-    $process = StageProcess::where('code', 'DYEING')->firstOrFail();
-    Lot::factory()->create([
-        'stage_id' => $process->stage_id, 'stage_process_id' => $process->id,
-    ]);
+it('refuses to delete a stage a lot still points at', function () {
+    $stage = Stage::where('code', 'GREIGE')->firstOrFail();   // no processes, so only the lot can refuse it
+    Lot::factory()->create(['stage_id' => $stage->id]);
 
-    $this->actingAs($this->ppc)->delete("/masters/stage_processes/{$process->id}")->assertSessionHasErrors('record');
-    expect(StageProcess::whereKey($process->id)->exists())->toBeTrue();
+    $this->actingAs($this->ppc)->delete("/masters/stages/{$stage->id}")->assertSessionHasErrors('record');
+    expect(Stage::whereKey($stage->id)->exists())->toBeTrue();
+});
+
+it('lets a process a lot once pointed at be deleted, because nothing references one any more', function () {
+    $process = StageProcess::where('code', 'DYEING')->firstOrFail();
+    Lot::factory()->create(['stage_id' => $process->stage_id]);
+
+    $this->actingAs($this->ppc)->delete("/masters/stage_processes/{$process->id}")->assertRedirect()
+        ->assertSessionHasNoErrors();
+    expect(StageProcess::whereKey($process->id)->exists())->toBeFalse();
 });
 
 it('validates the stage code', function () {
@@ -77,32 +85,28 @@ it('validates the stage code', function () {
         ->assertSessionHasErrors('code');
 });
 
-it('stores the aliases as JSON and shows them back as one line', function () {
-    $stage = Stage::where('code', 'DYEING')->firstOrFail();
-
-    $this->actingAs($this->ppc)->post('/masters/stage_processes', [
-        'stage_id' => $stage->id, 'code' => 'OVER_DYE', 'name' => 'Over-dyeing', 'sort_order' => 20,
-        'quantity_type' => 'wip', 'is_wip' => true, 'is_finished' => false, 'is_dispatch' => false,
+it('stores a stage\'s aliases as JSON and shows them back as one line', function () {
+    $this->actingAs($this->ppc)->post('/masters/stages', [
+        'code' => 'OVER_DYE', 'name' => 'Over-dyeing', 'sort_order' => 160,
         'status_aliases' => ' OVER DYE ,, OVERDYE/ , OVER DYE ', 'is_active' => true,
     ])->assertRedirect();
 
-    $process = StageProcess::where('code', 'OVER_DYE')->firstOrFail();
+    $stage = Stage::where('code', 'OVER_DYE')->firstOrFail();
     // trimmed, blanks dropped, repeats dropped, kept exactly as typed otherwise
-    expect($process->status_aliases)->toBe(['OVER DYE', 'OVERDYE/'])
-        ->and($process->is_wip)->toBeTrue();
+    expect($stage->status_aliases)->toBe(['OVER DYE', 'OVERDYE/']);
 
-    $this->actingAs($this->ppc)->get('/masters/stage_processes')
+    $this->actingAs($this->ppc)->get('/masters/stages')
         ->assertInertia(fn ($page) => $page->where(
-            'rows.'.rowIndexOf($page->toArray()['props']['rows'], $process->id).'.status_aliases',
+            'rows.'.rowIndexOf($page->toArray()['props']['rows'], $stage->id).'.status_aliases',
             'OVER DYE, OVERDYE/',
         ));
 
     // clearing the line empties the mapping rather than leaving the old aliases behind
-    $this->actingAs($this->ppc)->put("/masters/stage_processes/{$process->id}", [
-        'stage_id' => $stage->id, 'code' => 'OVER_DYE', 'name' => 'Over-dyeing', 'sort_order' => 20,
-        'quantity_type' => null, 'status_aliases' => '', 'is_active' => true,
+    $this->actingAs($this->ppc)->put("/masters/stages/{$stage->id}", [
+        'code' => 'OVER_DYE', 'name' => 'Over-dyeing', 'sort_order' => 160,
+        'status_aliases' => '', 'is_active' => true,
     ])->assertRedirect();
-    expect($process->fresh()->status_aliases)->toBe([]);
+    expect($stage->fresh()->status_aliases)->toBe([]);
 });
 
 it('validates a process code within its stage and the quantity type', function () {
@@ -128,55 +132,59 @@ it('forbids editing either master without masters.manage', function () {
 // ---- the API ------------------------------------------------------------------------------------------------
 
 it('lists the active stages with their process counts', function () {
-    Stage::query()->where('code', 'DEBIT')->update(['is_active' => false]);
+    Stage::query()->where('code', 'COMMERCIAL')->update(['is_active' => false]);
     $inactive = Stage::factory()->create(['code' => 'GONE', 'name' => 'Gone', 'is_active' => false]);
 
     $res = $this->actingAs($this->viewer)->getJson('/api/stages')->assertOk();
 
     $codes = array_column($res->json('data'), 'code');
     expect($codes)->toContain('DYEING')->and($codes)->not->toContain('GONE')
-        ->and($res->json('data.0.code'))->toBe('PREP')                       // in sort order
-        ->and($res->json('data.0.processes_count'))->toBe(4);
+        ->and($res->json('data.0.code'))->toBe('GREIGE')                     // in sort order
+        ->and($res->json('data.0.processes_count'))->toBe(0)
+        ->and($res->json('data.1.code'))->toBe('PREP')
+        ->and($res->json('data.1.processes_count'))->toBe(2);
     expect($inactive->fresh()->is_active)->toBeFalse();
 });
 
 it('returns one stage with its active processes', function () {
     $stage = Stage::where('code', 'FINISHING')->firstOrFail();
-    StageProcess::query()->where('stage_id', $stage->id)->where('code', 'DRYING')->update(['is_active' => false]);
+    StageProcess::query()->where('stage_id', $stage->id)->where('code', 'SANFO_CAL_RP')->update(['is_active' => false]);
 
     $res = $this->actingAs($this->viewer)->getJson("/api/stages/{$stage->id}")->assertOk();
 
     expect($res->json('data.code'))->toBe('FINISHING')
-        ->and(array_column($res->json('data.processes'), 'code'))->not->toContain('DRYING')
+        ->and(array_column($res->json('data.processes'), 'code'))->not->toContain('SANFO_CAL_RP')
         ->and(array_column($res->json('data.processes'), 'code'))->toContain('SANFO_CAL');
 });
 
-it('returns the processes of a stage, with the aliases and the flags', function () {
+it('returns the processes of a stage with their flags, and the aliases on the stage itself', function () {
     $stage = Stage::where('code', 'DISPATCH')->firstOrFail();
 
     $res = $this->actingAs($this->viewer)->getJson("/api/stages/{$stage->id}/processes")->assertOk();
 
     expect($res->json('data.0.code'))->toBe('DISPATCH')
         ->and($res->json('data.0.stage_id'))->toBe($stage->id)
-        ->and($res->json('data.0.status_aliases'))->toBe(['DISPATCHED', 'RF-DISP', 'DISP *'])
         ->and($res->json('data.0.quantity_type'))->toBe('dispatched')
         ->and($res->json('data.0.is_dispatch'))->toBeTrue()
-        ->and($res->json('data.0.is_wip'))->toBeFalse();
+        ->and($res->json('data.0.is_wip'))->toBeFalse()
+        // the mapping lives on the stage now
+        ->and($stage->aliasList())->toBe(['DISPATCHED', 'RF-DISP', 'DISP *'])
+        ->and(StageProcess::query()->whereKey($res->json('data.0.id'))->firstOrFail()->aliasList())->toBe([]);
 });
 
 it('includes deactivated processes only when asked, and still answers for one by id', function () {
-    $process = StageProcess::where('code', 'DRYING')->firstOrFail();
+    $process = StageProcess::where('code', 'SANFO_CAL_RP')->firstOrFail();
     StageProcess::query()->whereKey($process->id)->update(['is_active' => false]);
 
     $this->actingAs($this->viewer)->getJson("/api/stages/{$process->stage_id}/processes")
-        ->assertOk()->assertJsonMissing(['code' => 'DRYING']);
+        ->assertOk()->assertJsonMissing(['code' => 'SANFO_CAL_RP']);
 
     $this->actingAs($this->viewer)->getJson("/api/stages/{$process->stage_id}/processes?include_inactive=1")
-        ->assertOk()->assertJsonFragment(['code' => 'DRYING']);
+        ->assertOk()->assertJsonFragment(['code' => 'SANFO_CAL_RP']);
 
-    // a lot can still carry it, so it must remain nameable
+    // a screen can still be showing it, so it must remain nameable
     $this->actingAs($this->viewer)->getJson("/api/stage-processes/{$process->id}")->assertOk()
-        ->assertJsonPath('data.code', 'DRYING')
+        ->assertJsonPath('data.code', 'SANFO_CAL_RP')
         ->assertJsonPath('data.is_active', false)
         ->assertJsonPath('data.stage.code', 'FINISHING');
 });

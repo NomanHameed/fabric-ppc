@@ -8,8 +8,8 @@ final readonly class OracleLotRow
 {
     /** Column limits from the contracts/lots/parties/qualities migrations; checked per row in the preview (M-6). */
     public const LIMITS = [
-        'party_name' => 150, 'ref_no' => 60, 'quality_description' => 255, 'lot_no' => 10, 'design_code' => 20, 'design' => 60,
-        'colour_code' => 20, 'colour' => 80, 'po_type' => 40,
+        'party_name' => 150, 'ref_no' => 60, 'quality_description' => 255, 'lot_no_oracle' => 10, 'design_oracle_id' => 20, 'design' => 60,
+        'color_oracle_id' => 20, 'color_oracle_name' => 80, 'po_type_oracle' => 40,
     ];
 
     public function __construct(
@@ -39,10 +39,10 @@ final readonly class OracleLotRow
         return [
             'party_name' => $this->partyName, 'party_code' => $this->partyCode, 'po_no' => $this->poNo, 'ref_no' => $this->refNo,
             'po_date' => $this->poDate->toDateString(), 'quality_description' => $this->qualityDescription,
-            'quality_code' => $this->qualityCode, 'lot_no' => $this->lotNo, 'oracle_line_id' => $this->oracleLineId,
-            'gsm' => $this->gsm, 'design_code' => $this->designCode, 'design' => $this->design, 'colour_code' => $this->colourCode,
-            'colour' => $this->colour, 'g_width' => $this->gWidth, 'f_width' => $this->fWidth, 'po_type' => $this->poType,
-            'greige_qty' => $this->greigeQty, 'contract_qty' => $this->contractQty,
+            'quality_code' => $this->qualityCode, 'lot_no_oracle' => $this->lotNo, 'oracle_line_id' => $this->oracleLineId,
+            'gsm' => $this->gsm, 'design_oracle_id' => $this->designCode, 'design' => $this->design, 'color_oracle_id' => $this->colourCode,
+            'color_oracle_name' => $this->colour, 'gw_oracle' => $this->gWidth, 'f_width' => $this->fWidth, 'po_type_oracle' => $this->poType,
+            'greige_received_oracle' => $this->greigeQty, 'contract_qty' => $this->contractQty,
         ];
     }
 
@@ -58,10 +58,10 @@ final readonly class OracleLotRow
     {
         return new self(
             $a['party_name'], (int) $a['party_code'], (int) $a['po_no'], $a['ref_no'], CarbonImmutable::parse($a['po_date']),
-            $a['quality_description'], (int) $a['quality_code'], (string) $a['lot_no'], (int) $a['oracle_line_id'],
-            $a['gsm'] === null ? null : (int) $a['gsm'], $a['design_code'], $a['design'], $a['colour_code'], $a['colour'],
-            $a['g_width'] === null ? null : (float) $a['g_width'], $a['f_width'] === null ? null : (float) $a['f_width'],
-            $a['po_type'], (float) $a['greige_qty'], (float) $a['contract_qty'],
+            $a['quality_description'], (int) $a['quality_code'], (string) $a['lot_no_oracle'], (int) $a['oracle_line_id'],
+            $a['gsm'] === null ? null : (int) $a['gsm'], $a['design_oracle_id'], $a['design'], $a['color_oracle_id'], $a['color_oracle_name'],
+            $a['gw_oracle'] === null ? null : (float) $a['gw_oracle'], $a['f_width'] === null ? null : (float) $a['f_width'],
+            $a['po_type_oracle'], (float) $a['greige_received_oracle'], (float) $a['contract_qty'],
         );
     }
 }

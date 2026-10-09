@@ -46,7 +46,7 @@ it('lists sheets newest first with the lookups for the form', function () {
 });
 
 it('filters by query criteria and selects a sheet with its lines and totals', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100, 'colour_status' => 'APPROVED']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100, 'clr_status_oracle' => 'APPROVED']);
     app(LotRouteService::class)->assign($lot);
     $ledger = app(LedgerService::class);
     $ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -65,7 +65,7 @@ it('filters by query criteria and selects a sheet with its lines and totals', fu
             ->where('selected.id', $sheet->id)->where('selected.sheet_date', '11-09-2026')->where('selected.department_id', $singeing->id)
             ->where('selected.downtime_minutes', 5)->where('selected.remarks', 'paper sheet 7')->where('selected.can_edit', true)
             ->has('selected.lines', 1)
-            ->where('selected.lines.0.lot_id', $lot->id)->where('selected.lines.0.lot', "{$lot->lot_no} · {$lot->contract->po_no} · {$lot->design} · {$lot->colour}")
+            ->where('selected.lines.0.lot_id', $lot->id)->where('selected.lines.0.lot', "{$lot->lot_no_oracle} · {$lot->contract->po_no} · {$lot->design} · {$lot->colour}")
             ->where('selected.lines.0.batch_no', 'B1')->where('selected.lines.0.operation', 'SINGING')->where('selected.lines.0.qty_in', 100)
             ->where('selected.lines.0.qty_out', 99)->where('selected.lines.0.lot_route_step_id', $lot->routeSteps->first()->id)
             ->where('selected.lines.0.is_stretch', false)->where('selected.lines.0.colour_override', null)

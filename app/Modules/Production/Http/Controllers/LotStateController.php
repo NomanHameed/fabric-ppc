@@ -22,7 +22,7 @@ class LotStateController extends Controller
 
         return $this->run(
             fn () => $this->states->hold($lot, $data['reason'], $request->user()),
-            __('production.state.held', ['lot' => $lot->lot_no]),
+            __('production.state.held', ['lot' => $lot->lot_no_oracle]),
         );
     }
 
@@ -30,7 +30,7 @@ class LotStateController extends Controller
     {
         return $this->run(
             fn () => $this->states->release($lot, $request->user()),
-            __('production.state.released', ['lot' => $lot->lot_no]),
+            __('production.state.released', ['lot' => $lot->lot_no_oracle]),
         );
     }
 
@@ -40,7 +40,7 @@ class LotStateController extends Controller
 
         return $this->run(
             fn () => $this->states->cancel($lot, $data['reason'], $request->user()),
-            __('production.state.cancelled', ['lot' => $lot->lot_no]),
+            __('production.state.cancelled', ['lot' => $lot->lot_no_oracle]),
         );
     }
 

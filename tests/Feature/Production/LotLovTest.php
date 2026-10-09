@@ -13,12 +13,18 @@ beforeEach(function () {
     $quality = Quality::fromOracle(2911, '0X0/0X0 100% VISCOSE [AJ] SATIN');
     $c1 = Contract::create(['po_no' => 261071, 'party_id' => $party->id, 'po_date' => '2026-08-25', 'contract_qty' => 86]);
     $c2 = Contract::create(['po_no' => 261072, 'party_id' => $party->id, 'po_date' => '2026-08-25', 'contract_qty' => 1065]);
-    $base = ['quality_id' => $quality->id, 'po_type' => 'DYED'];
-    Lot::create($base + ['oracle_line_id' => 47119, 'lot_no' => '264899', 'contract_id' => $c1->id, 'design' => 'E1143/119', 'colour' => '520 PLUM PURPLE', 'greige_qty' => 86]);
-    Lot::create($base + ['oracle_line_id' => 47120, 'lot_no' => '264899', 'contract_id' => $c2->id, 'design' => 'E1295/104', 'colour' => '121 MID OLIVE', 'greige_qty' => 1065]);
-    Lot::create($base + ['oracle_line_id' => 47090, 'lot_no' => '265025', 'contract_id' => $c2->id, 'design' => 'D1', 'colour' => 'BLACK', 'greige_qty' => 3650]);
-    Lot::create($base + ['oracle_line_id' => 40000, 'lot_no' => '255025', 'contract_id' => $c2->id, 'design' => 'OLD', 'colour' => 'RED', 'greige_qty' => 10, 'state' => 'closed']);
-    Lot::create($base + ['oracle_line_id' => 40001, 'lot_no' => '245025', 'contract_id' => $c2->id, 'design' => 'HELD', 'colour' => 'GREY', 'greige_qty' => 10, 'state' => 'hold']);
+    // The denormalised copies the report prints without joining are NOT NULL on `lots`, so a lot created
+    // straight through the model (rather than through LotFactory) states them, as the import does.
+    $base = [
+        'quality_id' => $quality->id, 'po_type_oracle' => 'DYED',
+        'party_oracle_id' => $party->oracle_code, 'party_oracle_name' => $party->name,
+        'date_oracle' => '2026-08-25', 'quality' => $quality->description,
+    ];
+    Lot::create($base + ['oracle_line_id' => 47119, 'lot_no_oracle' => '264899', 'contract_id' => $c1->id, 'po_no' => $c1->po_no, 'design' => 'E1143/119', 'color_oracle_name' => '520 PLUM PURPLE', 'greige_received_oracle' => 86]);
+    Lot::create($base + ['oracle_line_id' => 47120, 'lot_no_oracle' => '264899', 'contract_id' => $c2->id, 'po_no' => $c2->po_no, 'design' => 'E1295/104', 'color_oracle_name' => '121 MID OLIVE', 'greige_received_oracle' => 1065]);
+    Lot::create($base + ['oracle_line_id' => 47090, 'lot_no_oracle' => '265025', 'contract_id' => $c2->id, 'po_no' => $c2->po_no, 'design' => 'D1', 'color_oracle_name' => 'BLACK', 'greige_received_oracle' => 3650]);
+    Lot::create($base + ['oracle_line_id' => 40000, 'lot_no_oracle' => '255025', 'contract_id' => $c2->id, 'po_no' => $c2->po_no, 'design' => 'OLD', 'color_oracle_name' => 'RED', 'greige_received_oracle' => 10, 'state' => 'closed']);
+    Lot::create($base + ['oracle_line_id' => 40001, 'lot_no_oracle' => '245025', 'contract_id' => $c2->id, 'po_no' => $c2->po_no, 'design' => 'HELD', 'color_oracle_name' => 'GREY', 'greige_received_oracle' => 10, 'state' => 'hold']);
 });
 
 it('returns every open lot sharing a lot number with PO context', function () {
@@ -69,5 +75,6 @@ it('lists contracts', function () {
 });
 
 it('enforces unique oracle line ids', function () {
-    Lot::create(['oracle_line_id' => 47090, 'lot_no' => '1', 'contract_id' => Contract::first()->id, 'quality_id' => Quality::first()->id, 'po_type' => 'DYED', 'greige_qty' => 1]);
+    Lot::factory()->create(['oracle_line_id' => 47090, 'lot_no_oracle' => '1', 'contract_id' => Contract::first()->id,
+        'quality_id' => Quality::first()->id, 'po_type_oracle' => 'DYED', 'greige_received_oracle' => 1]);
 })->throws(UniqueConstraintViolationException::class);

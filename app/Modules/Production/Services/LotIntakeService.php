@@ -32,18 +32,18 @@ final class LotIntakeService
         return DB::transaction(function () use ($lot, $userId, $source): ?LotMovement {
             Lot::query()->whereKey($lot->getKey())->lockForUpdate()->first();
             $this->routes->assign($lot);
-            if ((float) $lot->greige_qty <= 0 || $this->received($lot)) {
+            if ((float) $lot->greige_received_oracle <= 0 || $this->received($lot)) {
                 return null;
             }
 
-            return $this->ledger->post($lot, 'import', null, Position::stock(), 0, (float) $lot->greige_qty, [
+            return $this->ledger->post($lot, 'import', null, Position::stock(), 0, (float) $lot->greige_received_oracle, [
                 'userId' => $userId, 'source' => $source, 'movedAt' => $lot->created_at,
             ]);
         });
     }
 
     /**
-     * A later export changed greige_qty (already saved on $lot): post the difference as an adjustment in STOCK
+     * A later export changed greige_received_oracle (already saved on $lot): post the difference as an adjustment in STOCK
      * (spec §5.3). A decrease takes metres out of STOCK and can never overdraw it: the preview flags such rows
      * (`greige_below_issued`) before the commit gets here. A lot the ledger has never seen is received instead.
      *

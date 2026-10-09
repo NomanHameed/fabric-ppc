@@ -12,8 +12,8 @@ final class ColourNotApproved extends DomainException
     public function __construct(public readonly Lot $lot, public readonly Operation $operation)
     {
         parent::__construct(__('production.errors.colour_not_approved', [
-            'lot' => $lot->lot_no,
-            'status' => $lot->colour_status ?? __('production.sheet.no_colour_status'),
+            'lot' => $lot->lot_no_oracle,
+            'status' => $lot->clr_status_oracle ?? __('production.sheet.no_colour_status'),
             'operation' => $operation->name,
         ]));
     }

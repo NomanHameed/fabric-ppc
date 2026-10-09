@@ -34,7 +34,7 @@ final class LotStateService
 
         $this->transition($lot, $user, from: ['open'], to: 'hold', attrs: ['hold_reason' => $code]);
 
-        $this->record(ActionKeys::LOT_HELD, $lot, ['lot' => $lot->lot_no, 'reason' => $code], $user);
+        $this->record(ActionKeys::LOT_HELD, $lot, ['lot' => $lot->lot_no_oracle, 'reason' => $code], $user);
     }
 
     /** @throws DomainException when the lot is not on hold */
@@ -42,7 +42,7 @@ final class LotStateService
     {
         $this->transition($lot, $user, from: ['hold'], to: 'open', attrs: ['hold_reason' => null]);
 
-        $this->record(ActionKeys::LOT_RELEASED, $lot, ['lot' => $lot->lot_no], $user);
+        $this->record(ActionKeys::LOT_RELEASED, $lot, ['lot' => $lot->lot_no_oracle], $user);
     }
 
     /**
@@ -59,13 +59,13 @@ final class LotStateService
             $lot, $user, from: ['open', 'hold'], to: 'cancelled',
             attrs: ['cancel_reason' => $code, 'hold_reason' => null],
             guard: function (Lot $locked): void {
-                if (round((float) $locked->wip_qty + (float) $locked->finished_qty, 2) > 0) {
-                    throw new DomainException(__('production.errors.cancel_has_wip', ['lot' => $locked->lot_no]));
+                if (round((float) $locked->wip + (float) $locked->finished, 2) > 0) {
+                    throw new DomainException(__('production.errors.cancel_has_wip', ['lot' => $locked->lot_no_oracle]));
                 }
             },
         );
 
-        $this->record(ActionKeys::LOT_CANCELLED, $lot, ['lot' => $lot->lot_no, 'reason' => $code], $user);
+        $this->record(ActionKeys::LOT_CANCELLED, $lot, ['lot' => $lot->lot_no_oracle, 'reason' => $code], $user);
     }
 
     /**
@@ -95,7 +95,7 @@ final class LotStateService
             $locked = Lot::query()->whereKey($lot->getKey())->lockForUpdate()->firstOrFail();
             if (! in_array($locked->state, $from, true)) {
                 throw new DomainException(__('production.errors.invalid_state_change', [
-                    'lot' => $locked->lot_no, 'state' => __('production.states.'.$locked->state),
+                    'lot' => $locked->lot_no_oracle, 'state' => __('production.states.'.$locked->state),
                 ]));
             }
             if ($guard !== null) {

@@ -72,36 +72,36 @@ it('commits contracts, qualities and lots and fires LotImported after commit', f
         ->and(Lot::count())->toBe(623)
         ->and(Contract::count())->toBe(167)
         ->and(Quality::count())->toBe(111)
-        ->and(Lot::where('oracle_line_id', 47090)->first()->greige_qty)->toBe('3650.00')
-        ->and(Lot::where('lot_no', '264899')->count())->toBe(2)
+        ->and(Lot::where('oracle_line_id', 47090)->first()->greige_received_oracle)->toBe('3650.00')
+        ->and(Lot::where('lot_no_oracle', '264899')->count())->toBe(2)
         // every imported lot has its STOCK balance and import movement from the same transaction
         ->and(LotBalance::count())->toBe(623)->and(LotMovement::where('kind', 'import')->count())->toBe(623)
-        ->and(Lot::where('oracle_line_id', 47090)->first()->stock_qty)->toBe('3650.00')
+        ->and(Lot::where('oracle_line_id', 47090)->first()->greige_in_stock_oracle)->toBe('3650.00')
         ->and(LotMovement::whereNull('user_id')->count())->toBe(0);
     Event::assertDispatchedTimes(LotImported::class, 623);
-    Event::assertDispatched(LotImported::class, fn ($e) => $e->lot->oracle_line_id === 47090 && $e->lot->stock_qty === '3650.00');
+    Event::assertDispatched(LotImported::class, fn ($e) => $e->lot->oracle_line_id === 47090 && $e->lot->greige_in_stock_oracle === '3650.00');
 });
 
 it('detects unchanged, changed and missing lots on re-import', function () {
     Event::fake([LotImported::class, LotChanged::class]);
     $this->commit->commit(($this->resolveAll)($this->preview->preview(($this->source)(), $this->user)), $this->user);
 
-    Lot::where('oracle_line_id', 47090)->update(['greige_qty' => 1]);
-    $extra = Lot::create(['oracle_line_id' => 1, 'lot_no' => '199999', 'contract_id' => Contract::first()->id,
-        'quality_id' => Quality::first()->id, 'po_type' => 'DYED', 'greige_qty' => 10]);
+    Lot::where('oracle_line_id', 47090)->update(['greige_received_oracle' => 1]);
+    $extra = Lot::factory()->create(['oracle_line_id' => 1, 'lot_no_oracle' => '199999', 'contract_id' => Contract::first()->id,
+        'quality_id' => Quality::first()->id, 'po_type_oracle' => 'DYED', 'greige_received_oracle' => 10]);
 
     $second = $this->preview->preview(($this->source)(), $this->user);
     expect([$second->new_count, $second->changed_count, $second->unchanged_count, $second->missing_count, $second->error_count])
         ->toBe([0, 1, 622, 1, 0]);
-    expect($second->rows()->where('action', 'changed')->first()->diff)->toBe(['greige_qty' => [1.0, 3650.0]]);
+    expect($second->rows()->where('action', 'changed')->first()->diff)->toBe(['greige_received_oracle' => [1.0, 3650.0]]);
 
     $this->commit->commit($second, $this->user);
-    expect(Lot::where('oracle_line_id', 47090)->first()->greige_qty)->toBe('3650.00')
+    expect(Lot::where('oracle_line_id', 47090)->first()->greige_received_oracle)->toBe('3650.00')
         ->and($extra->fresh()->oracle_missing_at)->not->toBeNull()
         // the greige change (1 → 3650, edited outside the ledger) was posted as one STOCK adjustment
         ->and(LotMovement::where('kind', 'adjustment')->count())->toBe(1)
         ->and(LotMovement::where('kind', 'adjustment')->value('qty_into_to'))->toBe('3649.00');
-    Event::assertDispatched(LotChanged::class, fn ($e) => $e->lot->oracle_line_id === 47090 && $e->diff === ['greige_qty' => [1.0, 3650.0]]);
+    Event::assertDispatched(LotChanged::class, fn ($e) => $e->lot->oracle_line_id === 47090 && $e->diff === ['greige_received_oracle' => [1.0, 3650.0]]);
 });
 
 it('rejects committing a stale preview', function () {

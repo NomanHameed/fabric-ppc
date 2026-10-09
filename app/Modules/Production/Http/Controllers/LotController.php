@@ -7,7 +7,6 @@ use App\Modules\Activity\Concerns\RecordsUserActions;
 use App\Modules\Activity\Support\ActionKeys;
 use App\Modules\Foundation\Models\LookupValue;
 use App\Modules\Foundation\Models\Stage;
-use App\Modules\Foundation\Models\StageProcess;
 use App\Modules\Foundation\Query\QueryCriteria;
 use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Services\LotStateService;
@@ -26,24 +25,26 @@ use Inertia\Response;
  * The Lots screen (spec §4.4 screen 3, §4.2 query mode): one Oracle-Forms record per lot — a grid of the
  * matching lots and a single-block form for the selected one — under `inquiry.view`.
  *
- * Everything Oracle owns (`Lot::ORACLE_FIELDS`) and everything the ledger derives (`stock_qty` … `loss_qty`,
- * `current_label`, `last_movement_at`) is **read-only here**: the import is the only writer of the first set and
+ * Everything Oracle owns (`Lot::ORACLE_FIELDS`) and everything the ledger derives (`greige_in_stock_oracle` … `loss_qty`,
+ * `status_oracle`, `last_movement_at`) is **read-only here**: the import is the only writer of the first set and
  * `LedgerService` of the second. The screen edits exactly two app-owned fields, each behind its own permission:
- * `colour_status` with `colour.edit` (validated against the active `colour_status` lookup list) and `remarks`
+ * `clr_status_oracle` with `colour.edit` (validated against the active `clr_status_oracle` lookup list) and `remarks`
  * with `production.route.manage`. Hold / release / cancel stay on `LotStateController` (`production.hold`).
  *
  * The one thing the screen may write about the reporting stage is an **override**: `production.route.manage`
- * can pin a lot's stage and process by hand (`overrideStage`) and clear the pin again (`clearStageOverride`),
- * both audited on the Lot itself. While a lot is pinned the ledger leaves the two columns alone; clearing
- * re-derives them from the lot's current status on the spot. Neither action is reachable through `update()`:
- * that method's rules never mention the stage columns, so no payload shape can write them there.
+ * can pin a lot's stage by hand (`overrideStage`) and clear the pin again (`clearStageOverride`), both
+ * audited on the Lot itself. While a lot is pinned the ledger leaves `stage_id` alone; clearing re-derives it
+ * from the lot's current status on the spot. Neither action is reachable through `update()`: that method's
+ * rules never mention the stage columns, so no payload shape can write them there.
  *
  * Query mode runs through `QueryCriteria` over the lot and its joined PO, party and quality, so `%` wildcards and
  * the `>`/`<`/`a..b` range forms work on the PO number and the PO date as they do on every other Forms screen.
  * With no criteria the screen opens on the open work (`open` + `hold`), Oracle-Forms style. The grid is capped at
  * ROW_CAP rows with the true match count beside it ("showing n of m"), as the inquiry screens are.
  *
- * The grid has two **selectable shapes** (`?shape=nested|flat`). `nested` is the original `LotScreenRow`.
+ * The grid has two **selectable shapes** (`?shape=nested|flat`), and only those two: an unknown value is a
+ * 422, the same as on the fabric report, rather than a silent fallback to the app's own columns.
+ * `nested` is the original `LotScreenRow`.
  * `flat` adds the Oracle-shaped payload assembled by `ProductionAnalyticsService::flatLots()` — the mill's own
  * field names over the same unchanged columns — as the extra `flatLots` prop. Additive, both ways: `lots` is
  * always sent, so the form blocks and every other consumer are untouched, and the criteria the screen ran
@@ -68,19 +69,22 @@ class LotController extends Controller
     public function index(Request $request): Response
     {
         $criteria = (array) $request->query('q', []);
-        $shape = $request->query('shape');
-        $shape = is_string($shape) && in_array($shape, self::SHAPES, true) ? $shape : 'nested';
-        $query = Lot::query()->with(['contract.party', 'quality', 'stage', 'stageProcess', 'stageOverrider'])
+        // An unknown shape is a 422, not a fallback to `nested`. The same ruling as
+        // `FabricReportController`: a screen that quietly drew different columns than the URL asked for
+        // looks like the flat payload is broken, and a bookmarked typo would never be noticed.
+        $shape = $request->validate([
+            'shape' => ['nullable', 'string', 'in:'.implode(',', self::SHAPES)],
+        ])['shape'] ?? 'nested';
+        $query = Lot::query()->with(['contract.party', 'stage', 'stageOverrider'])
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')
             ->join('parties', 'parties.id', '=', 'contracts.party_id')
             ->join('qualities', 'qualities.id', '=', 'lots.quality_id')
-            // Left joins: a lot whose status nothing maps (or which is still all in stock) has no stage, and
-            // an inner join would drop it from the screen entirely.
+            // Left join: a lot whose status nothing maps has no stage, and an inner join would drop it from
+            // the screen entirely.
             ->leftJoin('stages', 'stages.id', '=', 'lots.stage_id')
-            ->leftJoin('stage_processes', 'stage_processes.id', '=', 'lots.stage_process_id')
             ->select('lots.*');
         QueryCriteria::apply($query, $criteria, ProductionAnalyticsService::LOT_CRITERIA);
-        // Only criteria that actually narrow anything count: an empty box the user left blank (`q[lot_no]=`)
+        // Only criteria that actually narrow anything count: an empty box the user left blank (`q[lot_no_oracle]=`)
         // is no criterion, so the screen still opens on the open work rather than on every lot ever imported.
         $effective = array_filter($criteria, fn ($v): bool => ! is_array($v) && trim((string) $v) !== '');
         $states = $effective === [] ? ['open', 'hold'] : null;
@@ -88,7 +92,7 @@ class LotController extends Controller
             $query->whereIn('lots.state', $states); // default query: the open work
         }
         $total = (clone $query)->count();
-        $lots = $query->orderByDesc('contracts.po_date')->orderBy('contracts.po_no')->orderBy('lots.lot_no')->orderBy('lots.id')
+        $lots = $query->orderByDesc('contracts.po_date')->orderBy('contracts.po_no')->orderBy('lots.lot_no_oracle')->orderBy('lots.id')
             ->limit(self::ROW_CAP)->get();
         $user = $request->user();
 
@@ -124,7 +128,7 @@ class LotController extends Controller
     /**
      * The two app-owned fields, each behind its own permission. A field the user may not write has no rule and is
      * never read off the request, so an Oracle-owned field (`Lot::ORACLE_FIELDS`), a derived quantity or
-     * `current_label` sent by hand is ignored rather than written — and a viewer, who may write neither, gets 403
+     * `status_oracle` sent by hand is ignored rather than written — and a viewer, who may write neither, gets 403
      * before any validation runs.
      */
     public function update(Request $request, Lot $lot): RedirectResponse
@@ -134,7 +138,7 @@ class LotController extends Controller
         if ($user->can('colour.edit')) {
             // an unchanged code stays valid even if the lookup value has since been deactivated (the same
             // allowance ProductionSheetService makes for the approval gate: the lot was set under it)
-            $rules['colour_status'] = $request->input('colour_status') === $lot->colour_status
+            $rules['clr_status_oracle'] = $request->input('clr_status_oracle') === $lot->clr_status_oracle
                 ? ['nullable', 'string', 'max:40']
                 : ['nullable', 'string', Rule::exists('lookup_values', 'code')
                     ->where('list_key', ProductionSheetService::COLOUR_STATUS_LIST)->where('is_active', true)];
@@ -154,7 +158,7 @@ class LotController extends Controller
         // the user may write something, but sent none of it (only fields that are not theirs to change)
         abort_if($attrs === [], 403);
 
-        $wasColourStatus = $lot->colour_status;
+        $wasColourStatus = $lot->clr_status_oracle;
         $lot->fill($attrs)->save();
         $this->recordColourDecision($lot, $wasColourStatus, $request);
 
@@ -165,16 +169,15 @@ class LotController extends Controller
     }
 
     /**
-     * Pin this lot's reporting stage and process by hand (`production.route.manage`).
+     * Pin this lot's reporting stage by hand (`production.route.manage`).
      *
      * The permission is checked before anything is validated or read off the request, as `update()` does, so
-     * a user who may not do this gets 403 whatever the payload looks like. Only the two validated ids are
+     * a user who may not do this gets 403 whatever the payload looks like. Only the validated stage id is
      * ever written: `stage_overridden_at` / `_by` are set from the server's clock and the acting user, never
      * from the request.
      *
-     * The pair is checked in PHP rather than inside an `exists` rule whose `where` would take a raw request
-     * value: `stage_process_id` must belong to the submitted `stage_id` and both must be active, and a bad
-     * pair comes back as a field error on the screen, not as a database error.
+     * "Active" is checked in PHP rather than inside an `exists` rule, so an inactive stage comes back as a
+     * field error on the screen rather than as a database error.
      */
     public function overrideStage(Request $request, Lot $lot): RedirectResponse
     {
@@ -183,24 +186,15 @@ class LotController extends Controller
 
         $data = $request->validate([
             'stage_id' => ['required', 'integer', 'exists:stages,id'],
-            'stage_process_id' => ['required', 'integer', 'exists:stage_processes,id'],
         ]);
 
         $stage = Stage::query()->whereKey($data['stage_id'])->firstOrFail();
-        $process = StageProcess::query()->whereKey($data['stage_process_id'])->firstOrFail();
         if ($stage->is_active !== true) {
             throw ValidationException::withMessages(['stage_id' => __('production.lots.stage_inactive')]);
-        }
-        if ((int) $process->stage_id !== (int) $stage->getKey()) {
-            throw ValidationException::withMessages(['stage_process_id' => __('production.lots.stage_process_mismatch')]);
-        }
-        if ($process->is_active !== true) {
-            throw ValidationException::withMessages(['stage_process_id' => __('production.lots.stage_process_inactive')]);
         }
 
         // An audited save (not a query-builder update), so the audits row records who pinned what, and when.
         $lot->stage_id = (int) $stage->getKey();
-        $lot->stage_process_id = (int) $process->getKey();
         $lot->stage_overridden_at = now();
         $lot->stage_overridden_by = $user->id;
         $lot->save();
@@ -221,9 +215,7 @@ class LotController extends Controller
         $user = $request->user();
         abort_unless($user->can('production.route.manage'), 403);
 
-        $ids = $this->stages->resolve($lot->current_label);
-        $lot->stage_id = $ids['stage_id'];
-        $lot->stage_process_id = $ids['stage_process_id'];
+        $lot->stage_id = $this->stages->stageId($lot->status_oracle);
         $lot->stage_overridden_at = null;
         $lot->stage_overridden_by = null;
         $lot->save();
@@ -247,7 +239,7 @@ class LotController extends Controller
      */
     private function recordColourDecision(Lot $lot, ?string $previous, Request $request): void
     {
-        $status = $lot->colour_status;
+        $status = $lot->clr_status_oracle;
 
         if ($status === null || $status === $previous) {
             return;
@@ -260,7 +252,7 @@ class LotController extends Controller
         $this->recordAction(
             $approved ? ActionKeys::COLOUR_APPROVED : ActionKeys::COLOUR_REJECTED,
             $lot,
-            ['colour' => (string) $lot->colour, 'lot' => $lot->lot_no],
+            ['colour' => (string) $lot->color_oracle_name, 'lot' => $lot->lot_no_oracle],
             $request->user(),
         );
     }
@@ -268,7 +260,7 @@ class LotController extends Controller
     /**
      * One grid/form record: the Oracle fields the screen shows, the PO header, the state (with the reason and
      * the moment it changed) and label, and the seven derived quantities (spec §5.3 "Derived lot values").
-     * `oracle_line_id`, `design_code` and `colour_code` are deliberately left out: nothing on this screen shows
+     * `oracle_line_id`, `design_oracle_id` and `color_oracle_id` are deliberately left out: nothing on this screen shows
      * them, and the Lot Inquiry is where the Oracle identifiers belong.
      *
      * @return array<string, mixed>
@@ -276,24 +268,23 @@ class LotController extends Controller
     private function row(Lot $lot): array
     {
         return [
-            'id' => $lot->id, 'lot_no' => $lot->lot_no,
+            'id' => $lot->id, 'lot_no_oracle' => $lot->lot_no_oracle,
             'contract_id' => $lot->contract_id, 'po_no' => $lot->contract->po_no, 'party' => $lot->contract->party->name,
             'ref_no' => $lot->contract->ref_no, 'po_date' => $lot->contract->po_date->format('d-m-Y'),
-            'quality' => $lot->quality->description, 'gsm' => $lot->gsm, 'design' => $lot->design,
-            'colour' => $lot->colour, 'colour_status' => $lot->colour_status,
-            'g_width' => $lot->g_width === null ? null : (float) $lot->g_width,
+            'quality' => $lot->quality, 'gsm' => $lot->gsm, 'design' => $lot->design,
+            'color_oracle_name' => $lot->color_oracle_name, 'clr_status_oracle' => $lot->clr_status_oracle,
+            'gw_oracle' => $lot->gw_oracle === null ? null : (float) $lot->gw_oracle,
             'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
-            'po_type' => $lot->po_type, 'state' => $lot->state, 'hold_reason' => $lot->hold_reason, 'cancel_reason' => $lot->cancel_reason,
+            'po_type_oracle' => $lot->po_type_oracle, 'state' => $lot->state, 'hold_reason' => $lot->hold_reason, 'cancel_reason' => $lot->cancel_reason,
             'state_changed_at' => $lot->state_changed_at?->format('d-m-Y H:i'),
-            'current_label' => $lot->current_label, 'process_flag' => $this->labeller->processFlag($lot),
+            'status_oracle' => $lot->status_oracle, 'process_flag' => $this->labeller->processFlag($lot),
             'stage_id' => $lot->stage_id, 'stage' => $lot->stage?->name,
-            'stage_process_id' => $lot->stage_process_id, 'stage_process' => $lot->stageProcess?->name,
             'stage_overridden' => $lot->isStageOverridden(),
             'stage_overridden_at' => $lot->stage_overridden_at?->format('d-m-Y H:i'),
             'stage_overridden_by' => $lot->stageOverrider?->name,
-            'greige_qty' => (float) $lot->greige_qty, 'stock_qty' => (float) $lot->stock_qty, 'issued_qty' => (float) $lot->issued_qty,
-            'wip_qty' => (float) $lot->wip_qty, 'finished_qty' => (float) $lot->finished_qty,
-            'dispatched_qty' => (float) $lot->dispatched_qty, 'loss_qty' => (float) $lot->loss_qty,
+            'greige_received_oracle' => (float) $lot->greige_received_oracle, 'greige_in_stock_oracle' => (float) $lot->greige_in_stock_oracle, 'qty_issued' => (float) $lot->qty_issued,
+            'wip' => (float) $lot->wip, 'finished' => (float) $lot->finished,
+            'dispatch' => (float) $lot->dispatch, 'loss_qty' => (float) $lot->loss_qty,
             'last_movement_at' => $lot->last_movement_at?->format('d-m-Y H:i'),
             'oracle_missing_at' => $lot->oracle_missing_at?->format('d-m-Y'), 'remarks' => $lot->remarks,
         ];

@@ -12,16 +12,17 @@ use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Exceptions\RoleDoesNotExist;
 
 /**
- * Give every existing lot its stage and stage process, resolved from the status it already carries
- * (spec §9). Run once after the stages are seeded, and again after new aliases are mapped.
+ * Give every existing lot its reporting stage, resolved from the status it already carries (spec §9). Run
+ * once after the stages are seeded, and again after new aliases are mapped.
  *
- * Safe by construction: it reads `lots.current_label` and writes **only** `stage_id` and `stage_process_id`.
- * No quantity, no label, no movement and no balance is touched, so it cannot change what the mill is owed
- * or what the report counts — only where a lot is grouped. Idempotent: a second run finds nothing to do.
- * `--pretend` writes nothing at all and prints the same summary.
+ * Safe by construction: it reads `lots.status_oracle` and writes **only** `stage_id`. No quantity, no label,
+ * no movement and no balance is touched, so it cannot change what the mill is owed or what the report counts
+ * — only where a lot is grouped. Idempotent: a second run finds nothing to do. `--pretend` writes nothing at
+ * all and prints the same summary.
  *
- * A status nothing claims leaves both columns null and is listed at the end with its lot count, which is the
- * same set of statuses the Unmapped Statuses screen shows. Nothing is guessed.
+ * A status nothing claims leaves the column null and is listed at the end with its lot count, which is the
+ * same set of statuses the Unmapped Statuses screen shows. Nothing is guessed. A lot with no status at all
+ * resolves to whichever stage claims `#BLANK` (Greige), so it is not in that list.
  *
  * A lot whose stage PPC has pinned by hand (`lots.stage_overridden_at`) is skipped untouched and counted
  * separately: an override is a decision, and a backfill must not quietly undo decisions.
@@ -38,7 +39,7 @@ class SyncLotStages extends Command
         {--pretend : Report what would change without writing anything}
         {--user= : User id recorded as the actor}';
 
-    protected $description = 'Resolve every lot\'s reporting stage and process from its status label (idempotent)';
+    protected $description = 'Resolve every lot\'s reporting stage from its status label (idempotent)';
 
     public function handle(StatusStageResolver $resolver): int
     {
@@ -71,10 +72,10 @@ class SyncLotStages extends Command
 
                             continue;
                         }
-                        $ids = $resolver->resolve($lot->current_label);
+                        $stageId = $resolver->stageId($lot->status_oracle);
 
-                        if ($ids['stage_process_id'] === null) {
-                            $label = (string) ($lot->current_label ?? '');
+                        if ($stageId === null) {
+                            $label = (string) ($lot->status_oracle ?? '');
                             if (StatusStageResolver::normalise($label) !== null) {
                                 $unmapped[$label] = ($unmapped[$label] ?? 0) + 1;
                             }
@@ -82,14 +83,14 @@ class SyncLotStages extends Command
                             $resolved++;
                         }
 
-                        if ($ids['stage_id'] === $lot->stage_id && $ids['stage_process_id'] === $lot->stage_process_id) {
+                        if ($stageId === $lot->stage_id) {
                             continue;
                         }
                         $changed++;
                         if (! $pretend) {
-                            // DB::table, not Lot::query()->update(): these are derived columns, and a
+                            // DB::table, not Lot::query()->update(): this is a derived column, and a
                             // backfill must not stamp `updated_at` on every lot in the mill.
-                            DB::table('lots')->where('id', $lot->getKey())->update($ids);
+                            DB::table('lots')->where('id', $lot->getKey())->update(['stage_id' => $stageId]);
                         }
                     }
                 });
@@ -112,7 +113,7 @@ class SyncLotStages extends Command
         }
 
         arsort($unmapped);
-        $this->warn(count($unmapped).' status(es) no stage process claims:');
+        $this->warn(count($unmapped).' status(es) no stage claims:');
         $this->table(
             ['Status', 'Lots'],
             array_map(

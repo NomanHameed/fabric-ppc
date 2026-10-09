@@ -54,7 +54,7 @@ class InquiryController extends Controller
     private const TABS = ['route', 'movements', 'lines', 'audit'];
 
     /** @var list<string> the lot columns the PO page totals */
-    private const QTY_COLUMNS = ['greige_qty', 'stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty'];
+    private const QTY_COLUMNS = ['greige_received_oracle', 'greige_in_stock_oracle', 'qty_issued', 'wip', 'finished', 'dispatch', 'loss_qty'];
 
     public function __construct(
         private readonly LedgerService $ledger,
@@ -64,7 +64,7 @@ class InquiryController extends Controller
 
     public function lot(Request $request, Lot $lot): Response
     {
-        $lot->load(['contract.party', 'quality', 'stage', 'stageProcess', 'stageOverrider']);
+        $lot->load(['contract.party', 'stage', 'stageOverrider']);
         $balances = $this->ledger->balances($lot);
         $steps = $lot->routeSteps()->with('operation.department')->get();
         $user = $request->user();
@@ -114,8 +114,8 @@ class InquiryController extends Controller
         $sums = $contract->lots()->toBase()
             ->selectRaw(implode(', ', array_map(fn (string $c): string => "coalesce(sum({$c}), 0) as {$c}", self::QTY_COLUMNS)))
             ->first();
-        $lots = $contract->lots()->with(['quality', 'stage', 'stageProcess'])
-            ->orderBy('lot_no')->orderBy('id')->limit(self::ROW_CAP)->get();
+        $lots = $contract->lots()->with('stage')
+            ->orderBy('lot_no_oracle')->orderBy('id')->limit(self::ROW_CAP)->get();
 
         return Inertia::render('inquiry/PoInquiry', [
             'contract' => [
@@ -124,10 +124,9 @@ class InquiryController extends Controller
                 'oracle_missing_at' => $contract->oracle_missing_at?->format('d-m-Y'), 'lots_count' => $total,
             ],
             'lots' => $lots->map(fn (Lot $l): array => [
-                'id' => $l->id, 'lot_no' => $l->lot_no, 'quality' => $l->quality->description, 'design' => $l->design, 'colour' => $l->colour,
-                'colour_status' => $l->colour_status, 'po_type' => $l->po_type, 'state' => $l->state, 'current_label' => $l->current_label,
+                'id' => $l->id, 'lot_no_oracle' => $l->lot_no_oracle, 'quality' => $l->quality, 'design' => $l->design, 'color_oracle_name' => $l->color_oracle_name,
+                'clr_status_oracle' => $l->clr_status_oracle, 'po_type_oracle' => $l->po_type_oracle, 'state' => $l->state, 'status_oracle' => $l->status_oracle,
                 'stage_id' => $l->stage_id, 'stage' => $l->stage?->name,
-                'stage_process_id' => $l->stage_process_id, 'stage_process' => $l->stageProcess?->name,
                 'process_flag' => $this->labeller->processFlag($l), 'oracle_missing_at' => $l->oracle_missing_at?->format('d-m-Y'),
             ] + $this->quantities($l))->values(),
             'lotsTotal' => $total,
@@ -141,18 +140,17 @@ class InquiryController extends Controller
     private function lotSummary(Lot $lot): array
     {
         return [
-            'id' => $lot->id, 'lot_no' => $lot->lot_no, 'oracle_line_id' => $lot->oracle_line_id, 'contract_id' => $lot->contract_id,
+            'id' => $lot->id, 'lot_no_oracle' => $lot->lot_no_oracle, 'oracle_line_id' => $lot->oracle_line_id, 'contract_id' => $lot->contract_id,
             'po_no' => $lot->contract->po_no, 'party' => $lot->contract->party->name, 'ref_no' => $lot->contract->ref_no,
             'po_date' => $lot->contract->po_date->format('d-m-Y'), 'contract_qty' => (float) $lot->contract->contract_qty,
-            'quality' => $lot->quality->description, 'gsm' => $lot->gsm, 'design_code' => $lot->design_code, 'design' => $lot->design,
-            'colour_code' => $lot->colour_code, 'colour' => $lot->colour, 'colour_status' => $lot->colour_status,
-            'g_width' => $lot->g_width === null ? null : (float) $lot->g_width, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
-            'po_type' => $lot->po_type, 'state' => $lot->state, 'hold_reason' => $lot->hold_reason, 'cancel_reason' => $lot->cancel_reason,
+            'quality' => $lot->quality, 'gsm' => $lot->gsm, 'design_oracle_id' => $lot->design_oracle_id, 'design' => $lot->design,
+            'color_oracle_id' => $lot->color_oracle_id, 'color_oracle_name' => $lot->color_oracle_name, 'clr_status_oracle' => $lot->clr_status_oracle,
+            'gw_oracle' => $lot->gw_oracle === null ? null : (float) $lot->gw_oracle, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
+            'po_type_oracle' => $lot->po_type_oracle, 'state' => $lot->state, 'hold_reason' => $lot->hold_reason, 'cancel_reason' => $lot->cancel_reason,
             'state_changed_at' => $lot->state_changed_at?->format('d-m-Y H:i'),
-            'current_label' => $lot->current_label, 'process_flag' => $this->labeller->processFlag($lot),
+            'status_oracle' => $lot->status_oracle, 'process_flag' => $this->labeller->processFlag($lot),
             // The reporting stage beside the raw status (both, never one instead of the other).
             'stage_id' => $lot->stage_id, 'stage' => $lot->stage?->name,
-            'stage_process_id' => $lot->stage_process_id, 'stage_process' => $lot->stageProcess?->name,
             'stage_overridden' => $lot->isStageOverridden(),
             'stage_overridden_at' => $lot->stage_overridden_at?->format('d-m-Y H:i'),
             'stage_overridden_by' => $lot->stageOverrider?->name,
@@ -173,13 +171,13 @@ class InquiryController extends Controller
     }
 
     /**
-     * Record n of m among the lots of the same PO (lot_no order), for Previous / Next on the toolbar.
+     * Record n of m among the lots of the same PO (lot_no_oracle order), for Previous / Next on the toolbar.
      *
      * @return array{index: int, count: int, prev_id: int|null, next_id: int|null}
      */
     private function siblings(Lot $lot): array
     {
-        $ids = Lot::query()->where('contract_id', $lot->contract_id)->orderBy('lot_no')->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->values();
+        $ids = Lot::query()->where('contract_id', $lot->contract_id)->orderBy('lot_no_oracle')->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->values();
         $i = $ids->search($lot->id);
         $i = $i === false ? 0 : (int) $i;
 

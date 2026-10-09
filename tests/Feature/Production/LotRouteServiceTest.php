@@ -19,7 +19,7 @@ beforeEach(function () {
 });
 
 it('assigns the matching template by po_type', function () {
-    $lot = Lot::factory()->create(['po_type' => 'PRINTED']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'PRINTED']);
     expect($this->routes->assign($lot))->toBe(7)
         ->and($lot->routeSteps()->count())->toBe(7)
         ->and($lot->routeSteps->first()->operation->name)->toBe('SINGING')
@@ -30,7 +30,7 @@ it('assigns the matching template by po_type', function () {
 
 it('falls back to the settings default template, then to nothing', function () {
     RouteTemplate::query()->update(['is_active' => false]);
-    $lot = Lot::factory()->create(['po_type' => 'UNKNOWN']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'UNKNOWN']);
     expect($this->routes->assign($lot))->toBe(0);
     $t = RouteTemplate::where('name', 'Half Bleach')->first();
     $t->update(['is_active' => true, 'po_type' => 'NEVER']);
@@ -39,7 +39,7 @@ it('falls back to the settings default template, then to nothing', function () {
 });
 
 it('does not re-assign an existing route unless asked, and never one with progress', function () {
-    $lot = Lot::factory()->create(['po_type' => 'DYED']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'DYED']);
     $this->routes->assign($lot);
     expect($this->routes->assign($lot))->toBe(0);
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -51,14 +51,14 @@ it('does not re-assign an existing route unless asked, and never one with progre
 });
 
 it('re-assigns a route without progress when asked', function () {
-    $lot = Lot::factory()->create(['po_type' => 'DYED']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'DYED']);
     $this->routes->assign($lot);
     $t = RouteTemplate::where('name', 'Half Bleach')->first();
     expect($this->routes->assign($lot, $t, replace: true))->toBe(5)->and($lot->routeSteps()->count())->toBe(5);
 });
 
 it('derives previous and target positions, bypassing skipped steps', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($lot);
     [$s1, $s2, $s3, $s4, $s5] = $lot->routeSteps->all();
     expect($this->routes->previousPosition($s1)->value())->toBe('ISSUED')
@@ -74,7 +74,7 @@ it('derives previous and target positions, bypassing skipped steps', function ()
 });
 
 it('moves step status pending → partial → done as metres pass through', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     $s1 = $lot->routeSteps->first();
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -88,7 +88,7 @@ it('moves step status pending → partial → done as metres pass through', func
 });
 
 it('finds the next pending step per department', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps;
     $drying = $steps[2]->operation->department_id;
@@ -98,7 +98,7 @@ it('finds the next pending step per department', function () {
 });
 
 it('refuses to skip a step with metres waiting or production recorded', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     [$s1, $s2] = $lot->routeSteps->all();
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -111,7 +111,7 @@ it('refuses to skip a step with metres waiting or production recorded', function
 });
 
 it('refuses a skip that would move the positions of a step with progress', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps->all();
     $s4 = $steps[3];
@@ -132,7 +132,7 @@ it('refuses a skip that would move the positions of a step with progress', funct
 });
 
 it('replaces the route keeping steps with progress in order and flags added steps', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps;
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -160,7 +160,7 @@ it('replaces the route keeping steps with progress in order and flags added step
 });
 
 it('refuses to reorder steps that already have production', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps;
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -176,7 +176,7 @@ it('refuses to reorder steps that already have production', function () {
 });
 
 it('keeps is_added on a re-edit that omits it', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps;
     $extra = Operation::factory()->create();
@@ -200,7 +200,7 @@ it('keeps is_added on a re-edit that omits it', function () {
 });
 
 it('changes the operation of a pending step but never of one with production', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps;
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
@@ -227,7 +227,7 @@ it('parks kept steps on small temporary seqs whatever their ids', function () {
     if (DB::getDriverName() !== 'mysql') {
         $this->markTestSkipped('Needs MySQL strict mode: SQLite does not range-check an unsigned smallint.');
     }
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($lot);
     $steps = $lot->routeSteps;
     LotRouteStep::whereKey($steps[0]->id)->update(['id' => 60000]); // 10000 + id would overflow seq
@@ -240,15 +240,15 @@ it('parks kept steps on small temporary seqs whatever their ids', function () {
 });
 
 it('re-derives the status label after a skip, a replace and a re-assign move the next step', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
     [$s1, $s2, $s3, $s4, $s5] = $lot->routeSteps->all();
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
     $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), 100, 100);
-    expect($lot->fresh()->current_label)->toBe('SINGEING/');
+    expect($lot->fresh()->status_oracle)->toBe('SINGEING/');
 
     $this->routes->setSkipped($s1, true); // takes the step, so it is $s1->lot that is relabelled, not this instance
-    expect($lot->fresh()->current_label)->toBe('BLEACHING/');
+    expect($lot->fresh()->status_oracle)->toBe('BLEACHING/');
 
     $this->routes->replace($lot, [
         ['id' => $s5->id, 'operation_id' => $s5->operation_id],
@@ -256,15 +256,15 @@ it('re-derives the status label after a skip, a replace and a re-assign move the
         ['id' => $s3->id, 'operation_id' => $s3->operation_id],
         ['id' => $s4->id, 'operation_id' => $s4->operation_id],
     ]);
-    expect($lot->fresh()->current_label)->toBe('SANFO/CAL')->and($lot->current_label)->toBe('SANFO/CAL');
+    expect($lot->fresh()->status_oracle)->toBe('SANFO/CAL')->and($lot->status_oracle)->toBe('SANFO/CAL');
 
     $this->routes->assign($lot, RouteTemplate::where('name', 'Half Bleach')->first(), replace: true);
-    expect($lot->fresh()->current_label)->toBe('SINGEING/')->and($lot->current_label)->toBe('SINGEING/');
+    expect($lot->fresh()->status_oracle)->toBe('SINGEING/')->and($lot->status_oracle)->toBe('SINGEING/');
 });
 
 it('applies a template to a PO, skipping lots with progress', function () {
-    $a = Lot::factory()->create(['po_type' => 'DYED', 'greige_qty' => 10]);
-    $b = Lot::factory()->create(['po_type' => 'DYED', 'contract_id' => $a->contract_id, 'greige_qty' => 10]);
+    $a = Lot::factory()->create(['po_type_oracle' => 'DYED', 'greige_received_oracle' => 10]);
+    $b = Lot::factory()->create(['po_type_oracle' => 'DYED', 'contract_id' => $a->contract_id, 'greige_received_oracle' => 10]);
     $this->routes->assign($a);
     $this->routes->assign($b);
     $this->ledger->post($b, 'import', null, Position::stock(), 0, 10);

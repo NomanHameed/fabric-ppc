@@ -24,7 +24,7 @@ return [
     ],
     'options' => [
         'normal' => 'Normal', 'reprocess' => 'Reprocess', 'dyed' => 'Dyed', 'print' => 'Print', 'brand' => 'Brand', 'local' => 'Local',
-        'colour_status' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
+        'clr_status_oracle' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
         'hold_reason' => 'Hold reason', 'reprocess_reason' => 'Reprocess reason',
         'quantity_stock' => 'Greige in stock', 'quantity_wip' => 'WIP', 'quantity_finished' => 'Finished',
         'quantity_dispatched' => 'Dispatched', 'quantity_loss' => 'Loss',

@@ -8,21 +8,17 @@ use App\Modules\Foundation\Models\Stage;
 use App\Modules\Foundation\Models\StageProcess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 /**
- * The Stage Processes master — and with it the status mapping itself: `status_aliases` is edited here, as a
- * comma-separated list of the raw statuses (`lots.current_label`) that mean this process. `*` is a wildcard,
- * so `DISP *` covers the whole dispatch family and `*CANCEL*` anything cancelled.
+ * The Stage Processes master: the mill's own naming of the positions inside a stage.
  *
- * This is the one screen the Unmapped Statuses report sends the operator to, which is why both are gated on
- * `masters.manage`: seeing an unmapped status is only useful to someone who may map it.
+ * **It no longer carries the status mapping.** Resolution is stage-only (`lots.stage_process_id` is gone),
+ * so `status_aliases` moved to the Stages master and is not edited here — a field that could not change what
+ * the report groups by would be worse than no field. The column survives on the table, unread, so the move
+ * stays reversible.
  */
 class StageProcessResource extends MasterResource
 {
-    /** The separator between aliases in the form field (a comma: no status contains one). */
-    private const ALIAS_SEPARATOR = ',';
-
     public function key(): string
     {
         return 'stage_processes';
@@ -58,8 +54,6 @@ class StageProcessResource extends MasterResource
             Field::make('is_wip', 'bool')->span(1),
             Field::make('is_finished', 'bool')->span(1),
             Field::make('is_dispatch', 'bool')->span(1),
-            // The mapping. Queryable as text, so "which process claims DYEING?" is an F7/F8 away.
-            Field::make('status_aliases')->label('masters.fields.status_aliases')->span(12),
         ];
     }
 
@@ -77,41 +71,8 @@ class StageProcessResource extends MasterResource
             'is_wip' => ['boolean'],
             'is_finished' => ['boolean'],
             'is_dispatch' => ['boolean'],
-            'status_aliases' => ['nullable', 'string', 'max:500'],
             'is_active' => ['boolean'],
         ];
-    }
-
-    /**
-     * `lots.stage_process_id` is nullOnDelete, so the database would let a referenced process go and empty
-     * the column on every lot pointing at it — a silent change to figures nobody asked to change. Refused
-     * here instead: a process in use is deactivated (spec §18), which keeps the lots' history readable.
-     */
-    public function assertDeletable(Model $m): void
-    {
-        if ($m instanceof StageProcess && $m->lots()->exists()) {
-            throw ValidationException::withMessages(['record' => __('forms.in_use')]);
-        }
-    }
-
-    /**
-     * The aliases are stored as JSON and edited as one comma-separated line.
-     *
-     * @return array<string, mixed>
-     */
-    public function toRow(Model $m): array
-    {
-        return array_merge(parent::toRow($m), [
-            // `stage_id` is a select, so the grid resolves the stage's name from the field's own options.
-            'status_aliases' => $m instanceof StageProcess ? implode(', ', $m->aliasList()) : '',
-        ]);
-    }
-
-    /** @param array<string, mixed> $data */
-    public function fill(Model $m, array $data): void
-    {
-        $m->fill(collect($data)->except('status_aliases')->all());
-        $m->setAttribute('status_aliases', self::parseAliases($data['status_aliases'] ?? null));
     }
 
     /**
@@ -142,23 +103,5 @@ class StageProcessResource extends MasterResource
         }
 
         return $options;
-    }
-
-    /**
-     * "DISPATCHED, RF-DISP, DISP *" -> ['DISPATCHED', 'RF-DISP', 'DISP *'], blanks and repeats dropped. The
-     * aliases are kept as the operator typed them (the resolver normalises when it compares), so the screen
-     * shows back exactly what was entered.
-     *
-     * @return list<string>
-     */
-    private static function parseAliases(mixed $value): array
-    {
-        if (! is_string($value) || trim($value) === '') {
-            return [];
-        }
-
-        $aliases = array_filter(array_map('trim', explode(self::ALIAS_SEPARATOR, $value)), fn (string $a): bool => $a !== '');
-
-        return array_values(array_unique($aliases));
     }
 }

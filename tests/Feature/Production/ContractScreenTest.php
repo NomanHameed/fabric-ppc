@@ -23,8 +23,8 @@ beforeEach(function () {
 });
 
 it('lists POs with their lot totals, summed in the database', function () {
-    $a = Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_qty' => 100]);
-    Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_qty' => 50]);
+    $a = Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_received_oracle' => 100]);
+    Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_received_oracle' => 50]);
     app(LedgerService::class)->post($a, 'import', null, Position::stock(), 0, 100);
 
     $this->actingAs($this->viewer)->get('/production/contracts')->assertOk()
@@ -37,12 +37,12 @@ it('lists POs with their lot totals, summed in the database', function () {
             ->where('contracts.0.po_date', '17-08-2026')
             ->where('contracts.0.contract_qty', 500)
             ->where('contracts.0.lots_count', 2)
-            ->where('contracts.0.greige_qty', 150)
-            ->where('contracts.0.stock_qty', 100)
-            ->where('contracts.0.issued_qty', 0)
-            ->where('contracts.0.wip_qty', 0)
-            ->where('contracts.0.finished_qty', 0)
-            ->where('contracts.0.dispatched_qty', 0)
+            ->where('contracts.0.greige_received_oracle', 150)
+            ->where('contracts.0.greige_in_stock_oracle', 100)
+            ->where('contracts.0.qty_issued', 0)
+            ->where('contracts.0.wip', 0)
+            ->where('contracts.0.finished', 0)
+            ->where('contracts.0.dispatch', 0)
             ->where('contracts.0.loss_qty', 0)
             ->where('contracts.0.oracle_missing_at', null)
             ->where('contractsTotal', 1));
@@ -51,18 +51,20 @@ it('lists POs with their lot totals, summed in the database', function () {
 it('lists a PO with no lots at all, with zero totals', function () {
     $this->actingAs($this->viewer)->get('/production/contracts')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)
-            ->where('contracts.0.lots_count', 0)->where('contracts.0.greige_qty', 0));
+            ->where('contracts.0.lots_count', 0)->where('contracts.0.greige_received_oracle', 0));
 });
 
 it('totals every lot of a PO, not only the ones a capped page would show', function () {
-    $lot = Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_qty' => 7]);
+    $lot = Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_received_oracle' => 7]);
     $rows = [];
     $now = now();
     for ($i = 0; $i < 250; $i++) {
         $rows[] = [
-            'oracle_line_id' => 700000 + $i, 'lot_no' => (string) (500000 + $i), 'contract_id' => $this->contract->id,
-            'quality_id' => $lot->quality_id, 'po_type' => 'DYED', 'greige_qty' => 2, 'stock_qty' => 1,
+            'oracle_line_id' => 700000 + $i, 'lot_no_oracle' => (string) (500000 + $i), 'contract_id' => $this->contract->id,
+            'quality_id' => $lot->quality_id, 'po_type_oracle' => 'DYED', 'greige_received_oracle' => 2, 'greige_in_stock_oracle' => 1,
             'state' => 'open', 'created_at' => $now, 'updated_at' => $now,
+            'party_oracle_name' => $lot->party_oracle_name, 'po_no' => $lot->po_no,
+            'date_oracle' => $lot->date_oracle, 'quality' => $lot->quality,
         ];
     }
     DB::table('lots')->insert($rows);
@@ -70,20 +72,20 @@ it('totals every lot of a PO, not only the ones a capped page would show', funct
     $this->actingAs($this->viewer)->get('/production/contracts')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)
             ->where('contracts.0.lots_count', 251)
-            ->where('contracts.0.greige_qty', 507)   // 7 + 250 × 2
-            ->where('contracts.0.stock_qty', 250));  // 250 × 1
+            ->where('contracts.0.greige_received_oracle', 507)   // 7 + 250 × 2
+            ->where('contracts.0.greige_in_stock_oracle', 250));  // 250 × 1
 });
 
 it('totals every lot of a PO whatever state it is in', function () {
     // held, closed and cancelled lots are still part of the PO: their metres belong in its totals
     foreach (['open', 'hold', 'closed', 'cancelled'] as $state) {
-        Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_qty' => 10, 'state' => $state]);
+        Lot::factory()->create(['contract_id' => $this->contract->id, 'greige_received_oracle' => 10, 'state' => $state]);
     }
 
     $this->actingAs($this->viewer)->get('/production/contracts')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)
             ->where('contracts.0.lots_count', 4)
-            ->where('contracts.0.greige_qty', 40));
+            ->where('contracts.0.greige_received_oracle', 40));
 });
 
 it('filters by PO number, party, ref, PO date and the Oracle-missing flag', function () {

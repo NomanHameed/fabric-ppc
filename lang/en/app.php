@@ -20,6 +20,7 @@ return [
         'lots' => 'Lots',
         'contracts' => 'POs / Contracts',
         'sheets' => 'Production Sheets',
+        'reports' => 'Reports',
         'inquiry' => 'Inquiry',
         'search' => 'Lot / PO Search',
         'masters' => 'Masters',

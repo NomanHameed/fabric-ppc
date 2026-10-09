@@ -26,7 +26,7 @@ class LotTimelineController extends Controller
         ]);
 
         return response()->json([
-            'lot' => ['id' => $lot->id, 'lot_no' => $lot->lot_no, 'state' => $lot->state],
+            'lot' => ['id' => $lot->id, 'lot_no_oracle' => $lot->lot_no_oracle, 'state' => $lot->state],
             'events' => $this->timeline->toArray($lot, $filters['types'] ?? [], $filters['limit'] ?? null),
         ]);
     }

@@ -6,7 +6,6 @@ use App\Modules\Foundation\Models\Machine;
 use App\Modules\Foundation\Models\Operation;
 use App\Modules\Foundation\Models\Shift;
 use App\Modules\Foundation\Models\Stage;
-use App\Modules\Foundation\Models\StageProcess;
 use App\Modules\Production\Ledger\Position;
 use App\Modules\Production\Models\Lot;
 use App\Modules\Production\Services\LedgerService;
@@ -33,18 +32,18 @@ beforeEach(function () {
     $this->ledger = app(LedgerService::class);
     $this->routes = app(LotRouteService::class);
 
-    $this->hold = StageProcess::query()->where('code', 'HOLD')->firstOrFail();
-    $this->dyeing = StageProcess::query()->where('code', 'DYEING')->firstOrFail();
+    $this->hold = Stage::query()->where('code', 'EXCEPTION')->firstOrFail();
+    $this->dyeing = Stage::query()->where('code', 'DYEING')->firstOrFail();
 
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 1000, 'colour_status' => 'APPROVED']);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 1000, 'clr_status_oracle' => 'APPROVED']);
     $this->routes->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 1000);
 });
 
-/** Pin the lot on the Hold process, as the screen does. */
+/** Pin the lot on the Exception / Hold stage, as the screen does. */
 function pinHold(): array
 {
-    return ['stage_id' => test()->hold->stage_id, 'stage_process_id' => test()->hold->id];
+    return ['stage_id' => test()->hold->id];
 }
 
 // ---- setting and clearing -------------------------------------------------------------------------------------
@@ -53,12 +52,11 @@ it('pins the stage, records who and when, and audits it', function () {
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())->assertRedirect();
 
     $lot = $this->lot->fresh();
-    expect($lot->stage_id)->toBe((int) $this->hold->stage_id)
-        ->and($lot->stage_process_id)->toBe((int) $this->hold->id)
+    expect($lot->stage_id)->toBe((int) $this->hold->id)
         ->and($lot->stage_overridden_at)->not->toBeNull()
         ->and($lot->stage_overridden_by)->toBe($this->ppc->id)
         ->and($lot->audits()->latest('id')->first()->new_values)
-        ->toHaveKeys(['stage_id', 'stage_process_id', 'stage_overridden_at', 'stage_overridden_by']);
+        ->toHaveKeys(['stage_id', 'stage_overridden_at', 'stage_overridden_by']);
 });
 
 it('keeps the pinned stage through an issue and a production sheet while the status moves on', function () {
@@ -80,36 +78,35 @@ it('keeps the pinned stage through an issue and a production sheet while the sta
     ]], $this->ppc);
 
     $after = $this->lot->fresh();
-    expect($after->current_label)->not->toBe($pinned->current_label)   // the status did move
+    expect($after->status_oracle)->not->toBe($pinned->status_oracle)   // the status did move
         ->and($after->stage_id)->toBe($pinned->stage_id)               // the stage did not
-        ->and($after->stage_process_id)->toBe($pinned->stage_process_id)
-        ->and($after->wip_qty)->not->toEqual($pinned->wip_qty);        // and the quantities are still written
+        ->and($after->wip)->not->toEqual($pinned->wip);        // and the quantities are still written
 });
 
 it('re-derives the stage the moment the override is cleared', function () {
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 1000, 1000);
-    $derived = $this->lot->fresh()->stage_process_id;
+    $derived = $this->lot->fresh()->stage_id;
     expect($derived)->not->toBeNull();
 
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())->assertRedirect();
-    expect($this->lot->fresh()->stage_process_id)->toBe((int) $this->hold->id);
+    expect($this->lot->fresh()->stage_id)->toBe((int) $this->hold->id);
 
     $this->actingAs($this->ppc)->delete("/production/lots/{$this->lot->id}/stage")->assertRedirect();
 
     $lot = $this->lot->fresh();
     expect($lot->stage_overridden_at)->toBeNull()
         ->and($lot->stage_overridden_by)->toBeNull()
-        ->and($lot->stage_process_id)->toBe($derived);   // back to the derived value at once
+        ->and($lot->stage_id)->toBe($derived);   // back to the derived value at once
 });
 
 it('clears to null when the lot\'s own status is not mapped', function () {
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())->assertRedirect();
-    DB::table('lots')->where('id', $this->lot->id)->update(['current_label' => 'NOT A STATUS/']);
+    DB::table('lots')->where('id', $this->lot->id)->update(['status_oracle' => 'NOT A STATUS/']);
 
     $this->actingAs($this->ppc)->delete("/production/lots/{$this->lot->id}/stage")->assertRedirect();
 
     $lot = $this->lot->fresh();
-    expect($lot->stage_id)->toBeNull()->and($lot->stage_process_id)->toBeNull()
+    expect($lot->stage_id)->toBeNull()
         ->and($lot->stage_overridden_at)->toBeNull();
 });
 
@@ -126,62 +123,48 @@ it('refuses the override to anyone without production.route.manage', function ()
 
 it('refuses before validating, so a malformed payload still gets 403 and not a 422', function () {
     $this->actingAs($this->viewer)
-        ->put("/production/lots/{$this->lot->id}/stage", ['stage_id' => ['nonsense'], 'stage_process_id' => null])
+        ->put("/production/lots/{$this->lot->id}/stage", ['stage_id' => ['nonsense']])
         ->assertForbidden();
 });
 
 it('cannot be written through the ordinary lot update, whatever shape the payload takes', function () {
     $lot = $this->lot;
     $payloads = [
-        ['colour_status' => 'APPROVED', 'stage_id' => $this->hold->stage_id, 'stage_process_id' => $this->hold->id],
+        ['clr_status_oracle' => 'APPROVED', 'stage_id' => $this->hold->id],
         ['remarks' => 'x', 'stage_overridden_at' => now()->toDateTimeString(), 'stage_overridden_by' => $this->ppc->id],
-        ['remarks' => 'y', 'stage' => ['id' => $this->hold->stage_id], 'stage_process' => ['id' => $this->hold->id]],
-        ['remarks' => 'z', 'lot.stage_id' => $this->hold->stage_id],
+        ['remarks' => 'y', 'stage' => ['id' => $this->hold->id]],
+        ['remarks' => 'z', 'lot.stage_id' => $this->hold->id],
         // a POST spoofed as the PUT the screen uses
-        ['_method' => 'PUT', 'remarks' => 'w', 'stage_id' => $this->hold->stage_id],
+        ['_method' => 'PUT', 'remarks' => 'w', 'stage_id' => $this->hold->id],
     ];
 
     foreach ($payloads as $payload) {
         $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", $payload);
         $fresh = $lot->fresh();
         expect($fresh->stage_overridden_at)->toBeNull()
-            ->and($fresh->stage_id)->toBe($lot->stage_id)
-            ->and($fresh->stage_process_id)->toBe($lot->stage_process_id);
+            ->and($fresh->stage_id)->toBe($lot->stage_id);
     }
 
-    $this->actingAs($this->ppc)->post("/production/lots/{$lot->id}", ['_method' => 'PUT', 'remarks' => 'v', 'stage_id' => $this->hold->stage_id]);
+    $this->actingAs($this->ppc)->post("/production/lots/{$lot->id}", ['_method' => 'PUT', 'remarks' => 'v', 'stage_id' => $this->hold->id]);
     expect($lot->fresh()->stage_overridden_at)->toBeNull();
 });
 
 // ---- what may be pinned -------------------------------------------------------------------------------------
 
-it('rejects a process that belongs to another stage', function () {
-    $this->actingAs($this->ppc)
-        ->put("/production/lots/{$this->lot->id}/stage", ['stage_id' => $this->hold->stage_id, 'stage_process_id' => $this->dyeing->id])
-        ->assertSessionHasErrors('stage_process_id');
-
-    expect($this->lot->fresh()->stage_overridden_at)->toBeNull();
-});
-
-it('rejects an inactive stage or an inactive process', function () {
-    Stage::query()->whereKey($this->hold->stage_id)->update(['is_active' => false]);
+it('rejects an inactive stage', function () {
+    Stage::query()->whereKey($this->hold->id)->update(['is_active' => false]);
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())
         ->assertSessionHasErrors('stage_id');
 
-    Stage::query()->whereKey($this->hold->stage_id)->update(['is_active' => true]);
-    StageProcess::query()->whereKey($this->hold->id)->update(['is_active' => false]);
-    $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())
-        ->assertSessionHasErrors('stage_process_id');
-
     expect($this->lot->fresh()->stage_overridden_at)->toBeNull();
 });
 
-it('rejects a stage or process that does not exist', function () {
-    $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", ['stage_id' => 999999, 'stage_process_id' => 999999])
-        ->assertSessionHasErrors(['stage_id', 'stage_process_id']);
+it('rejects a stage that does not exist, and a payload with no stage at all', function () {
+    $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", ['stage_id' => 999999])
+        ->assertSessionHasErrors(['stage_id']);
 
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", [])
-        ->assertSessionHasErrors(['stage_id', 'stage_process_id']);
+        ->assertSessionHasErrors(['stage_id']);
 });
 
 // ---- the screen ----------------------------------------------------------------------------------------------
@@ -191,10 +174,8 @@ it('shows the stage, the override and who set it on the Lots screen', function (
 
     $this->actingAs($this->ppc)->get('/production/lots')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p
-            ->where('lots.0.stage_id', (int) $this->hold->stage_id)
-            ->where('lots.0.stage', Stage::query()->whereKey($this->hold->stage_id)->value('name'))
-            ->where('lots.0.stage_process_id', (int) $this->hold->id)
-            ->where('lots.0.stage_process', $this->hold->name)
+            ->where('lots.0.stage_id', (int) $this->hold->id)
+            ->where('lots.0.stage', $this->hold->name)
             ->where('lots.0.stage_overridden', true)
             ->where('lots.0.stage_overridden_by', $this->ppc->name)
             ->where('can.stage', true));
@@ -203,15 +184,14 @@ it('shows the stage, the override and who set it on the Lots screen', function (
         ->assertInertia(fn (AssertableInertia $p) => $p->where('can.stage', false));
 });
 
-it('queries lots by stage and by stage process', function () {
+it('queries lots by stage', function () {
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())->assertRedirect();
-    $other = Lot::factory()->create(['greige_qty' => 10]);
+    $other = Lot::factory()->create(['greige_received_oracle' => 10]);
     $this->ledger->post($other, 'import', null, Position::stock(), 0, 10);
+    // the other lot is all in greige stock, so it resolves to Greige rather than to no stage at all
+    DB::table('lots')->where('id', $other->id)->update(['stage_id' => null]);
 
     $this->actingAs($this->ppc)->get('/production/lots?q[stage]=Exception%25')
-        ->assertInertia(fn (AssertableInertia $p) => $p->has('lots', 1)->where('lots.0.id', $this->lot->id));
-
-    $this->actingAs($this->ppc)->get('/production/lots?q[stage_process]=Hold')
         ->assertInertia(fn (AssertableInertia $p) => $p->has('lots', 1)->where('lots.0.id', $this->lot->id));
 
     // a lot with no stage is still listed by the default query (left join, not inner)
@@ -224,11 +204,11 @@ it('queries lots by stage and by stage process', function () {
 it('skips overridden lots in production:sync-stages and counts them separately', function () {
     User::factory()->create()->assignRole('admin');
     $this->actingAs($this->ppc)->put("/production/lots/{$this->lot->id}/stage", pinHold())->assertRedirect();
-    DB::table('lots')->where('id', $this->lot->id)->update(['current_label' => 'DYEING/']);
+    DB::table('lots')->where('id', $this->lot->id)->update(['status_oracle' => 'DYEING/']);
 
     $this->artisan('production:sync-stages')
         ->expectsOutputToContain('1 skipped (stage overridden by hand)')
         ->assertSuccessful();
 
-    expect($this->lot->fresh()->stage_process_id)->toBe((int) $this->hold->id);
+    expect($this->lot->fresh()->stage_id)->toBe((int) $this->hold->id);
 });

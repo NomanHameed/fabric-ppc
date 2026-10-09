@@ -32,8 +32,8 @@ class ContractLov implements LovDefinition
     public function query(array $filters): Builder
     {
         return Contract::query()->with('party')
-            ->withCount(['lots as open_lots' => fn ($q) => $q->where('state', 'open')->where('stock_qty', '>', 0)])
-            ->withSum(['lots as open_stock_qty' => fn ($q) => $q->where('state', 'open')], 'stock_qty');
+            ->withCount(['lots as open_lots' => fn ($q) => $q->where('state', 'open')->where('greige_in_stock_oracle', '>', 0)])
+            ->withSum(['lots as open_stock_qty' => fn ($q) => $q->where('state', 'open')], 'greige_in_stock_oracle');
     }
 
     public function searchColumns(): array
@@ -50,7 +50,7 @@ class ContractLov implements LovDefinition
     {
         return [
             'id' => $m->id, 'code' => (string) $m->po_no, 'label' => (string) $m->po_no, 'ref_no' => $m->ref_no, 'party' => $m->party->name,
-            'open_lots' => (int) $m->getAttribute('open_lots'), 'stock_qty' => (float) ($m->getAttribute('open_stock_qty') ?? 0),
+            'open_lots' => (int) $m->getAttribute('open_lots'), 'greige_in_stock_oracle' => (float) ($m->getAttribute('open_stock_qty') ?? 0),
         ];
     }
 }

@@ -75,7 +75,7 @@ final class ProductionSheetService
     /** @var list<string> the totals columns: the whole sheet, then per output type */
     public const OUTPUT_GROUPS = ['all', 'dyed', 'print', 'other'];
 
-    /** @var array<int, string>|null colour_status codes flagged approved, cached per save */
+    /** @var array<int, string>|null clr_status_oracle codes flagged approved, cached per save */
     private ?array $approvedCodes = null;
 
     /** @var array<string, string> position value => human label, memoised per save (a sheet reuses few steps) */
@@ -232,7 +232,7 @@ final class ProductionSheetService
      */
     public function lotContext(Lot $lot, int $departmentId): array
     {
-        $lot->loadMissing(['contract.party', 'quality']);
+        $lot->loadMissing('contract.party');
         $balances = $this->ledger->balances($lot);
         // one read of the route: positions, the default and next steps and the metres at each source all come from it
         $steps = $lot->routeSteps()->with('operation.department')->get();
@@ -243,12 +243,12 @@ final class ProductionSheetService
         $floor = $this->floorPosition($balances);
 
         return [
-            'lot_id' => $lot->id, 'lot_no' => $lot->lot_no, 'po_no' => $lot->contract->po_no, 'party' => $lot->contract->party->name,
-            'quality' => $lot->quality?->description, 'design' => $lot->design, 'colour' => $lot->colour, 'po_type' => $lot->po_type,
-            'state' => $lot->state, 'current_label' => $lot->current_label,
-            'colour_status' => $lot->colour_status, 'colour_approved' => $this->colourApproved($lot),
+            'lot_id' => $lot->id, 'lot_no_oracle' => $lot->lot_no_oracle, 'po_no' => $lot->contract->po_no, 'party' => $lot->contract->party->name,
+            'quality' => $lot->quality, 'design' => $lot->design, 'color_oracle_name' => $lot->color_oracle_name, 'po_type_oracle' => $lot->po_type_oracle,
+            'state' => $lot->state, 'status_oracle' => $lot->status_oracle,
+            'clr_status_oracle' => $lot->clr_status_oracle, 'colour_approved' => $this->colourApproved($lot),
             'balances' => $balances,
-            'g_width' => $lot->g_width === null ? null : (float) $lot->g_width, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
+            'gw_oracle' => $lot->gw_oracle === null ? null : (float) $lot->gw_oracle, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
             'default_step_id' => $default?->id,
             'next_step_id' => $pending(null)?->id,
             'floor_position' => $floor?->value(),
@@ -326,7 +326,7 @@ final class ProductionSheetService
         // LotTimelineService renders it as such.
         if (! $from->equals($to)) {
             $labels = [
-                'lot' => $lot->lot_no,
+                'lot' => $lot->lot_no_oracle,
                 'from' => $this->positionLabel($from),
                 'to' => $this->positionLabel($to),
             ];
@@ -388,7 +388,7 @@ final class ProductionSheetService
                 $this->ledger->reverse($m, $user->getKey(), __('production.reasons.line_edited'));
             } catch (DomainException) { // InsufficientQuantity (metres moved on) or already reversed
                 throw ValidationException::withMessages([
-                    $row === null ? 'lines' : "lines.{$row}.qty_in" => __('production.errors.cannot_unpost', ['lot' => $lot->lot_no, 'line' => $line->line_no]),
+                    $row === null ? 'lines' : "lines.{$row}.qty_in" => __('production.errors.cannot_unpost', ['lot' => $lot->lot_no_oracle, 'line' => $line->line_no]),
                 ]);
             }
         }
@@ -435,7 +435,7 @@ final class ProductionSheetService
         }
 
         $position = $this->floorPosition($balances)
-            ?? throw ValidationException::withMessages(["lines.{$i}.qty_in" => __('production.errors.nothing_on_floor', ['lot' => $lot->lot_no])]);
+            ?? throw ValidationException::withMessages(["lines.{$i}.qty_in" => __('production.errors.nothing_on_floor', ['lot' => $lot->lot_no_oracle])]);
 
         return [null, $position, $position];
     }
@@ -561,7 +561,7 @@ final class ProductionSheetService
             'batch_no' => $p['batch_no'] ?? null,
             'remarks' => $p['remarks'] ?? null,
             'output_type' => $p['output_type'] ?? $operation?->finish_type,
-            'g_width' => $width($p['g_width'] ?? null, $lot->g_width),
+            'g_width' => $width($p['g_width'] ?? null, $lot->gw_oracle),
             'f_width' => $width($p['f_width'] ?? null, $lot->f_width),
         ];
     }
@@ -631,19 +631,19 @@ final class ProductionSheetService
     }
 
     /**
-     * Spec §5.4: approved means the lot's colour_status code carries the lookup's `approved` flag. A deactivated
-     * colour_status value that still carries `meta.approved` passes the gate (ruling): the lot was approved under it.
+     * Spec §5.4: approved means the lot's clr_status_oracle code carries the lookup's `approved` flag. A deactivated
+     * clr_status_oracle value that still carries `meta.approved` passes the gate (ruling): the lot was approved under it.
      */
     private function colourApproved(Lot $lot): bool
     {
-        if ($lot->colour_status === null) {
+        if ($lot->clr_status_oracle === null) {
             return false;
         }
         $this->approvedCodes ??= LookupValue::query()->list(self::COLOUR_STATUS_LIST)->get()
             ->filter(fn (LookupValue $v) => (bool) ($v->meta['approved'] ?? false))
             ->map(fn (LookupValue $v): string => (string) $v->code)->values()->all();
 
-        return in_array($lot->colour_status, $this->approvedCodes, true);
+        return in_array($lot->clr_status_oracle, $this->approvedCodes, true);
     }
 
     /** A reprocess line needs an active `reprocess_reason` code. */

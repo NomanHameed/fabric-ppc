@@ -19,9 +19,9 @@ beforeEach(function () {
     // explicit PO numbers, so no factory PO can collide with a lot number under test
     $this->po1 = Contract::factory()->create(['po_no' => 261071]);
     $this->po2 = Contract::factory()->create(['po_no' => 261072]);
-    $this->a = Lot::factory()->create(['lot_no' => '264899', 'contract_id' => $this->po1->id, 'design' => 'D1', 'colour' => 'RED']);
-    $this->b = Lot::factory()->create(['lot_no' => '264899', 'contract_id' => $this->po2->id, 'design' => 'D2', 'colour' => 'BLUE', 'state' => 'closed']);
-    $this->c = Lot::factory()->create(['lot_no' => '265025', 'contract_id' => $this->po1->id, 'state' => 'cancelled']);
+    $this->a = Lot::factory()->create(['lot_no_oracle' => '264899', 'contract_id' => $this->po1->id, 'design' => 'D1', 'color_oracle_name' => 'RED']);
+    $this->b = Lot::factory()->create(['lot_no_oracle' => '264899', 'contract_id' => $this->po2->id, 'design' => 'D2', 'color_oracle_name' => 'BLUE', 'state' => 'closed']);
+    $this->c = Lot::factory()->create(['lot_no_oracle' => '265025', 'contract_id' => $this->po1->id, 'state' => 'cancelled']);
 });
 
 it('redirects a unique lot number straight to the lot, whatever its state', function () {
@@ -33,9 +33,9 @@ it('offers a chooser when several lots share the number, with PO, party, design,
     $this->get('/search?q=264899')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->component('inquiry/SearchResults')->where('q', '264899')
             ->has('lots', 2)->where('lotsTotal', 2)->has('contracts', 0)
-            ->has('lots.0', fn (AssertableInertia $l) => $l->where('id', $this->b->id)->where('lot_no', '264899')->where('po_no', 261072) // latest first
-                ->where('party', $this->po2->party->name)->where('design', 'D2')->where('colour', 'BLUE')->where('state', 'closed')->where('current_label', null)
-                ->has('quality')->has('stock_qty')->has('wip_qty')->has('finished_qty'))
+            ->has('lots.0', fn (AssertableInertia $l) => $l->where('id', $this->b->id)->where('lot_no_oracle', '264899')->where('po_no', 261072) // latest first
+                ->where('party', $this->po2->party->name)->where('design', 'D2')->where('color_oracle_name', 'BLUE')->where('state', 'closed')->where('status_oracle', null)
+                ->has('quality')->has('greige_in_stock_oracle')->has('wip')->has('finished'))
             ->has('lots.1', fn (AssertableInertia $l) => $l->where('id', $this->a->id)->where('po_no', 261071)->where('design', 'D1')->etc()));
 });
 
@@ -64,7 +64,7 @@ it('shows the empty state for text, an unknown number and no query', function ()
 
 it('caps the chooser at 200 lots and reports the total', function () {
     for ($i = 0; $i < 201; $i++) {
-        Lot::factory()->create(['lot_no' => '300777', 'contract_id' => $this->po1->id]);
+        Lot::factory()->create(['lot_no_oracle' => '300777', 'contract_id' => $this->po1->id]);
     }
     $this->get('/search?q=0777')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('lots', SearchController::ROW_CAP)->where('lotsTotal', 201));

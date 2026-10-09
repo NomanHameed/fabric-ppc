@@ -2,7 +2,11 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, reactive } from 'vue';
 import { setTranslations } from '@/lib/i18n';
-import type { LotScreenRow } from '@/types/production';
+import type {
+    FlatLotRow,
+    LotGridShape,
+    LotScreenRow,
+} from '@/types/production';
 
 /*
  * The Lots screen's Oracle-Forms guarantees that only a mounted page can show: a state action (Hold /
@@ -111,15 +115,31 @@ function selectStub(name: string, testid: string) {
 vi.mock('@/components/stages/StageSelect.vue', () =>
     selectStub('StageSelect', 'stage-select'),
 );
-vi.mock('@/components/stages/StageProcessSelect.vue', () =>
-    selectStub('StageProcessSelect', 'stage-process-select'),
-);
+
+/**
+ * Every DataGrid the page mounted, in order, with the props it was given. The real grid is AG Grid, so the
+ * columns it was handed are the only place the flat shape's column set can be asserted.
+ */
+const grids: { rows: unknown[]; columns: ColumnLike[] }[] = [];
+type ColumnLike = {
+    field?: string;
+    headerName?: string;
+    valueFormatter?: (p: { value: unknown }) => string;
+};
 
 vi.mock('@/components/forms/DataGrid.vue', () => ({
     default: defineComponent({
         name: 'DataGrid',
-        props: { rows: { type: Array, default: () => [] } },
-        setup: () => () => null,
+        props: {
+            rows: { type: Array, default: () => [] },
+            columns: { type: Array, default: () => [] },
+        },
+        setup: (props) => {
+            grids.push(
+                props as unknown as { rows: unknown[]; columns: ColumnLike[] },
+            );
+            return () => null;
+        },
     }),
 }));
 vi.mock('@/components/forms/ConfirmSaveDialog.vue', () =>
@@ -134,7 +154,7 @@ vi.mock('@/components/forms/ReasonDialog.vue', () =>
 
 const lot: LotScreenRow = {
     id: 7,
-    lot_no: '264899',
+    lot_no_oracle: '264899',
     contract_id: 3,
     po_no: 261071,
     party: 'NORMAL PARTY',
@@ -143,39 +163,67 @@ const lot: LotScreenRow = {
     quality: '88X60/30X30 100% VISCOSE',
     gsm: null,
     design: 'E1143/119',
-    colour: '520 PLUM',
-    colour_status: 'DIP',
-    g_width: null,
+    color_oracle_name: '520 PLUM',
+    clr_status_oracle: 'DIP',
+    gw_oracle: null,
     f_width: null,
-    po_type: 'DYED',
+    po_type_oracle: 'DYED',
     state: 'open',
     hold_reason: null,
     cancel_reason: null,
     state_changed_at: null,
-    current_label: null,
+    status_oracle: null,
     process_flag: 'pending',
     stage_id: null,
     stage: null,
-    stage_process_id: null,
-    stage_process: null,
     stage_overridden: false,
     stage_overridden_at: null,
     stage_overridden_by: null,
-    greige_qty: 300,
-    stock_qty: 300,
-    issued_qty: 0,
-    wip_qty: 0,
-    finished_qty: 0,
-    dispatched_qty: 0,
+    greige_received_oracle: 300,
+    greige_in_stock_oracle: 300,
+    qty_issued: 0,
+    wip: 0,
+    finished: 0,
+    dispatch: 0,
     loss_qty: 0,
     last_movement_at: null,
     oracle_missing_at: null,
     remarks: null,
 };
 
+/** The flat, Oracle-shaped payload of the same lot: the mill's own field names over the same columns. */
+const flatLot: FlatLotRow = {
+    party_oracle_id: 7731,
+    party_oracle_name: 'ALKARAM TEXTILE',
+    po_no: 261071,
+    ref: 'REF-1',
+    design_oracle_id: 'D-1143',
+    color_oracle_id: 'C520',
+    color_oracle_name: '520 PLUM',
+    clr_status_oracle: 'DIP',
+    po_type_oracle: 'DYED',
+    date_oracle: '17-08-2026',
+    lot_no_oracle: '264899',
+    quality: '88X60/30X30 100% VISCOSE',
+    gw_oracle: null,
+    status_oracle: 'DYEING/',
+    greige_received_oracle: 300,
+    greige_in_stock_oracle: 10.5,
+    qty_issued: 20.25,
+    wip: 30,
+    finished: 0,
+    dispatch: 0,
+    stage_id: 2,
+    stage_name: 'Dyeing',
+    stage_process_id: null,
+    stage_process_name: null,
+    lot_id: 7,
+};
+
 async function mountLots(
     can = { colour: true, remarks: true, hold: true, route: true, stage: true },
     rows: LotScreenRow[] = [lot],
+    extra: { shape?: LotGridShape; flatLots?: FlatLotRow[] } = {},
 ) {
     const { default: Lots } = await import('@/pages/production/Lots.vue');
     const wrapper = mount(Lots, {
@@ -190,6 +238,7 @@ async function mountLots(
             holdReasons: [{ value: 'QUALITY', label: 'Quality issue' }],
             can,
             criteria: {},
+            ...extra,
         },
     });
     await flushPromises();
@@ -219,6 +268,7 @@ beforeEach(() => {
     get.mockClear();
     del.mockClear();
     visit.mockClear();
+    grids.length = 0;
     // Inertia always runs onFinish, whatever the server said; without it the page would stay "busy" and its
     // own buttons would be disabled for the rest of the test.
     const finish = (_url: unknown, opts?: { onFinish?: () => void }) =>
@@ -292,10 +342,7 @@ describe('Lots screen', () => {
         const wrapper = await mountLots();
 
         const stage = () => wrapper.get('[data-testid="stage-select"]');
-        const process = () =>
-            wrapper.get('[data-testid="stage-process-select"]');
         expect(stage().attributes('disabled')).toBe('');
-        expect(process().attributes('disabled')).toBe('');
         // a lot whose status nothing maps says so rather than looking like a lost figure
         expect(wrapper.text()).toContain('production.lots.stage_none');
 
@@ -305,21 +352,17 @@ describe('Lots screen', () => {
         await flushPromises();
 
         expect(stage().attributes('disabled')).toBe(undefined);
-        expect(process().attributes('disabled')).toBe(undefined);
         expect(wrapper.text()).toContain('production.lots.stage_override_hint');
         wrapper.unmount();
     });
 
-    it('puts the pinned pair to the stage endpoint, and cancelling leaves the lot alone', async () => {
+    it('puts the pinned stage to the stage endpoint, and cancelling leaves the lot alone', async () => {
         const wrapper = await mountLots();
 
         await textButton(wrapper, 'production.lots.stage_override').trigger(
             'click',
         );
         await wrapper.get('[data-testid="stage-select"]').setValue('4');
-        await wrapper
-            .get('[data-testid="stage-process-select"]')
-            .setValue('41');
         await flushPromises();
 
         await textButton(
@@ -360,8 +403,6 @@ describe('Lots screen', () => {
                     ...lot,
                     stage_id: 10,
                     stage: 'Exception / Hold',
-                    stage_process_id: 101,
-                    stage_process: 'Hold',
                     stage_overridden: true,
                     stage_overridden_at: '07-10-2026 11:30',
                     stage_overridden_by: 'Asma (PPC)',
@@ -420,6 +461,144 @@ describe('Lots screen', () => {
 
         expect(wrapper.text()).toContain('forms.query_mode');
         expect(toolbarButton(wrapper, 'save').attributes('disabled')).toBe('');
+        wrapper.unmount();
+    });
+});
+
+/*
+ * The grid's two shapes. The flat one is the Oracle-shaped payload the mill names its own fields by
+ * (`ProductionAnalyticsService::flatLots`); only the grid changes — the record form, the stage override and
+ * every state action still read `lots`.
+ */
+describe('Lots screen — the flat, Oracle-shaped grid', () => {
+    /** The last grid the page mounted. */
+    const lastGrid = () => grids[grids.length - 1];
+
+    it('shows the app’s own columns by default', async () => {
+        const wrapper = await mountLots();
+
+        expect(grids).toHaveLength(1);
+        expect(lastGrid().rows).toHaveLength(1);
+        // the app's own record, not the flat payload: the nested row names the party `party`, the flat one
+        // `party_oracle_name`, so the two shapes are told apart by the columns only one of them has
+        expect(lastGrid().columns.map((c) => c.field)).toContain('party');
+        expect(lastGrid().columns.map((c) => c.field)).not.toContain(
+            'party_oracle_name',
+        );
+        wrapper.unmount();
+    });
+
+    it('draws the flat payload under the mill’s own field names, in the report’s column order', async () => {
+        const wrapper = await mountLots(undefined, [lot], {
+            shape: 'flat',
+            flatLots: [flatLot],
+        });
+
+        const columns = lastGrid().columns;
+        expect(columns.map((c) => c.field)).toEqual([
+            'lot_no_oracle',
+            'po_no',
+            'ref',
+            'party_oracle_id',
+            'party_oracle_name',
+            'date_oracle',
+            'design_oracle_id',
+            'color_oracle_id',
+            'color_oracle_name',
+            'clr_status_oracle',
+            'po_type_oracle',
+            'quality',
+            'gw_oracle',
+            // the raw status beside the stage it resolves to — the stage never replaces the status
+            'status_oracle',
+            'stage_name',
+            'greige_received_oracle',
+            'greige_in_stock_oracle',
+            'qty_issued',
+            'wip',
+            'finished',
+            'dispatch',
+        ]);
+        // every header goes through t() in the `production.flat` group: no bare strings
+        expect(columns.map((c) => c.headerName)).toEqual(
+            columns.map((c) => `production.flat.${c.field}`),
+        );
+        // the keys the payload also carries are keys, not figures, so they are not columns
+        expect(columns.map((c) => c.field)).not.toContain('lot_id');
+        expect(columns.map((c) => c.field)).not.toContain('stage_id');
+        wrapper.unmount();
+    });
+
+    it('keys the flat rows by the lot’s own id and leaves an unmeasured width blank', async () => {
+        const wrapper = await mountLots(undefined, [lot], {
+            shape: 'flat',
+            flatLots: [flatLot],
+        });
+
+        // DataGrid keys its nodes by `id`; the payload's primary key is `lot_id`
+        expect(lastGrid().rows).toEqual([{ ...flatLot, id: flatLot.lot_id }]);
+
+        const format = (field: string) =>
+            lastGrid().columns.find((c) => c.field === field)?.valueFormatter;
+        // a null width is blank, not 0.00 — "not measured" and "zero" are different facts
+        expect(format('gw_oracle')?.({ value: null })).toBe('');
+        expect(format('gw_oracle')?.({ value: 63.5 })).toBe('63.50');
+        expect(format('wip')?.({ value: 30 })).toBe('30.00');
+        expect(format('wip')?.({ value: null })).toBe('');
+        wrapper.unmount();
+    });
+
+    it('swaps shapes on the server, asking for the flat payload only when it will draw it', async () => {
+        const wrapper = await mountLots();
+
+        await wrapper.get('[data-testid="shape-flat"]').trigger('click');
+        await flushPromises();
+
+        expect(get).toHaveBeenCalledTimes(1);
+        expect(get.mock.calls[0][0]).toBe('/production/lots');
+        expect(get.mock.calls[0][1]).toEqual({ q: {}, shape: 'flat' });
+        expect((get.mock.calls[0][2] as { only: string[] }).only).toContain(
+            'flatLots',
+        );
+        wrapper.unmount();
+    });
+
+    it('does not ask for the flat payload when switching back to the app’s columns', async () => {
+        const wrapper = await mountLots(undefined, [lot], {
+            shape: 'flat',
+            flatLots: [flatLot],
+        });
+
+        await wrapper.get('[data-testid="shape-nested"]').trigger('click');
+        await flushPromises();
+
+        expect(get.mock.calls[0][1]).toEqual({ q: {}, shape: 'nested' });
+        expect((get.mock.calls[0][2] as { only: string[] }).only).not.toContain(
+            'flatLots',
+        );
+
+        // asking for the shape already on screen is not a round trip at all
+        get.mockClear();
+        await wrapper.get('[data-testid="shape-flat"]').trigger('click');
+        await flushPromises();
+        expect(get).not.toHaveBeenCalled();
+        wrapper.unmount();
+    });
+
+    it('sends the shape swap through the unsaved guard', async () => {
+        const wrapper = await mountLots();
+
+        await wrapper.get('#lot-remarks').setValue('rush this lot');
+        await flushPromises();
+
+        await wrapper.get('[data-testid="shape-flat"]').trigger('click');
+        await flushPromises();
+
+        // the Save/Discard/Cancel prompt is up and nothing has been fetched yet
+        expect(wrapper.find('[data-testid="unsaved-dialog"]').exists()).toBe(
+            true,
+        );
+        expect(get).not.toHaveBeenCalled();
         wrapper.unmount();
     });
 });

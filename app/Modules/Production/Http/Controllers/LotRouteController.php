@@ -36,18 +36,18 @@ class LotRouteController extends Controller
     public function index(Request $request): Response
     {
         $lot = $request->filled('lot')
-            ? Lot::query()->with(['contract.party', 'quality'])->findOrFail($request->integer('lot'))
+            ? Lot::query()->with('contract.party')->findOrFail($request->integer('lot'))
             : null;
         $balances = $lot === null ? [] : $this->ledger->balances($lot);
         $locked = $lot === null ? [] : $this->routes->lockedStepIds($lot);
 
         return Inertia::render('production/LotRoute', [
             'lot' => $lot === null ? null : [
-                'id' => $lot->id, 'lot_no' => $lot->lot_no, 'po_no' => $lot->contract->po_no, 'party' => $lot->contract->party->name,
-                'contract_id' => $lot->contract_id, 'quality' => $lot->quality?->description, 'design' => $lot->design, 'colour' => $lot->colour,
-                'po_type' => $lot->po_type, 'state' => $lot->state, 'current_label' => $lot->current_label,
-                'stock_qty' => (float) $lot->stock_qty, 'issued' => (float) ($balances[Position::ISSUED] ?? 0),
-                'wip_qty' => (float) $lot->wip_qty, 'finished_qty' => (float) $lot->finished_qty,
+                'id' => $lot->id, 'lot_no_oracle' => $lot->lot_no_oracle, 'po_no' => $lot->contract->po_no, 'party' => $lot->contract->party->name,
+                'contract_id' => $lot->contract_id, 'quality' => $lot->quality, 'design' => $lot->design, 'color_oracle_name' => $lot->color_oracle_name,
+                'po_type_oracle' => $lot->po_type_oracle, 'state' => $lot->state, 'status_oracle' => $lot->status_oracle,
+                'greige_in_stock_oracle' => (float) $lot->greige_in_stock_oracle, 'issued' => (float) ($balances[Position::ISSUED] ?? 0),
+                'wip' => (float) $lot->wip, 'finished' => (float) $lot->finished,
             ],
             'steps' => $lot === null ? [] : $lot->routeSteps()->with('operation.department')->get()
                 ->map(fn (LotRouteStep $s): array => $this->stepRow($s, $balances, $locked))->values(),
@@ -121,7 +121,7 @@ class LotRouteController extends Controller
         } catch (DomainException $e) {
             throw ValidationException::withMessages(['route_template_id' => $e->getMessage()]);
         }
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('production.route.applied_lot', ['n' => $n, 'lot' => $lot->lot_no])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('production.route.applied_lot', ['n' => $n, 'lot' => $lot->lot_no_oracle])]);
 
         return back();
     }

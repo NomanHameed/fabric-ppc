@@ -445,7 +445,7 @@ function hintFor(row: SheetLineRow): void {
     if (ctx.state !== 'open') {
         statusLine.setHint(
             t('production.sheet.lot_state_hint', {
-                lot: ctx.lot_no,
+                lot: ctx.lot_no_oracle,
                 state: t(`production.states.${ctx.state}`),
             }),
         );
@@ -489,7 +489,7 @@ async function applyLot(
     if (ctx.state !== 'open') {
         statusLine.setMessage(
             t('production.errors.lot_not_open', {
-                lot: ctx.lot_no,
+                lot: ctx.lot_no_oracle,
                 state: t(`production.states.${ctx.state}`),
             }),
             'error',
@@ -497,9 +497,10 @@ async function applyLot(
     } else if (!ctx.colour_approved) {
         statusLine.setMessage(
             t('production.sheet.colour_hint', {
-                lot: ctx.lot_no,
+                lot: ctx.lot_no_oracle,
                 status:
-                    ctx.colour_status ?? t('production.sheet.no_colour_status'),
+                    ctx.clr_status_oracle ??
+                    t('production.sheet.no_colour_status'),
             }),
             'info',
         );
@@ -585,7 +586,7 @@ const columns = computed<ColumnDef<SheetLineRow>[]>(() => [
     },
     {
         field: 'lot',
-        headerName: t('production.fields.lot_no'),
+        headerName: t('production.fields.lot_no_oracle'),
         flex: 2,
         minWidth: 200,
         editable: editableCell,

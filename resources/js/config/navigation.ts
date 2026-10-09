@@ -17,6 +17,7 @@ import {
     ListTree,
     Milestone,
     PackageOpen,
+    ReceiptText,
     Route,
     ScrollText,
     Search,
@@ -116,6 +117,22 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/production/capacity',
                 icon: Gauge,
                 permission: 'production.sheet.view',
+            },
+        ],
+    },
+    {
+        key: 'reports',
+        titleKey: 'app.nav.reports',
+        items: [
+            // R1, the Month Wise Fabric Report (spec §7.1). Mill-wide, with no department dimension, so it
+            // follows `reports.all` and not `reports.department`. Its title comes from the lang group the
+            // screen owns, as the other post-P1 screens' do.
+            {
+                key: 'fabric_report',
+                titleKey: 'production.fabric_report.title',
+                href: '/production/reports/fabric',
+                icon: ReceiptText,
+                permission: 'reports.all',
             },
         ],
     },

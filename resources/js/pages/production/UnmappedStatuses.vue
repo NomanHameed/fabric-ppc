@@ -4,7 +4,6 @@ import { computed, ref } from 'vue';
 import DataGrid from '@/components/forms/DataGrid.vue';
 import FormBlock from '@/components/forms/FormBlock.vue';
 import FormField from '@/components/forms/FormField.vue';
-import StageProcessSelect from '@/components/stages/StageProcessSelect.vue';
 import StageSelect from '@/components/stages/StageSelect.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,14 +14,13 @@ import { statusLine } from '@/lib/statusLine';
 import type { UnmappedStatusRow } from '@/types/production';
 
 /**
- * "Unmapped Production Statuses" (spec §10): every status the mill's lots carry that no stage process
- * claims, with the number of lots on it — and the one action that fixes it.
+ * "Unmapped Production Statuses" (spec §10): every status the mill's lots carry that no **stage** claims,
+ * with the number of lots on it — and the one action that fixes it.
  *
- * Picking a row opens the mapping block: the Stage / Stage Process pair (the process list follows the
- * stage, loaded from the API). Confirming adds the status to that process's aliases and re-resolves the lots
- * carrying it, so the row disappears and its lots land on the chosen stage. Nothing is posted until the
- * operator confirms, and the toast says how many lots moved — a re-classification of historical production
- * is not something to do silently.
+ * Picking a row opens the mapping block: one Stage select. Confirming adds the status to that stage's
+ * aliases and re-resolves the lots carrying it, so the row disappears and its lots land on the chosen stage.
+ * Nothing is posted until the operator confirms, and the toast says how many lots moved — a
+ * re-classification of historical production is not something to do silently.
  *
  * Lots whose stage was pinned by hand are not counted here and are left alone by the mapping.
  */
@@ -36,7 +34,6 @@ const props = defineProps<{
 const selected = ref<UnmappedStatusRow | null>(null);
 const form = useForm<{ status: string }>({ status: '' });
 const stageId = ref<number | null>(null);
-const processId = ref<number | null>(null);
 
 const showing = computed(() =>
     props.statuses.length < props.statusesTotal
@@ -50,7 +47,6 @@ const showing = computed(() =>
 function pick(row: UnmappedStatusRow): void {
     selected.value = row;
     stageId.value = null;
-    processId.value = null;
     form.status = row.label;
     form.clearErrors();
 }
@@ -58,15 +54,14 @@ function pick(row: UnmappedStatusRow): void {
 function cancel(): void {
     selected.value = null;
     stageId.value = null;
-    processId.value = null;
     form.clearErrors();
 }
 
 function map(): void {
-    if (processId.value === null) {
+    if (stageId.value === null) {
         return;
     }
-    form.post(`/production/unmapped-statuses/${processId.value}/aliases`, {
+    form.post(`/production/unmapped-statuses/${stageId.value}/aliases`, {
         preserveScroll: true,
         onSuccess: () => cancel(),
         onError: (errors) =>
@@ -132,7 +127,7 @@ const columns = computed<ColumnDef<UnmappedStatusRow>[]>(() => [
                 >
                 <Link
                     class="text-primary ms-auto text-sm underline"
-                    href="/masters/stage_processes"
+                    href="/masters/stages"
                     >{{ t('production.unmapped.open_master') }}</Link
                 >
             </div>
@@ -166,24 +161,13 @@ const columns = computed<ColumnDef<UnmappedStatusRow>[]>(() => [
             >
                 <StageSelect id="map-stage" v-model="stageId" />
             </FormField>
-            <FormField
-                :label="t('production.fields.stage_process')"
-                for="map-process"
-                :span="3"
-            >
-                <StageProcessSelect
-                    id="map-process"
-                    v-model="processId"
-                    :stage-id="stageId"
-                />
-            </FormField>
             <FormField :label="''" :span="3">
                 <div class="flex min-h-9 items-center gap-2">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        :disabled="processId === null || form.processing"
+                        :disabled="stageId === null || form.processing"
                         @click="map()"
                         >{{ t('production.unmapped.map_confirm') }}</Button
                     >
@@ -234,7 +218,7 @@ const columns = computed<ColumnDef<UnmappedStatusRow>[]>(() => [
                     type="button"
                     variant="outline"
                     size="sm"
-                    @click="router.visit('/masters/stage_processes')"
+                    @click="router.visit('/masters/stages')"
                     >{{ t('production.unmapped.open_master') }}</Button
                 >
             </div>

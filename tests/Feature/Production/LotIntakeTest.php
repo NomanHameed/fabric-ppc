@@ -28,7 +28,7 @@ it('gives an imported lot its route and STOCK balance inside the commit', functi
     $lot = Lot::where('oracle_line_id', 9000)->firstOrFail();
     $movement = $lot->movements()->first();
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 250.0])
-        ->and((float) $lot->stock_qty)->toBe(250.0)
+        ->and((float) $lot->greige_in_stock_oracle)->toBe(250.0)
         ->and($lot->routeSteps()->count())->toBe(7)
         ->and($movement->kind)->toBe('import')
         ->and($movement->source_type)->toBe((new OracleImportRow)->getMorphClass())
@@ -46,7 +46,7 @@ it('rolls the lot back with the commit when the intake fails', function () {
         ->and($import->fresh()->status)->toBe('failed');
 });
 
-it('posts an adjustment when a later export changes greige_qty', function () {
+it('posts an adjustment when a later export changes greige_received_oracle', function () {
     ($this->commit)([oracleRow(['QNTY' => 250])]);
     $this->travel(1)->seconds();
     ($this->commit)([oracleRow(['QNTY' => 300])]);
@@ -87,7 +87,7 @@ it('receives a lot the ledger has never seen when its greige changes, instead of
     // simulate a lot imported before the ledger existed
     $lot->movements()->delete();
     $lot->balances()->delete();
-    Lot::whereKey($lot->id)->update(['stock_qty' => 0, 'last_movement_at' => null]);
+    Lot::whereKey($lot->id)->update(['greige_in_stock_oracle' => 0, 'last_movement_at' => null]);
     $this->travel(1)->seconds();
     ($this->commit)([oracleRow(['QNTY' => 100])]); // a reduction: no error row, and STOCK never goes negative
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 100.0])
@@ -95,7 +95,7 @@ it('receives a lot the ledger has never seen when its greige changes, instead of
 });
 
 it('receive() is idempotent', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 10]);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 10]);
     $intake = app(LotIntakeService::class);
     expect($intake->receive($lot, $this->user->id))->not->toBeNull()
         ->and($intake->receive($lot, $this->user->id))->toBeNull()
@@ -104,11 +104,11 @@ it('receive() is idempotent', function () {
 });
 
 it('receive() gives a lot without greige its route but no movement, until greige arrives', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 0]);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 0]);
     $intake = app(LotIntakeService::class);
     expect($intake->receive($lot, $this->user->id))->toBeNull()
         ->and($lot->movements()->count())->toBe(0)->and($lot->routeSteps()->count())->toBe(7);
-    $lot->update(['greige_qty' => 40]);
+    $lot->update(['greige_received_oracle' => 40]);
     $m = $intake->adjustGreige($lot, 0, 40, $this->user->id);
     expect($m?->kind)->toBe('import')->and($this->ledger->balances($lot))->toBe(['STOCK' => 40.0]);
 });

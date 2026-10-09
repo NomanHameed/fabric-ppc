@@ -12,17 +12,21 @@ return [
     ],
     'states' => ['open' => 'Open', 'hold' => 'On hold', 'closed' => 'Closed', 'cancelled' => 'Cancelled'],
     'fields' => [
-        'lot_no' => 'Lot #', 'po_no' => 'PO #', 'party' => 'Party', 'quality' => 'Quality', 'design' => 'Design', 'colour' => 'Colour / Shade',
+        'lot_no_oracle' => 'Lot #', 'po_no' => 'PO #', 'party' => 'Party', 'quality' => 'Quality', 'design' => 'Design', 'color_oracle_name' => 'Colour / Shade',
+        // Oracle's own design code (`lots.design_oracle_id`), which is a different column from the description above.
+        'design_oracle_id' => 'Design code',
         'ref_no' => 'Ref.', 'qty' => 'Metres', 'date' => 'Date', 'user' => 'User', 'remarks' => 'Remarks', 'reversal' => 'Reversed',
         'sheet_date' => 'Sheet date', 'shift' => 'Shift', 'department' => 'Department', 'machine' => 'Machine', 'downtime' => 'Downtime (min)',
         'batch_no' => 'Batch', 'operation' => 'Operation', 'step' => 'Route step', 'reprocess' => 'Reprocess', 'reprocess_reason' => 'Reprocess reason',
-        'qty_in' => 'G/Mtrs in', 'qty_out' => 'F/Mtrs out', 'output_type' => 'Output', 'g_width' => 'G/W', 'f_width' => 'F/W',
+        'qty_in' => 'G/Mtrs in', 'qty_out' => 'F/Mtrs out', 'output_type' => 'Output', 'gw_oracle' => 'G/W', 'f_width' => 'F/W',
+        // `production_lines.g_width` — the width keyed on a sheet line, a different column from the lot's.
+        'g_width' => 'G/W',
         'override_reason' => 'Override reason', 'colour_override_reason' => 'Colour override reason',
-        'po_date' => 'PO date', 'gsm' => 'GSM', 'po_type' => 'PO type', 'colour_status' => 'Colour status', 'state' => 'State',
-        'label' => 'Status', 'current_label' => 'Status', 'process' => 'Process', 'greige' => 'Greige received', 'stock' => 'Greige in stock', 'issued' => 'Qty issued',
+        'po_date' => 'PO date', 'gsm' => 'GSM', 'po_type_oracle' => 'PO type', 'clr_status_oracle' => 'Colour status', 'state' => 'State',
+        'label' => 'Status', 'status_oracle' => 'Status', 'process' => 'Process', 'greige' => 'Greige received', 'stock' => 'Greige in stock', 'issued' => 'Qty issued',
         'wip' => 'WIP', 'finished' => 'Finished', 'dispatched' => 'Dispatch', 'loss' => 'Loss', 'contract_qty' => 'Contract (m)',
         'oracle_missing_at' => 'Missing from Oracle', 'last_movement' => 'Last movement',
-        'stage' => 'Stage', 'stage_process' => 'Stage process',
+        'stage' => 'Stage',
     ],
     // The flat, Oracle-shaped lot payload (ProductionAnalyticsService::flatLots): the mill's own field names,
     // so the headers read as the floor's sheets do rather than as the schema does. The `color_*` spelling is
@@ -35,6 +39,28 @@ return [
         'gw_oracle' => 'G/W', 'status_oracle' => 'Status', 'stage_name' => 'Stage', 'stage_process_name' => 'Stage process',
         'greige_received_oracle' => 'Greige received', 'greige_in_stock_oracle' => 'Greige in stock',
         'qty_issued' => 'Qty issued', 'wip' => 'WIP', 'finished' => 'Finished', 'dispatch' => 'Dispatch',
+    ],
+    // R1, the Month Wise Fabric Report (spec §7.1, §4.3). The column headers are the flat payload's own
+    // (`production.flat.*` above) — the report's body *is* that payload — so only the report's frame lives
+    // here: the Oracle Reports header block, the parameters, the three totals levels and the truncation
+    // notice.
+    'fabric_report' => [
+        'title' => 'Month Wise Fabric Report',
+        'params' => 'Parameters',
+        'month' => 'Month',
+        'all' => 'All',
+        'process' => ['pending' => 'Pending', 'complete' => 'Complete', 'all' => 'All'],
+        'run_at' => 'Run at',
+        'user' => 'Run by',
+        'lots' => 'Lots',
+        'stage_total' => 'Subtotal :stage',
+        'grand_total' => 'Grand total',
+        'showing' => 'Showing :n of :m rows',
+        'truncated' => 'Truncated at :cap rows: :m lots match these parameters and the first :n are listed. The totals are summed over every match, so a stage can show a total with fewer rows beneath it. Narrow Month, Party or Process to list the rest.',
+        'none' => 'No lot matches these parameters. Press F7 to enter new ones, F8 to run.',
+        'query_hint' => 'F7 enters the parameters (% wildcard, >, <, a..b, #NULL), F8 runs the report. Print sends it to the printer; Excel and PDF export are not built yet.',
+        'open_lot' => 'Double-click a row to open its lot inquiry.',
+        'empty_stage' => 'No rows listed for this stage — see the truncation notice above.',
     ],
     'lots' => [
         'title' => 'Lots', 'oracle' => 'Oracle data (read-only)', 'app' => 'PPC data', 'quantities' => 'Quantities',
@@ -71,8 +97,6 @@ return [
         'stage_override_cleared' => 'Override cleared: the stage follows the status again.',
         'stage_override_hint' => 'An overridden stage stays put until it is cleared, whatever the lot does next.',
         'stage_inactive' => 'That stage is not active.',
-        'stage_process_inactive' => 'That stage process is not active.',
-        'stage_process_mismatch' => 'That stage process does not belong to the chosen stage.',
         'unmapped' => 'Unmapped statuses',
         // The grid's two shapes: the app's own columns, or the flat Oracle-shaped payload.
         'shape' => 'Columns',
@@ -156,7 +180,7 @@ return [
         'at_position' => 'Done here, waiting (m)', 'status' => 'Status', 'skipped' => 'Skip', 'added' => 'Added', 'locked' => 'Locked',
         'locked_hint' => 'Locked steps have production or metres waiting after them: they cannot be removed, moved, skipped or given another operation.',
         'label' => 'Status label', 'wip' => 'WIP (m)', 'finished' => 'Finished (m)', 'stock' => 'In stock (m)', 'issued' => 'Issued, not started (m)',
-        'po_type' => 'PO type', 'state' => 'State',
+        'po_type_oracle' => 'PO type', 'state' => 'State',
     ],
     'capacity' => [
         'title' => 'Machine Capacity',

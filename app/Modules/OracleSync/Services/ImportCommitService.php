@@ -156,10 +156,16 @@ final class ImportCommitService
                         'contract_qty' => $row->contractQty, 'oracle_missing_at' => null,
                     ]);
                     $attrs = [
-                        'lot_no' => $row->lotNo, 'contract_id' => $contract->id, 'quality_id' => $quality->id, 'gsm' => $row->gsm,
-                        'design_code' => $row->designCode, 'design' => $row->design, 'colour_code' => $row->colourCode,
-                        'colour' => $row->colour, 'g_width' => $row->gWidth, 'f_width' => $row->fWidth, 'po_type' => $row->poType,
-                        'greige_qty' => $row->greigeQty, 'oracle_missing_at' => null,
+                        'lot_no_oracle' => $row->lotNo, 'contract_id' => $contract->id, 'quality_id' => $quality->id, 'gsm' => $row->gsm,
+                        'design_oracle_id' => $row->designCode, 'design' => $row->design, 'color_oracle_id' => $row->colourCode,
+                        'color_oracle_name' => $row->colour, 'gw_oracle' => $row->gWidth, 'f_width' => $row->fWidth, 'po_type_oracle' => $row->poType,
+                        'greige_received_oracle' => $row->greigeQty, 'oracle_missing_at' => null,
+                        // The denormalised copies the report prints without joining (Lot::ORACLE_FIELDS).
+                        // Written from the export row, not read back from the contract, so they say exactly
+                        // what Oracle said on this import.
+                        'party_oracle_id' => $row->partyCode, 'party_oracle_name' => $party->name,
+                        'po_no' => $row->poNo, 'ref' => $row->refNo,
+                        'date_oracle' => $row->poDate->startOfDay(), 'quality' => $quality->description,
                     ];
 
                     if ($r->action === 'new') {
@@ -168,9 +174,9 @@ final class ImportCommitService
                         $events[] = new LotImported($lot);
                     } else {
                         $lot = Lot::query()->whereKey($r->lot_id)->firstOrFail();
-                        $oldGreige = (float) $lot->greige_qty;
+                        $oldGreige = (float) $lot->greige_received_oracle;
                         $lot->fill($attrs)->save();
-                        $this->intake->adjustGreige($lot, $oldGreige, (float) $lot->greige_qty, $user->id, $r);
+                        $this->intake->adjustGreige($lot, $oldGreige, (float) $lot->greige_received_oracle, $user->id, $r);
                         $events[] = new LotChanged($lot, $r->diff ?? []);
                     }
                 }

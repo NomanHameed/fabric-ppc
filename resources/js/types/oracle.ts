@@ -38,11 +38,11 @@ export type ImportRow = {
     action: ImportAction;
     message: string | null;
     diff: Record<string, [unknown, unknown]> | null;
-    lot_no: string | null;
+    lot_no_oracle: string | null;
     po_no: number | null;
     party: string | null;
     design: string | null;
-    colour: string | null;
+    color_oracle_name: string | null;
     quality: string | null;
-    greige_qty: number | null;
+    greige_received_oracle: number | null;
 };

@@ -16,8 +16,11 @@ use Illuminate\Support\Facades\DB;
 
 /*
  * The reporting stage, end to end against the seeded taxonomy: that the seed maps the statuses this mill
- * actually writes, that LedgerService keeps the two columns in step with `current_label` on every write, and
- * that `production:sync-stages` backfills idempotently without touching anything else.
+ * actually writes, that LedgerService keeps `stage_id` in step with `status_oracle` on every write, and that
+ * `production:sync-stages` backfills idempotently without touching anything else.
+ *
+ * Resolution is **stage-only**: `lots.stage_process_id` is gone and the aliases live on
+ * `stages.status_aliases`, so a status resolves to a stage code and nothing finer.
  */
 
 beforeEach(function () {
@@ -28,166 +31,175 @@ beforeEach(function () {
     $this->routes = app(LotRouteService::class);
 });
 
-/** The seeded process a status resolves to, as "STAGE_CODE/PROCESS_CODE", or null. */
-function resolvedCodes(?string $status): ?string
+/** The seeded stage a status resolves to, as its code, or null. */
+function resolvedCode(?string $status): ?string
 {
-    $ids = app(StatusStageResolver::class)->resolve($status);
-    if ($ids['stage_process_id'] === null) {
-        return null;
-    }
-    $process = StageProcess::query()->with('stage')->findOrFail($ids['stage_process_id']);
+    $stageId = app(StatusStageResolver::class)->stageId($status);
 
-    return $process->stage->code.'/'.$process->code;
+    return $stageId === null ? null : Stage::query()->findOrFail($stageId)->code;
 }
 
 // ---- the seeded taxonomy --------------------------------------------------------------------------------------
 
-it('seeds the stages and processes and is idempotent', function () {
+it('seeds the user\'s own stage list and is idempotent', function () {
+    $codes = Stage::query()->orderBy('sort_order')->pluck('code')->all();
+
+    // Spec §19, in the user's own order. Greige and Finished are stages; Packing and Work in Process, which
+    // earlier seeds invented, are not.
+    expect($codes)->toBe([
+        'GREIGE', 'PREP', 'DYEING', 'PRINTING', 'FINISHING', 'INSPECTION', 'APPROVAL', 'FINISHED',
+        'DISPATCH', 'EXCEPTION', 'RETURN', 'EXTERNAL', 'QUALITY', 'COMMERCIAL', 'CLOSED',
+    ])
+        ->and(Stage::query()->whereIn('code', ['PACKING', 'WIP'])->count())->toBe(0)
+        // the processes earlier seeds invented under a stage the user does keep
+        ->and(StageProcess::query()->whereIn('code', ['SINGEING', 'MERCERIZING', 'CURING', 'DRYING', 'CLOSED'])->count())->toBe(0);
+
     $stages = Stage::count();
     $processes = StageProcess::count();
-
-    expect($stages)->toBe(15)->and($processes)->toBeGreaterThan(20);
-
     $this->seed(StageSeeder::class);
 
     expect(Stage::count())->toBe($stages)->and(StageProcess::count())->toBe($processes)
         ->and(Stage::where('code', 'DISPATCH')->first()->name)->toBe('Dispatch');
 });
 
-it('maps every status the labeller and the operations master can produce', function (string $status, string $expected) {
-    expect(resolvedCodes($status))->toBe($expected);
+it('maps every status the labeller and the operations master can produce', function (?string $status, string $expected) {
+    expect(resolvedCode($status))->toBe($expected);
 })->with([
-    // operations.stage_label (FoundationSeeder)
-    ['SINGEING/', 'PREP/SINGEING'],
-    ['BLEACHING/', 'PREP/BLEACHING'],
-    ['PADDING/', 'PREP/PADDING'],
-    ['MERCERIZING/', 'PREP/MERCERIZING'],
-    ['DYEING/', 'DYEING/DYEING'],
-    ['PRINTING/', 'PRINTING/PRINTING'],
-    ['CURING/', 'PRINTING/CURING'],
-    ['DRYING/', 'FINISHING/DRYING'],
-    ['FINISHING/', 'FINISHING/FINISHING'],
-    ['SANFO/CAL', 'FINISHING/SANFO_CAL'],
-    ['SANFO/CAL RP', 'FINISHING/SANFO_CAL_RP'],
-    ['ROLLING/', 'PACKING/ROLLING'],
-    ['STITCHING/', 'PACKING/STITCHING'],
-    // LotStatusLabeller
-    ['WIP/', 'WIP/WIP_UNASSIGNED'],
-    ['RF-INSP/', 'INSPECTION/FINAL_INSPECTION'],
-    ['RF-DISP', 'DISPATCH/DISPATCH'],
-    ['DISPATCHED/', 'DISPATCH/DISPATCH'],
-    ['DISP 11-09-26/', 'DISPATCH/DISPATCH'],
-    ['HOLD/', 'EXCEPTION/HOLD'],
-    ['CLOSED/', 'CLOSED/CLOSED'],
-    ['CANCELLED/', 'CLOSED/CANCELLED'],
+    // operations.stage_label (FoundationSeeder). Singeing, mercerizing and padding are preparation; drying,
+    // rolling and stitching are finishing-floor work; curing follows printing.
+    ['SINGEING/', 'PREP'],
+    ['BLEACHING/', 'PREP'],
+    ['PADDING/', 'PREP'],
+    ['MERCERIZING/', 'PREP'],
+    ['DYEING/', 'DYEING'],
+    ['PRINTING/', 'PRINTING'],
+    ['CURING/', 'PRINTING'],
+    ['DRYING/', 'FINISHING'],
+    ['FINISHING/', 'FINISHING'],
+    ['SANFO/CAL', 'FINISHING'],
+    ['SANFO/CAL RP', 'FINISHING'],
+    ['ROLLING/', 'FINISHING'],
+    ['STITCHING/', 'FINISHING'],
+    // LotStatusLabeller. `RF-INSP/` means "nothing on the floor, the metres are finished", which is the
+    // Finished stage; Inspection waits for an inspection status the mill does not write yet.
+    ['RF-INSP/', 'FINISHED'],
+    ['RF-DISP', 'DISPATCH'],
+    ['DISPATCHED/', 'DISPATCH'],
+    ['DISP 11-09-26/', 'DISPATCH'],
+    ['HOLD/', 'EXCEPTION'],
+    ['CLOSED/', 'CLOSED'],
+    ['CANCELLED/', 'CLOSED'],
+    // no status at all: a lot that has never been issued is greige, through the `#BLANK` sentinel
+    [null, 'GREIGE'],
+    ['', 'GREIGE'],
     // the tracker's own codes (spec §7)
-    ['ON.AAP', 'APPROVAL/APPROVAL_PENDING'],
-    ['SB.ON APP', 'APPROVAL/APPROVAL_PENDING'],
-    ['RTF', 'RETURN/RTF'],
-    ['OUTSOURCE', 'EXTERNAL/OUTSOURCE'],
-    ['LCR', 'QUALITY/LCR_REVIEW'],
-    ['LCR SB REJECT', 'QUALITY/LCR_SB_REJECTED'],
-    ['DEBIT', 'COMMERCIAL/DEBIT'],
+    ['ON.AAP', 'APPROVAL'],
+    ['SB.ON APP', 'APPROVAL'],
+    ['RTF', 'RETURN'],
+    ['OUTSOURCE', 'EXTERNAL'],
+    ['LCR', 'QUALITY'],
+    ['LCR SB REJECT', 'QUALITY'],
+    ['DEBIT', 'COMMERCIAL'],
 ]);
 
 it('leaves a status nobody mapped unresolved', function () {
-    expect(resolvedCodes('SOMETHING NEW/'))->toBeNull()
-        ->and(resolvedCodes(null))->toBeNull();
+    expect(resolvedCode('SOMETHING NEW/'))->toBeNull();
 });
 
-it('ignores a deactivated process and its stage', function () {
-    expect(resolvedCodes('DYEING/'))->toBe('DYEING/DYEING');
+it('leaves the Inspection stage unclaimed until the mill writes an inspection status', function () {
+    // Deliberate: the user's list has the stage, and no status the mill writes today means it. A stage with
+    // no alias simply never claims a lot — it is not a mapping gap to guess at.
+    expect(Stage::query()->where('code', 'INSPECTION')->firstOrFail()->aliasList())->toBe([]);
+});
 
-    StageProcess::query()->where('code', 'DYEING')->update(['is_active' => false]);
-    app(StatusStageResolver::class)->flush();
-    expect(resolvedCodes('DYEING/'))->toBeNull();
+it('ignores a deactivated stage', function () {
+    expect(resolvedCode('DYEING/'))->toBe('DYEING');
 
-    StageProcess::query()->where('code', 'DYEING')->update(['is_active' => true]);
     Stage::query()->where('code', 'DYEING')->update(['is_active' => false]);
     app(StatusStageResolver::class)->flush();
-    expect(resolvedCodes('DYEING/'))->toBeNull();
+    expect(resolvedCode('DYEING/'))->toBeNull();
 });
 
 // ---- the ledger keeps them in step ---------------------------------------------------------------------------
 
 it('resolves the stage in the same write as the status, at every step of a lot\'s life', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($lot);
 
-    // received: everything in stock, so no status and no stage (rule 6, never guessed)
+    // received: everything in stock, so no status (rule 6) — and Greige claims exactly that lot
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
-    expect($lot->current_label)->toBeNull()
-        ->and($lot->stage_id)->toBeNull()->and($lot->stage_process_id)->toBeNull();
+    expect($lot->status_oracle)->toBeNull()
+        ->and(stageCodeOf($lot))->toBe('GREIGE');
 
     // issued: the label names the first step's stage, and the stage follows it
     $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), 100, 100);
-    expect($lot->current_label)->not->toBeNull()
-        ->and(resolvedCodes($lot->current_label))->toBe(stageCodesOf($lot));
+    expect($lot->status_oracle)->not->toBeNull()
+        ->and(resolvedCode($lot->status_oracle))->toBe(stageCodeOf($lot));
 
     // processed through the first step: the label moves on, and so does the stage
     $first = $lot->routeSteps()->first();
     $this->ledger->post($lot, 'process', $this->routes->previousPosition($first), $this->routes->targetPosition($first), 100, 100);
-    expect(resolvedCodes($lot->fresh()->current_label))->toBe(stageCodesOf($lot->fresh()));
+    expect(resolvedCode($lot->fresh()->status_oracle))->toBe(stageCodeOf($lot->fresh()));
 
-    // finished: RF-INSP -> Inspection / Final Inspection
+    // finished: RF-INSP -> Finished
     foreach ($lot->routeSteps()->get()->skip(1) as $step) {
         $this->ledger->post($lot, 'process', $this->routes->previousPosition($step), $this->routes->targetPosition($step), 100, 100);
     }
-    expect($lot->fresh()->current_label)->toBe('RF-INSP/')
-        ->and(stageCodesOf($lot->fresh()))->toBe('INSPECTION/FINAL_INSPECTION');
+    expect($lot->fresh()->status_oracle)->toBe('RF-INSP/')
+        ->and(stageCodeOf($lot->fresh()))->toBe('FINISHED');
 });
 
 it('follows a state change through relabel()', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 50]);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 50]);
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 50);
 
     $lot->state = 'hold';
     $lot->save();
     $this->ledger->relabel($lot);
 
-    expect($lot->fresh()->current_label)->toBe('HOLD/')
-        ->and(stageCodesOf($lot->fresh()))->toBe('EXCEPTION/HOLD');
+    expect($lot->fresh()->status_oracle)->toBe('HOLD/')
+        ->and(stageCodeOf($lot->fresh()))->toBe('EXCEPTION');
 });
 
 it('writes the stage on the caller\'s instance too, not only in the database', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 20, 'state' => 'cancelled']);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 20, 'state' => 'cancelled']);
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 20);
 
-    expect($lot->stage_process_id)->not->toBeNull()
-        ->and($lot->stage_process_id)->toBe((int) DB::table('lots')->where('id', $lot->id)->value('stage_process_id'));
+    expect($lot->stage_id)->not->toBeNull()
+        ->and($lot->stage_id)->toBe((int) DB::table('lots')->where('id', $lot->id)->value('stage_id'));
 });
 
 it('leaves the stage null when nothing claims the status, and fills it in once an alias is added', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 10, 'state' => 'cancelled']);
-    StageProcess::query()->where('code', 'CANCELLED')->update(['status_aliases' => []]);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 10, 'state' => 'cancelled']);
+    Stage::query()->where('code', 'CLOSED')->update(['status_aliases' => json_encode([])]);
     app(StatusStageResolver::class)->flush();
 
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 10);
-    expect($lot->current_label)->toBe('CANCELLED/')->and($lot->stage_process_id)->toBeNull();
+    expect($lot->status_oracle)->toBe('CANCELLED/')->and($lot->stage_id)->toBeNull();
 
-    StageProcess::query()->where('code', 'CANCELLED')->update(['status_aliases' => json_encode(['*CANCEL*'])]);
+    Stage::query()->where('code', 'CLOSED')->update(['status_aliases' => json_encode(['*CANCEL*'])]);
     app(StatusStageResolver::class)->flush();
     $this->ledger->relabel($lot);
 
-    expect(stageCodesOf($lot->fresh()))->toBe('CLOSED/CANCELLED');
+    expect(stageCodeOf($lot->fresh()))->toBe('CLOSED');
 });
 
 // ---- the backfill command ------------------------------------------------------------------------------------
 
 it('backfills existing lots, is idempotent and touches nothing else', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 100]);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 100]);
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 100);
     $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), 100, 100);
-    DB::table('lots')->where('id', $lot->id)->update(['current_label' => 'DYEING/', 'stage_id' => null, 'stage_process_id' => null]);
+    DB::table('lots')->where('id', $lot->id)->update(['status_oracle' => 'DYEING/', 'stage_id' => null]);
     $before = (array) DB::table('lots')->where('id', $lot->id)->first();
 
     $this->artisan('production:sync-stages')->assertSuccessful();
 
     $after = (array) DB::table('lots')->where('id', $lot->id)->first();
-    expect(stageCodesOf($lot->fresh()))->toBe('DYEING/DYEING');
-    // only the two stage columns changed: no quantity, no label, not even updated_at
+    expect(stageCodeOf($lot->fresh()))->toBe('DYEING');
+    // only the stage column changed: no quantity, no label, not even updated_at
     foreach ($before as $column => $value) {
-        if (! in_array($column, ['stage_id', 'stage_process_id'], true)) {
+        if ($column !== 'stage_id') {
             expect($after[$column])->toEqual($value, "column {$column} was changed");
         }
     }
@@ -199,25 +211,25 @@ it('backfills existing lots, is idempotent and touches nothing else', function (
 });
 
 it('writes nothing with --pretend but still reports what it would do', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 100]);
-    DB::table('lots')->where('id', $lot->id)->update(['current_label' => 'DYEING/']);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 100]);
+    DB::table('lots')->where('id', $lot->id)->update(['status_oracle' => 'DYEING/', 'stage_id' => null]);
 
     $this->artisan('production:sync-stages --pretend')
         ->expectsOutputToContain('Would update 1 of')
         ->assertSuccessful();
 
-    expect($lot->fresh()->stage_process_id)->toBeNull();
+    expect($lot->fresh()->stage_id)->toBeNull();
 });
 
 it('reports the statuses it could not map', function () {
-    $lot = Lot::factory()->create(['greige_qty' => 100]);
-    DB::table('lots')->where('id', $lot->id)->update(['current_label' => 'NOT A STATUS/']);
+    $lot = Lot::factory()->create(['greige_received_oracle' => 100]);
+    DB::table('lots')->where('id', $lot->id)->update(['status_oracle' => 'NOT A STATUS/', 'stage_id' => null]);
 
     $this->artisan('production:sync-stages')
-        ->expectsOutputToContain('1 status(es) no stage process claims')
+        ->expectsOutputToContain('1 status(es) no stage claims')
         ->assertSuccessful();
 
-    expect($lot->fresh()->stage_process_id)->toBeNull();
+    expect($lot->fresh()->stage_id)->toBeNull();
 });
 
 it('fails rather than guessing an actor when there is no user to attribute the run to', function () {
@@ -226,13 +238,8 @@ it('fails rather than guessing an actor when there is no user to attribute the r
     $this->artisan('production:sync-stages')->assertFailed();
 });
 
-/** The lot's own stage/process as "STAGE_CODE/PROCESS_CODE", read back from the columns. */
-function stageCodesOf(Lot $lot): ?string
+/** The lot's own stage code, read back from the column. */
+function stageCodeOf(Lot $lot): ?string
 {
-    if ($lot->stage_process_id === null) {
-        return null;
-    }
-    $process = StageProcess::query()->with('stage')->findOrFail($lot->stage_process_id);
-
-    return $process->stage->code.'/'.$process->code;
+    return $lot->stage_id === null ? null : Stage::query()->findOrFail($lot->stage_id)->code;
 }

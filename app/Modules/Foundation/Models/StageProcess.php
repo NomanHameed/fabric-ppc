@@ -2,23 +2,22 @@
 
 namespace App\Modules\Foundation\Models;
 
-use App\Modules\Production\Models\Lot;
 use Database\Factories\Modules\Foundation\StageProcessFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
 /**
  * One position inside a stage (Bleaching, Dyeing, Sanforizing / Calendaring, Dispatch, Cancelled, …).
  *
- * `status_aliases` is the raw-status side of the mapping: every `lots.current_label` that means this process.
- * An alias may contain `*` as a wildcard, which is how the dispatch family (`DISP 11-09-26/`) and "anything
- * containing CANCEL" are expressed without a row per date. StatusStageResolver reads this column; nothing in
- * PHP hard-codes a status string.
+ * **It no longer carries the status mapping.** Resolution is stage-only — `lots.stage_process_id` is gone
+ * and StatusStageResolver reads `stages.status_aliases` — so nothing resolves to a process. The
+ * `status_aliases` column survives here, unread and no longer edited on the master screen, so the move stays
+ * reversible; `aliasList()` is kept for the same reason and for the migration that collapsed the sets onto
+ * the stages.
  *
  * @property array<int, mixed>|null $status_aliases whatever the JSON column holds; aliasList() cleans it
  */
@@ -51,12 +50,6 @@ class StageProcess extends Model implements Auditable
     public function stage(): BelongsTo
     {
         return $this->belongsTo(Stage::class);
-    }
-
-    /** @return HasMany<Lot, $this> */
-    public function lots(): HasMany
-    {
-        return $this->hasMany(Lot::class);
     }
 
     /**
