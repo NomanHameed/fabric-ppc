@@ -115,7 +115,14 @@ it('maps an unmapped status, re-resolves its lots and empties the row', function
 
     $this->actingAs($this->ppc)
         ->post("/production/unmapped-statuses/{$stage->id}/aliases", ['status' => 'WEIRD ONE/'])
-        ->assertRedirect();
+        ->assertRedirect()
+        // the whole rendered sentence, so a renamed placeholder (`:stage` for the stage, never `:process`)
+        // leaves a literal `:…` in the toast and fails here
+        ->assertSessionHas('inertia.flash_data.toast', ['type' => 'success', 'message' => __('production.unmapped.mapped', [
+            'status' => 'WEIRD ONE', 'stage' => $stage->name, 'lots' => 2, 'skipped' => 0,
+        ])]);
+    expect(session('inertia.flash_data.toast')['message'])->toContain($stage->name)
+        ->not->toContain(':process')->not->toContain(':stage');
 
     // the alias is stored normalised, once
     expect($stage->fresh()->status_aliases)->toBe(['RTF', 'WEIRD ONE'])
@@ -164,7 +171,9 @@ it('refuses a status another stage already owns, and names it', function () {
         ->post("/production/unmapped-statuses/{$stage->id}/aliases", ['status' => 'DYEING/'])
         ->assertSessionHasErrors('status');
 
-    expect(session('errors')->first('status'))->toContain('Dyeing')
+    // the whole sentence: the owning stage goes into `:stage`, so a renamed placeholder is caught here too
+    expect(session('errors')->first('status'))->toBe(__('production.unmapped.alias_taken', ['stage' => 'Dyeing']))
+        ->toContain('Dyeing')->not->toContain(':process')->not->toContain(':stage')
         ->and($stage->fresh()->status_aliases)->toBe(['RTF']);
 
     // including one claimed through a wildcard

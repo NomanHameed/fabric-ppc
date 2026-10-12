@@ -224,8 +224,8 @@ export const NAVIGATION: NavGroup[] = [
                 permission: 'masters.view',
             },
             // The status -> stage gap report. It reads lots, so it is a Production route; it is listed here
-            // because the only way to act on it is the Stage Processes master above, and only someone who
-            // may edit that master (`masters.manage`) can do anything with it.
+            // because the only way to act on it is the Stages master above — the aliases live there — and
+            // only someone who may edit that master (`masters.manage`) can do anything with it.
             {
                 key: 'unmapped_statuses',
                 titleKey: 'production.unmapped.title',

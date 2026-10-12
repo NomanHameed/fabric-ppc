@@ -18,6 +18,7 @@ function stage(over: Partial<Stage> = {}): Stage {
         name: 'Dyeing',
         description: null,
         sort_order: 20,
+        status_aliases: ['DYEING'],
         is_active: true,
         processes_count: 1,
         ...over,

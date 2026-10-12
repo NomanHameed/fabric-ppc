@@ -47,10 +47,10 @@ import type { StageFallback } from '@/types/stages';
  * editable one: `clr_status_oracle` with `colour.edit`, `remarks` with `production.route.manage`; Hold / Release /
  * Cancel post to Task 6's endpoints with `production.hold`.
  *
- * The reporting stage and process sit beside the status in block 2 and are **read-only**: the ledger derives
- * them from the status, so typing over them would be typing over a calculation. PPC
- * (`production.route.manage`) can nevertheless pin them by hand with "Override stage" — the two selects then
- * become editable until the override is saved or cancelled — and "Clear override" hands the lot back to the
+ * The reporting stage sits beside the status in block 2 and is **read-only**: the ledger derives it from the
+ * status, so typing over it would be typing over a calculation. PPC
+ * (`production.route.manage`) can nevertheless pin it by hand with "Override stage" — the stage select then
+ * becomes editable until the override is saved or cancelled — and "Clear override" hands the lot back to the
  * ledger, which re-derives the stage on the spot. An overridden lot is badged, with who pinned it and when,
  * so a figure a human chose never reads as one the system worked out.
  */

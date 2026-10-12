@@ -9,9 +9,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * The stage / stage process read API (spec §16), for the two reusable selects: a stage list, one stage with
- * its processes, and the processes of a stage on their own, so StageProcessSelect can follow the chosen
- * stage without the options ever being hard-coded in Vue.
+ * The stage / stage process read API (spec §16): a stage list, one stage with its processes, and the
+ * processes of a stage on their own, so no screen hard-codes the options in Vue.
+ *
+ * `index` is what `StageSelect` loads, and its rows carry `status_aliases`: resolution is stage-only, so the
+ * statuses a stage claims live on the stage, not on its processes, and the Unmapped Statuses screen shows
+ * them beside the select. `show` and `processes` serve a caller that needs a stage's processes; nothing in
+ * the app reads a process to learn the status mapping.
  *
  * Shape follows the app's other JSON endpoints (`LovController`, `MachineUtilisationController`): plain
  * arrays under `data`, no Resource layer — this application has none.
@@ -59,6 +63,9 @@ class StageController extends Controller
             'name' => $stage->name,
             'description' => $stage->description,
             'sort_order' => (int) $stage->sort_order,
+            // The mapping itself: the statuses this stage claims. Resolution is stage-only, so this is the
+            // column a screen must be able to show before it adds a status to it.
+            'status_aliases' => $stage->aliasList(),
             'is_active' => (bool) $stage->is_active,
             // Absent unless the caller asked for the count (index does).
             'processes_count' => $stage->getAttribute('processes_count') === null ? null : (int) $stage->getAttribute('processes_count'),

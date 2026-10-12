@@ -1,11 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h, reactive } from 'vue';
+import { defineComponent, h, onMounted, reactive } from 'vue';
 import type { UnmappedStatusRow } from '@/types/production';
+import type { Stage } from '@/types/stages';
 
 /*
- * The Unmapped Statuses report's one action: picking a row opens the Stage / Stage Process pair, the process
- * list follows the chosen stage, and nothing is posted until the operator confirms — adding an alias
+ * The Unmapped Statuses report's one action: picking a row opens the Stage select, the statuses that stage
+ * already claims are shown beside it, and nothing is posted until the operator confirms — adding an alias
  * re-classifies historical production, so it must never happen on a stray click.
  */
 
@@ -69,14 +70,39 @@ vi.mock('@/components/forms/DataGrid.vue', () => ({
     }),
 }));
 
+/** Stage 4 already claims two statuses; stage 5 claims none — the two helper-text cases. */
+const stageOptions: Stage[] = [
+    {
+        id: 4,
+        code: 'DYEING',
+        name: 'Stage 4',
+        description: null,
+        sort_order: 30,
+        status_aliases: ['DYEING', 'DYED/'],
+        is_active: true,
+        processes_count: 1,
+    },
+    {
+        id: 5,
+        code: 'INSPECTION',
+        name: 'Stage 5',
+        description: null,
+        sort_order: 60,
+        status_aliases: [],
+        is_active: true,
+        processes_count: 1,
+    },
+];
+
 vi.mock('@/components/stages/StageSelect.vue', () => ({
     default: defineComponent({
         name: 'StageSelect',
         props: { modelValue: { type: Number, default: null } },
-        emits: ['update:modelValue'],
-        setup:
-            (_props, { emit }) =>
-            () =>
+        emits: ['update:modelValue', 'loaded'],
+        setup(_props, { emit }) {
+            // the real select loads `GET /api/stages` for its options and hands the list up
+            onMounted(() => emit('loaded', stageOptions));
+            return () =>
                 h(
                     'select',
                     {
@@ -87,10 +113,11 @@ vi.mock('@/components/stages/StageSelect.vue', () => ({
                                 Number((e.target as HTMLSelectElement).value),
                             ),
                     },
-                    [4, 5].map((id) =>
-                        h('option', { value: String(id) }, `Stage ${id}`),
+                    stageOptions.map((s) =>
+                        h('option', { value: String(s.id) }, s.name),
                     ),
-                ),
+                );
+        },
     }),
 }));
 
@@ -185,6 +212,37 @@ describe('Unmapped Statuses report', () => {
         expect(wrapper.find('[data-testid="stage-select"]').exists()).toBe(
             false,
         );
+        wrapper.unmount();
+    });
+
+    it('shows the statuses the chosen stage already claims', async () => {
+        const wrapper = await mountReport();
+        await wrapper.get('[data-testid="row-12"]').trigger('click');
+        await flushPromises();
+
+        // nothing is claimed on the operator's behalf before a stage is picked
+        expect(wrapper.text()).not.toContain(
+            'production.unmapped.stage_claims',
+        );
+
+        await wrapper.get('[data-testid="stage-select"]').setValue('4');
+        await flushPromises();
+
+        expect(wrapper.text()).toContain('production.unmapped.stage_claims');
+        expect(wrapper.text()).toContain('DYEING, DYED/');
+        wrapper.unmount();
+    });
+
+    it('says a stage claims nothing yet when it has no aliases', async () => {
+        const wrapper = await mountReport();
+        await wrapper.get('[data-testid="row-12"]').trigger('click');
+        await wrapper.get('[data-testid="stage-select"]').setValue('5');
+        await flushPromises();
+
+        expect(wrapper.text()).toContain(
+            'production.unmapped.stage_claims_none',
+        );
+        expect(wrapper.text()).not.toContain('DYEING, DYED/');
         wrapper.unmount();
     });
 

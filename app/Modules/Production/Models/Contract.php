@@ -2,6 +2,7 @@
 
 namespace App\Modules\Production\Models;
 
+use App\Modules\Foundation\Casts\DateOnly;
 use App\Modules\Foundation\Models\Party;
 use Database\Factories\Modules\Production\ContractFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -19,7 +20,7 @@ class Contract extends Model implements Auditable
 
     protected $guarded = ['id'];
 
-    protected $casts = ['po_no' => 'integer', 'po_date' => 'date', 'contract_qty' => 'decimal:2', 'oracle_missing_at' => 'datetime'];
+    protected $casts = ['po_no' => 'integer', 'po_date' => DateOnly::class, 'contract_qty' => 'decimal:2', 'oracle_missing_at' => 'datetime'];
 
     /** @return BelongsTo<Party, $this> */
     public function party(): BelongsTo

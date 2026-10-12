@@ -12,6 +12,7 @@ import type { ColumnDef } from '@/lib/agGrid';
 import { t } from '@/lib/i18n';
 import { statusLine } from '@/lib/statusLine';
 import type { UnmappedStatusRow } from '@/types/production';
+import type { Stage } from '@/types/stages';
 
 /**
  * "Unmapped Production Statuses" (spec §10): every status the mill's lots carry that no **stage** claims,
@@ -21,6 +22,9 @@ import type { UnmappedStatusRow } from '@/types/production';
  * aliases and re-resolves the lots carrying it, so the row disappears and its lots land on the chosen stage.
  * Nothing is posted until the operator confirms, and the toast says how many lots moved — a
  * re-classification of historical production is not something to do silently.
+ *
+ * The statuses the chosen stage already claims are shown, read-only, beside the select: the decision is
+ * "does this status belong with those?", and it cannot be made without seeing them.
  *
  * Lots whose stage was pinned by hand are not counted here and are left alone by the mapping.
  */
@@ -34,6 +38,15 @@ const props = defineProps<{
 const selected = ref<UnmappedStatusRow | null>(null);
 const form = useForm<{ status: string }>({ status: '' });
 const stageId = ref<number | null>(null);
+
+/**
+ * The active stages, as StageSelect loaded them for its own options — so the picked stage's current
+ * aliases can be shown without a second request for the same list.
+ */
+const stages = ref<Stage[]>([]);
+const selectedStage = computed<Stage | null>(
+    () => stages.value.find((s) => s.id === stageId.value) ?? null,
+);
 
 const showing = computed(() =>
     props.statuses.length < props.statusesTotal
@@ -159,7 +172,11 @@ const columns = computed<ColumnDef<UnmappedStatusRow>[]>(() => [
                 for="map-stage"
                 :span="3"
             >
-                <StageSelect id="map-stage" v-model="stageId" />
+                <StageSelect
+                    id="map-stage"
+                    v-model="stageId"
+                    @loaded="stages = $event"
+                />
             </FormField>
             <FormField :label="''" :span="3">
                 <div class="flex min-h-9 items-center gap-2">
@@ -187,6 +204,21 @@ const columns = computed<ColumnDef<UnmappedStatusRow>[]>(() => [
                         alias: selected.normalised ?? '',
                     })
                 }}
+            </p>
+            <!-- what the chosen stage already claims: read-only, so the mapping is not decided blind -->
+            <p
+                v-if="selectedStage"
+                class="text-muted-foreground col-span-12 text-xs"
+            >
+                <template v-if="selectedStage.status_aliases.length > 0">
+                    {{ t('production.unmapped.stage_claims') }}
+                    <span class="font-mono">{{
+                        selectedStage.status_aliases.join(', ')
+                    }}</span>
+                </template>
+                <template v-else>{{
+                    t('production.unmapped.stage_claims_none')
+                }}</template>
             </p>
         </FormBlock>
 

@@ -105,6 +105,14 @@ it('filters by PO number, party, ref, PO date and the Oracle-missing flag', func
         ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)->where('contracts.0.ref_no', 'REF-1'));
     $this->actingAs($this->viewer)->get('/production/contracts?q[po_date]=01-08-2026..31-08-2026')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)->where('contracts.0.po_no', 261071));
+    // a single day, not a range: the `date` criterion compares the column to a plain 'Y-m-d', which only
+    // matches because `DateOnly` stores it without a time part on every driver
+    $this->actingAs($this->viewer)->get('/production/contracts?q[po_date]=17-08-2026')->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)->where('contracts.0.po_no', 261071));
+    $this->actingAs($this->viewer)->get('/production/contracts?q[po_date]=>=05-01-2026')->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 2));
+    $this->actingAs($this->viewer)->get('/production/contracts?q[po_date]=18-08-2026')->assertOk()
+        ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 0));
     // #NULL and a range both work on the Oracle-missing timestamp
     $this->actingAs($this->viewer)->get('/production/contracts?q[oracle_missing_at]=%23NULL')->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('contracts', 1)->where('contracts.0.po_no', 261071));

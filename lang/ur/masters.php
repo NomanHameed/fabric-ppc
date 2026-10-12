@@ -19,7 +19,7 @@ return [
         'hourly_capacity' => 'گنجائش / گھنٹہ', 'daily_capacity' => 'گنجائش / دن', 'capacity_uom' => 'گنجائش کی اکائی',
         'stage' => 'مرحلہ', 'sort_order' => 'ترتیب', 'quantity_type' => 'مقدار',
         'is_wip' => 'زیرِ عمل', 'is_finished' => 'مکمل', 'is_dispatch' => 'روانہ',
-        'status_aliases' => 'وہ اسٹیٹس جو اس پراسیس کو ظاہر کرتے ہیں (کوما سے الگ؛ * وائلڈ کارڈ ہے، مثلاً DISP *)',
+        'status_aliases' => 'وہ اسٹیٹس جو اس مرحلے کو ظاہر کرتے ہیں (کوما سے الگ؛ * وائلڈ کارڈ ہے، مثلاً DISP *؛ #BLANK کا مطلب کوئی اسٹیٹس نہیں)',
     ],
     'options' => [
         'normal' => 'عام', 'reprocess' => 'دوبارہ پراسیس', 'dyed' => 'ڈائیڈ', 'print' => 'پرنٹ', 'brand' => 'برانڈ', 'local' => 'لوکل',

@@ -116,7 +116,7 @@ class UnmappedStatusController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('production.unmapped.mapped', [
             'status' => $alias,
-            'process' => $stage->name,
+            'stage' => $stage->name,
             'lots' => $resolved,
             'skipped' => $skipped,
         ])]);
@@ -149,7 +149,7 @@ class UnmappedStatusController extends Controller
 
         $other = Stage::query()->find($owner);
         throw ValidationException::withMessages(['status' => __('production.unmapped.alias_taken', [
-            'process' => $other === null ? (string) $owner : $other->name,
+            'stage' => $other === null ? (string) $owner : $other->name,
         ])]);
     }
 

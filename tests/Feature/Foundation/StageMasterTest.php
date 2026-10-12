@@ -142,8 +142,29 @@ it('lists the active stages with their process counts', function () {
         ->and($res->json('data.0.code'))->toBe('GREIGE')                     // in sort order
         ->and($res->json('data.0.processes_count'))->toBe(0)
         ->and($res->json('data.1.code'))->toBe('PREP')
-        ->and($res->json('data.1.processes_count'))->toBe(2);
+        ->and($res->json('data.1.processes_count'))->toBe(2)
+        // the mapping travels with the stage: the list is what the selects and the mapping screen read
+        ->and($res->json('data.0.status_aliases'))->toBe([Stage::BLANK_ALIAS])
+        ->and($res->json('data.1.status_aliases'))->toBe(['BLEACHING', 'PADDING', 'SINGEING', 'MERCERIZING']);
+
+    // a stage that claims nothing answers with an empty list, never null: the screen shows "claims nothing"
+    $bare = collect($res->json('data'))->firstWhere('code', 'INSPECTION');
+    expect($bare['status_aliases'])->toBe([]);
+
     expect($inactive->fresh()->is_active)->toBeFalse();
+});
+
+it('returns the stage aliases as a clean list of strings, whatever the JSON column holds', function () {
+    $stage = Stage::where('code', 'DYEING')->firstOrFail();
+    // a loosely typed write from an older version of the column
+    $stage->forceFill(['status_aliases' => ['  DYEING  ', '', null, 'DYED/']])->save();
+    $empty = Stage::factory()->create(['code' => 'NOALIAS', 'name' => 'No alias', 'status_aliases' => null]);
+
+    $this->actingAs($this->viewer)->getJson("/api/stages/{$stage->id}")->assertOk()
+        ->assertJsonPath('data.status_aliases', ['DYEING', 'DYED/']);
+
+    $this->actingAs($this->viewer)->getJson("/api/stages/{$empty->id}")->assertOk()
+        ->assertJsonPath('data.status_aliases', []);
 });
 
 it('returns one stage with its active processes', function () {
@@ -153,6 +174,8 @@ it('returns one stage with its active processes', function () {
     $res = $this->actingAs($this->viewer)->getJson("/api/stages/{$stage->id}")->assertOk();
 
     expect($res->json('data.code'))->toBe('FINISHING')
+        ->and($res->json('data.status_aliases'))->toBe($stage->aliasList())
+        ->and($res->json('data.status_aliases'))->toContain('SANFO/CAL RP')
         ->and(array_column($res->json('data.processes'), 'code'))->not->toContain('SANFO_CAL_RP')
         ->and(array_column($res->json('data.processes'), 'code'))->toContain('SANFO_CAL');
 });
@@ -170,6 +193,10 @@ it('returns the processes of a stage with their flags, and the aliases on the st
         // the mapping lives on the stage now
         ->and($stage->aliasList())->toBe(['DISPATCHED', 'RF-DISP', 'DISP *'])
         ->and(StageProcess::query()->whereKey($res->json('data.0.id'))->firstOrFail()->aliasList())->toBe([]);
+
+    // and the stage payload is where a screen reads them
+    $this->actingAs($this->viewer)->getJson("/api/stages/{$stage->id}")->assertOk()
+        ->assertJsonPath('data.status_aliases', ['DISPATCHED', 'RF-DISP', 'DISP *']);
 });
 
 it('includes deactivated processes only when asked, and still answers for one by id', function () {

@@ -1,7 +1,7 @@
 /**
  * The stage / stage process read API (`GET /api/stages`, `/api/stages/{id}/processes`,
- * `/api/stage-processes/{id}`), as StageController returns it. Nothing in Vue hard-codes a stage: both
- * selects read these shapes from the API.
+ * `/api/stage-processes/{id}`), as StageController returns it. Nothing in Vue hard-codes a stage:
+ * StageSelect — the one select still in use — reads these shapes from the API.
  */
 export type Stage = {
     id: number;
@@ -9,6 +9,8 @@ export type Stage = {
     name: string;
     description: string | null;
     sort_order: number;
+    /** The raw statuses that resolve to this stage; `*` is a wildcard and `#BLANK` claims a lot with no status. */
+    status_aliases: string[];
     is_active: boolean;
     /** Only the list endpoint counts them; null when the caller did not ask. */
     processes_count: number | null;
@@ -28,7 +30,10 @@ export type StageProcess = {
     is_wip: boolean;
     is_finished: boolean;
     is_dispatch: boolean;
-    /** The raw statuses that resolve to this process; `*` is a wildcard. */
+    /**
+     * The column survives on the table, but nothing reads it any more: resolution is stage-only, so a
+     * status is claimed by `Stage.status_aliases` and never by a process.
+     */
     status_aliases: string[];
     is_active: boolean;
 };

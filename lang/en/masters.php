@@ -20,7 +20,7 @@ return [
         'operation' => 'Operation', 'steps' => 'Steps',
         'stage' => 'Stage', 'sort_order' => 'Sort order', 'quantity_type' => 'Quantity',
         'is_wip' => 'WIP', 'is_finished' => 'Finished', 'is_dispatch' => 'Dispatch',
-        'status_aliases' => 'Statuses that mean this process (comma separated; * is a wildcard, e.g. DISP *)',
+        'status_aliases' => 'Statuses that mean this stage (comma separated; * is a wildcard, e.g. DISP *; #BLANK means no status at all)',
     ],
     'options' => [
         'normal' => 'Normal', 'reprocess' => 'Reprocess', 'dyed' => 'Dyed', 'print' => 'Print', 'brand' => 'Brand', 'local' => 'Local',
