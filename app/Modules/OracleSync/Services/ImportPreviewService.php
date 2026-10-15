@@ -18,8 +18,8 @@ use Illuminate\Validation\ValidationException;
 final class ImportPreviewService
 {
     public const COMPARED = [
-        'lot_no', 'po_no', 'ref_no', 'po_date', 'party_code', 'quality_code', 'quality_description', 'gsm', 'design_code',
-        'design', 'colour_code', 'colour', 'g_width', 'f_width', 'po_type', 'greige_qty', 'contract_qty',
+        'lot_no_oracle', 'po_no', 'ref_no', 'po_date', 'party_code', 'quality_code', 'quality_description', 'gsm', 'design_oracle_id',
+        'design', 'color_oracle_id', 'color_oracle_name', 'gw_oracle', 'f_width', 'po_type_oracle', 'greige_received_oracle', 'contract_qty',
     ];
 
     public function __construct(private readonly PartyResolver $parties) {}
@@ -39,7 +39,7 @@ final class ImportPreviewService
 
         return DB::transaction(function () use ($source, $user, $sourceKind) {
             $import = OracleImport::create(['source' => $sourceKind, 'label' => $source->label(), 'uploaded_by' => $user->id]);
-            $existing = Lot::query()->with(['contract.party', 'quality'])->get()->keyBy('oracle_line_id');
+            $existing = Lot::query()->with(['contract.party', 'qualityRecord'])->get()->keyBy('oracle_line_id');
             $seen = [];
             $batch = [];
 
@@ -110,7 +110,7 @@ final class ImportPreviewService
                 $this->parties->create($code, $name, $resolution['type'] ?? 'brand');
             }
 
-            $existing = Lot::query()->with(['contract.party', 'quality'])
+            $existing = Lot::query()->with(['contract.party', 'qualityRecord'])
                 ->whereIn('oracle_line_id', $rows->pluck('oracle_line_id'))->get()->keyBy('oracle_line_id');
             foreach ($rows as $r) {
                 $attrs = $this->classify($import, $r->row_no, OracleLotRow::fromArray($r->payload), $existing->get($r->oracle_line_id));
@@ -181,13 +181,13 @@ final class ImportPreviewService
             return $this->rowAttrs($import, $rowNo, $row, 'new');
         }
         $diff = $this->diff($this->snapshot($lot), $this->incoming($row));
-        if (isset($diff['greige_qty']) && $lot->movements()->where('kind', 'import')->exists()) {
+        if (isset($diff['greige_received_oracle']) && $lot->movements()->where('kind', 'import')->exists()) {
             // The commit posts the difference as a STOCK adjustment, which can never overdraw STOCK: a reduction
             // below what already left STOCK (greige − STOCK, the spec's "Qty Issued") is an error row, not a failed commit.
-            $issued = round((float) $lot->greige_qty - (float) $lot->stock_qty, 2);
-            if ((float) $diff['greige_qty'][1] < $issued) {
+            $issued = round((float) $lot->greige_received_oracle - (float) $lot->greige_in_stock_oracle, 2);
+            if ((float) $diff['greige_received_oracle'][1] < $issued) {
                 return $this->rowAttrs($import, $rowNo, $row, 'error', $lot->id, $diff,
-                    'greige_below_issued:'.__('oracle.errors.greige_below_issued', ['lot' => $lot->lot_no, 'issued' => number_format($issued, 2)]));
+                    'greige_below_issued:'.__('oracle.errors.greige_below_issued', ['lot' => $lot->lot_no_oracle, 'issued' => number_format($issued, 2)]));
             }
         }
 
@@ -206,12 +206,12 @@ final class ImportPreviewService
     private function snapshot(Lot $lot): array
     {
         return [
-            'lot_no' => $lot->lot_no, 'po_no' => $lot->contract->po_no, 'ref_no' => $lot->contract->ref_no,
+            'lot_no_oracle' => $lot->lot_no_oracle, 'po_no' => $lot->contract->po_no, 'ref_no' => $lot->contract->ref_no,
             'po_date' => $lot->contract->po_date->toDateString(), 'party_code' => $lot->contract->party->oracle_code,
-            'quality_code' => $lot->quality->oracle_code, 'quality_description' => $lot->quality->description, 'gsm' => $lot->gsm,
-            'design_code' => $lot->design_code, 'design' => $lot->design, 'colour_code' => $lot->colour_code, 'colour' => $lot->colour,
-            'g_width' => $lot->g_width === null ? null : (float) $lot->g_width, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
-            'po_type' => $lot->po_type, 'greige_qty' => (float) $lot->greige_qty, 'contract_qty' => (float) $lot->contract->contract_qty,
+            'quality_code' => $lot->qualityRecord->oracle_code, 'quality_description' => $lot->quality, 'gsm' => $lot->gsm,
+            'design_oracle_id' => $lot->design_oracle_id, 'design' => $lot->design, 'color_oracle_id' => $lot->color_oracle_id, 'color_oracle_name' => $lot->color_oracle_name,
+            'gw_oracle' => $lot->gw_oracle === null ? null : (float) $lot->gw_oracle, 'f_width' => $lot->f_width === null ? null : (float) $lot->f_width,
+            'po_type_oracle' => $lot->po_type_oracle, 'greige_received_oracle' => (float) $lot->greige_received_oracle, 'contract_qty' => (float) $lot->contract->contract_qty,
         ];
     }
 

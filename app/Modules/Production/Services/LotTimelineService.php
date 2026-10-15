@@ -106,7 +106,13 @@ final class LotTimelineService
      */
     private function fromAudits(Lot $lot): Collection
     {
-        $watched = ['state' => TimelineEventType::STATE_CHANGED, 'colour_status' => TimelineEventType::COLOUR_STATUS_CHANGED];
+        // `colour_status` is the column's pre-rename name: audit rows written before the rename still carry
+        // it, and dropping it here would silently erase every historical colour decision from the timeline.
+        $watched = [
+            'state' => TimelineEventType::STATE_CHANGED,
+            'clr_status_oracle' => TimelineEventType::COLOUR_STATUS_CHANGED,
+            'colour_status' => TimelineEventType::COLOUR_STATUS_CHANGED,
+        ];
 
         $audits = Audit::query()
             ->where('auditable_type', $lot->getMorphClass())
@@ -146,7 +152,7 @@ final class LotTimelineService
                         actorId: $actorId,
                         actorName: $this->scalar($actors[$actorId] ?? null),
                         note: is_string($reason) ? $reason : null,
-                        context: ['lot' => $lot->lot_no],
+                        context: ['lot' => $lot->lot_no_oracle],
                     );
                 }
 
@@ -166,7 +172,7 @@ final class LotTimelineService
                 actorId: $o->approved_by,
                 actorName: $o->approver?->name,
                 note: $o->reason,
-                context: ['lot' => $lot->lot_no],
+                context: ['lot' => $lot->lot_no_oracle],
             ));
     }
 

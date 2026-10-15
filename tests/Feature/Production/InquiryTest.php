@@ -43,8 +43,8 @@ beforeEach(function () {
     // HALF BLEACH route: SINGING (SINGEING) → SINGLE BLEACH (JIGGER_DYEING) → DRY → WHITE FINISH FOR SANFORIZING → SANFORIZE
     // a fixed lot number: the factory's random one made `/search?q=1` redirect whenever it happened to end in 1
     $this->lot = Lot::factory()->create([
-        'lot_no' => '264899',
-        'po_type' => 'HALF BLEACH', 'greige_qty' => 300, 'colour_status' => 'APPROVED', 'design' => 'E1143/119', 'colour' => '520 PLUM',
+        'lot_no_oracle' => '264899',
+        'po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 300, 'clr_status_oracle' => 'APPROVED', 'design' => 'E1143/119', 'color_oracle_name' => '520 PLUM',
     ]);
     $this->actingAs($this->ppc);
     $this->routes->assign($this->lot);
@@ -71,15 +71,15 @@ function runProduction(): ProductionSheet
 // ---- lot page ---------------------------------------------------------------------------------------------------
 
 it('shows the summary, positions, route timeline and record position, with the heavy tabs left out', function () {
-    Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'lot_no' => '999999']);
+    Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'lot_no_oracle' => '999999']);
     $first = $this->lot->routeSteps()->first();
     $this->get("/inquiry/lots/{$this->lot->id}")->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->component('inquiry/LotInquiry')
-            ->where('lot.id', $this->lot->id)->where('lot.lot_no', $this->lot->lot_no)->where('lot.po_no', $this->lot->contract->po_no)
-            ->where('lot.design', 'E1143/119')->where('lot.colour', '520 PLUM')->where('lot.colour_status', 'APPROVED')
-            ->where('lot.state', 'open')->where('lot.current_label', 'SINGEING/')->where('lot.process_flag', 'pending')
-            ->where('lot.greige_qty', 300)->where('lot.stock_qty', 200)->where('lot.issued_qty', 100)->where('lot.wip_qty', 100)
-            ->where('lot.finished_qty', 0)->where('lot.dispatched_qty', 0)->where('lot.loss_qty', 0)
+            ->where('lot.id', $this->lot->id)->where('lot.lot_no_oracle', $this->lot->lot_no_oracle)->where('lot.po_no', $this->lot->contract->po_no)
+            ->where('lot.design', 'E1143/119')->where('lot.color_oracle_name', '520 PLUM')->where('lot.clr_status_oracle', 'APPROVED')
+            ->where('lot.state', 'open')->where('lot.status_oracle', 'SINGEING/')->where('lot.process_flag', 'pending')
+            ->where('lot.greige_received_oracle', 300)->where('lot.greige_in_stock_oracle', 200)->where('lot.qty_issued', 100)->where('lot.wip', 100)
+            ->where('lot.finished', 0)->where('lot.dispatch', 0)->where('lot.loss_qty', 0)
             ->where('siblings.index', 1)->where('siblings.count', 2)->where('siblings.prev_id', null)->whereNot('siblings.next_id', null)
             ->has('positions', 2, fn (AssertableInertia $p) => $p->where('position', 'STOCK')->where('kind', 'stock')->where('qty', 200)->etc())
             ->has('route', 5, fn (AssertableInertia $p) => $p
@@ -100,7 +100,7 @@ it('lists the movement history after an import, issue, process and reversal run,
         ->assertInertia(fn (AssertableInertia $page) => $page->component('inquiry/LotInquiry')
             ->where('tab', 'movements')->missing('lines')->missing('audit')
             ->where('movements.total', 5)->has('movements.rows', 5)
-            ->where('lot.stock_qty', 200)->where('lot.wip_qty', 97)
+            ->where('lot.greige_in_stock_oracle', 200)->where('lot.wip', 97)
             ->has('route.0', fn (AssertableInertia $s) => $s->where('status', 'partial') /* 200 m still in STOCK upstream */ ->where('at_position', 97)->whereNot('last_done_at', null)->etc()));
     $rows = collect($res->viewData('page')['props']['movements']['rows']);
 
@@ -169,9 +169,9 @@ it('caps a heavy tab at 200 rows and reports the total', function () {
 it('shows a held, cancelled and closed lot with its reasons and process flag', function () {
     app(LotStateService::class)->hold($this->lot, 'QUALITY_ISSUE', $this->ppc);
     $this->get("/inquiry/lots/{$this->lot->id}")->assertInertia(fn (AssertableInertia $p) => $p
-        ->where('lot.state', 'hold')->where('lot.hold_reason', 'QUALITY_ISSUE')->where('lot.current_label', 'HOLD/')->whereNot('lot.state_changed_at', null));
+        ->where('lot.state', 'hold')->where('lot.hold_reason', 'QUALITY_ISSUE')->where('lot.status_oracle', 'HOLD/')->whereNot('lot.state_changed_at', null));
 
-    $stock = Lot::factory()->create(['greige_qty' => 10]);
+    $stock = Lot::factory()->create(['greige_received_oracle' => 10]);
     $this->ledger->post($stock, 'import', null, Position::stock(), 0, 10);
     app(LotStateService::class)->cancel($stock, 'OTHER', $this->ppc);
     $this->get("/inquiry/lots/{$stock->id}")->assertInertia(fn (AssertableInertia $p) => $p
@@ -263,32 +263,32 @@ it('shows an audit row whose acting user has since been deleted', function () {
 // ---- PO page ----------------------------------------------------------------------------------------------------
 
 it('shows the PO with its lots, their position summary and the totals', function () {
-    $other = Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'greige_qty' => 50, 'lot_no' => '100001']);
+    $other = Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'greige_received_oracle' => 50, 'lot_no_oracle' => '100001']);
     $this->ledger->post($other, 'import', null, Position::stock(), 0, 50);
     $contract = $this->lot->contract;
     $this->get("/inquiry/contracts/{$contract->id}")->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page->component('inquiry/PoInquiry')
             ->where('contract.id', $contract->id)->where('contract.po_no', $contract->po_no)->where('contract.party', $contract->party->name)
             ->where('contract.po_date', $contract->po_date->format('d-m-Y'))->where('contract.contract_qty', 1000)->where('contract.lots_count', 2)
-            ->has('lots', 2, fn (AssertableInertia $l) => $l // lot_no order: 100001 first
-                ->where('id', $other->id)->where('lot_no', '100001')->where('greige_qty', 50)->where('stock_qty', 50)->where('wip_qty', 0)
-                ->where('state', 'open')->where('current_label', null)->where('process_flag', 'pending')->etc())
-            ->has('lots.1', fn (AssertableInertia $l) => $l->where('id', $this->lot->id)->where('wip_qty', 100)->where('current_label', 'SINGEING/')->etc())
+            ->has('lots', 2, fn (AssertableInertia $l) => $l // lot_no_oracle order: 100001 first
+                ->where('id', $other->id)->where('lot_no_oracle', '100001')->where('greige_received_oracle', 50)->where('greige_in_stock_oracle', 50)->where('wip', 0)
+                ->where('state', 'open')->where('status_oracle', null)->where('process_flag', 'pending')->etc())
+            ->has('lots.1', fn (AssertableInertia $l) => $l->where('id', $this->lot->id)->where('wip', 100)->where('status_oracle', 'SINGEING/')->etc())
             ->where('lotsTotal', 2)
-            ->where('totals.greige_qty', 350)->where('totals.stock_qty', 250)->where('totals.issued_qty', 100)->where('totals.wip_qty', 100)
-            ->where('totals.finished_qty', 0)->where('totals.dispatched_qty', 0)->where('totals.loss_qty', 0));
+            ->where('totals.greige_received_oracle', 350)->where('totals.greige_in_stock_oracle', 250)->where('totals.qty_issued', 100)->where('totals.wip', 100)
+            ->where('totals.finished', 0)->where('totals.dispatch', 0)->where('totals.loss_qty', 0));
 });
 
 it('caps the PO lots at 200, reports the true total and still totals every lot of the PO', function () {
     $contract = $this->lot->contract;
     for ($i = 0; $i < 205; $i++) {
-        Lot::factory()->create(['contract_id' => $contract->id, 'greige_qty' => 2, 'lot_no' => (string) (200000 + $i)]);
+        Lot::factory()->create(['contract_id' => $contract->id, 'greige_received_oracle' => 2, 'lot_no_oracle' => (string) (200000 + $i)]);
     }
     $this->get("/inquiry/contracts/{$contract->id}")->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->has('lots', InquiryController::ROW_CAP)->where('lotsTotal', 206)->where('contract.lots_count', 206)
             // 205 x 2 m greige plus this->lot's 300 m: the totals row is the whole PO, not the page
-            ->where('totals.greige_qty', 710)->where('totals.stock_qty', 200)->where('totals.issued_qty', 100)->etc());
+            ->where('totals.greige_received_oracle', 710)->where('totals.greige_in_stock_oracle', 200)->where('totals.qty_issued', 100)->etc());
 });
 
 // ---- 404s and permissions ---------------------------------------------------------------------------------------

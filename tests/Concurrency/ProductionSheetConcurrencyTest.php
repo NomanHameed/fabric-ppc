@@ -36,7 +36,7 @@ beforeEach(function () {
     $this->ppc = User::factory()->create()->assignRole('ppc');
     $this->sheets = app(ProductionSheetService::class);
     $this->ledger = app(LedgerService::class);
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 1000, 'colour_status' => 'APPROVED']);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 1000, 'clr_status_oracle' => 'APPROVED']);
     app(LotRouteService::class)->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 1000);
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 1000, 1000);
@@ -118,6 +118,6 @@ it('sees a sheet committed by another connection after this transaction took its
         ->and(ProductionSheet::count())->toBe(2)
         ->and(LotMovement::query()->where('lot_id', $lot->id)->orderBy('id')->pluck('kind')->all())->toBe(['import', 'issue', 'process', 'process'])
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 0.0, "STEP:{$s1->id}" => 1000.0])
-        ->and((float) $lot->wip_qty)->toBe(1000.0)->and($s1->status)->toBe('done');
+        ->and((float) $lot->wip)->toBe(1000.0)->and($s1->status)->toBe('done');
     $this->ledger->assertInvariant($lot);
 });

@@ -8,16 +8,18 @@ export type LotSummary = {
     po_no: number;
     party: string;
     design: string | null;
-    colour: string | null;
+    color_oracle_name: string | null;
     quality: string;
-    g_width: number | null;
+    gw_oracle: number | null;
     f_width: number | null;
-    stock_qty: number;
-    wip_qty: number;
-    finished_qty: number;
+    greige_in_stock_oracle: number;
+    wip: number;
+    finished: number;
     state: LotState;
-    current_label: string | null;
+    status_oracle: string | null;
     contract_id: number;
+    stage_id: number | null;
+    stage: string | null;
 };
 
 /** A row of the `contracts` LOV (ContractLov::row): open lots with greige in stock, and the open lots' stock in metres. */
@@ -28,20 +30,20 @@ export type ContractSummary = {
     ref_no: string | null;
     party: string;
     open_lots: number;
-    stock_qty: number;
+    greige_in_stock_oracle: number;
 };
 
 /** One `issue` movement as the Issue to Floor screen lists it (IssueController::index). */
 export type IssueRow = {
     id: number;
     lot_id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     po_no: number;
     party: string;
     design: string | null;
-    colour: string | null;
+    color_oracle_name: string | null;
     quality: string | null;
-    stock_qty: number;
+    greige_in_stock_oracle: number;
     qty: number;
     reversal: boolean;
     moved_at: string;
@@ -72,20 +74,20 @@ export type RouteStepRow = RouteStep & { skipped: boolean };
 /** The lot header of the Lot Route screen (LotRouteController::index). */
 export type RouteLot = {
     id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     po_no: number;
     party: string;
     contract_id: number;
     quality: string | null;
     design: string | null;
-    colour: string | null;
-    po_type: string | null;
+    color_oracle_name: string | null;
+    po_type_oracle: string | null;
     state: LotState;
-    current_label: string | null;
-    stock_qty: number;
+    status_oracle: string | null;
+    greige_in_stock_oracle: number;
     issued: number;
-    wip_qty: number;
-    finished_qty: number;
+    wip: number;
+    finished: number;
 };
 
 // ---- Production sheet screen (ProductionSheetController::index, ::lotContext) ---------------------------------
@@ -127,6 +129,7 @@ export type SheetLineRow = {
     qty_in: number | null;
     qty_out: number | null;
     output_type: OutputType | null;
+    /** `production_lines.g_width` — the width keyed on this line, defaulted from the lot's `gw_oracle`. */
     g_width: number | null;
     f_width: number | null;
     remarks: string | null;
@@ -189,19 +192,19 @@ export type LotContextStep = {
 /** GET production/sheets/lot-context/{lot}?department_id= */
 export type LotContext = {
     lot_id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     po_no: number;
     party: string;
     quality: string | null;
     design: string | null;
-    colour: string | null;
-    po_type: string | null;
+    color_oracle_name: string | null;
+    po_type_oracle: string | null;
     state: LotState;
-    current_label: string | null;
-    colour_status: string | null;
+    status_oracle: string | null;
+    clr_status_oracle: string | null;
     colour_approved: boolean;
     balances: Record<string, number>;
-    g_width: number | null;
+    gw_oracle: number | null;
     f_width: number | null;
     /** The next pending step of the sheet's department; null: the line would be recorded as unplanned. */
     default_step_id: number | null;
@@ -231,7 +234,7 @@ export type OperationOption = {
 
 // ---- Lots screen (LotController::index) -----------------------------------------------------------------------
 
-/** An active `colour_status` lookup value; `approved` drives the ✓ marker (spec §5.4). */
+/** An active `clr_status_oracle` lookup value; `approved` drives the ✓ marker (spec §5.4). */
 export type ColourStatusOption = {
     value: string;
     label: string;
@@ -245,13 +248,13 @@ export type HoldReasonOption = { value: string; label: string };
 export type ProcessFlag = 'pending' | 'complete';
 
 /**
- * One lot as the Lots screen receives it. Everything but `colour_status` and `remarks` is read-only here:
- * `Lot::ORACLE_FIELDS` belong to the import and the quantities plus `current_label` to the ledger. The Oracle
- * identifiers (`oracle_line_id`, `design_code`, `colour_code`) are not sent: the Lot Inquiry shows those.
+ * One lot as the Lots screen receives it. Everything but `clr_status_oracle` and `remarks` is read-only here:
+ * `Lot::ORACLE_FIELDS` belong to the import and the quantities plus `status_oracle` to the ledger. The Oracle
+ * identifiers (`oracle_line_id`, `design_oracle_id`, `color_oracle_id`) are not sent: the Lot Inquiry shows those.
  */
 export type LotScreenRow = {
     id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     contract_id: number;
     po_no: number;
     party: string;
@@ -260,32 +263,144 @@ export type LotScreenRow = {
     quality: string;
     gsm: number | null;
     design: string | null;
-    colour: string | null;
-    colour_status: string | null;
-    g_width: number | null;
+    color_oracle_name: string | null;
+    clr_status_oracle: string | null;
+    gw_oracle: number | null;
     f_width: number | null;
-    po_type: string;
+    po_type_oracle: string;
     state: LotState;
     hold_reason: string | null;
     cancel_reason: string | null;
     state_changed_at: string | null;
-    current_label: string | null;
+    status_oracle: string | null;
     process_flag: ProcessFlag;
-    greige_qty: number;
-    stock_qty: number;
-    issued_qty: number;
-    wip_qty: number;
-    finished_qty: number;
-    dispatched_qty: number;
+    /** The reporting stage, derived from the status — or pinned by hand (`stage_overridden`). */
+    stage_id: number | null;
+    stage: string | null;
+    stage_overridden: boolean;
+    stage_overridden_at: string | null;
+    stage_overridden_by: string | null;
+    greige_received_oracle: number;
+    greige_in_stock_oracle: number;
+    qty_issued: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
     loss_qty: number;
     last_movement_at: string | null;
     oracle_missing_at: string | null;
     remarks: string | null;
 };
 
+/**
+ * The flat, Oracle-shaped lot payload — `ProductionAnalyticsService::flatLots()`, key for key and in the same
+ * order (`FLAT_KEYS`). These are the mill's own field names, and since the physical rename they are the
+ * schema's too: `lots` carries them under exactly these names, with the party, the PO and the quality
+ * denormalised onto the row.
+ *
+ * Metres are numbers, not the driver's decimal strings. A null stays null: an unset greige width or an
+ * unresolved stage is absent, never `0` or `''`. `date_oracle` is already dd-mm-yyyy.
+ *
+ * The last four keys are additive: `stage_name`, the two vestigial `stage_process_*` keys (always null —
+ * resolution is stage-only now, and they survive only so the 25-key shape does), and `lot_id`, the real
+ * primary key the grid links to the Lot Inquiry with.
+ */
+export type FlatLotRow = {
+    party_oracle_id: number | null;
+    party_oracle_name: string;
+    po_no: number;
+    ref: string | null;
+    design_oracle_id: string | null;
+    color_oracle_id: string | null;
+    color_oracle_name: string | null;
+    clr_status_oracle: string | null;
+    po_type_oracle: string;
+    date_oracle: string | null;
+    lot_no_oracle: string;
+    quality: string;
+    gw_oracle: number | null;
+    status_oracle: string | null;
+    greige_received_oracle: number;
+    greige_in_stock_oracle: number;
+    qty_issued: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
+    stage_id: number | null;
+    stage_name: string | null;
+    /** Always null: `lots.stage_process_id` is gone. Kept so the payload's 25-key shape is unchanged. */
+    stage_process_id: null;
+    /** Always null, for the same reason as `stage_process_id`. */
+    stage_process_name: null;
+    lot_id: number;
+};
+
+/**
+ * A flat row as the grid holds it. `DataGrid` keys its nodes by `id`, and the payload has no such key by
+ * design (it is exactly the 25 fields above), so the page adds `id = lot_id` on the way in. Client-side only:
+ * nothing is sent back from this grid.
+ */
+export type FlatLotGridRow = FlatLotRow & { id: number };
+
+// ---- R1, the Month Wise Fabric Report (FabricReportController::screen) ----------------------------------------
+
+/**
+ * The report's six quantities and its lot count, at either totals level (stage, grand). One spelling does
+ * for the flat row and the total now that the columns carry the mill's names; `@/lib/flatLotColumns`'
+ * `FLAT_LOT_TOTAL_FIELDS` is the one place the six are declared.
+ */
+export type FabricReportTotals = {
+    lots: number;
+    greige_received_oracle: number;
+    greige_in_stock_oracle: number;
+    qty_issued: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
+};
+
+/**
+ * One stage of the report: its subtotal and the lots it claims, in the flat Oracle shape.
+ *
+ * `rows` can be **shorter than `lots`**, or empty while `lots` is not: the totals are summed over every
+ * match in the database while the rows are capped across the whole report, so the page must say when the
+ * report was truncated (`rowsTotal > rowCap`). `id` is null for the `unclassified` row, which holds the
+ * lots no stage claims.
+ */
+export type FabricReportStage = FabricReportTotals & {
+    id: number | null;
+    code: string;
+    name: string;
+    rows: FlatLotRow[];
+};
+
+/** R1's Process parameter (spec §7.1): the pending work, the finished work, or both. */
+export type FabricReportProcessFilter = 'pending' | 'complete' | 'all';
+
+/** The two parameters the report carries as discrete choices rather than as query-mode criteria. */
+export type FabricReportParams = {
+    /** `YYYY-MM` of the PO date, or null for every month ("All"). */
+    month: string | null;
+    process: FabricReportProcessFilter;
+};
+
+/** One entry of the Month parameter: `YYYY-MM` and the mill's `Mmm-yy` label. */
+export type FabricReportMonth = { value: string; label: string };
+
+/** The Oracle Reports header block's server-side facts (spec §4.3); title and parameters come from `t()`. */
+export type FabricReportHeader = {
+    company: string;
+    /** dd-mm-yyyy HH:mm on the mill's clock. */
+    run_at: string;
+    user: string;
+};
+
+/** Which columns the Lots grid shows: the app's own `LotScreenRow`, or the flat Oracle-shaped payload. */
+export type LotGridShape = 'nested' | 'flat';
+
 /** What `PUT production/lots/{lot}` accepts — the two app-owned fields, each behind its own permission. */
 export type LotScreenEdit = {
-    colour_status: string | null;
+    clr_status_oracle: string | null;
     remarks: string | null;
 };
 
@@ -295,6 +410,23 @@ export type LotScreenPermissions = {
     remarks: boolean;
     hold: boolean;
     route: boolean;
+    /** May pin a lot's reporting stage by hand, and clear the pin (`production.route.manage`). */
+    stage: boolean;
+};
+
+/** What `PUT production/lots/{lot}/stage` accepts: the stage to pin, required. */
+export type LotStageOverride = {
+    stage_id: number | null;
+};
+
+/** One unmapped status as the Unmapped Statuses screen receives it (UnmappedStatusController::index). */
+export type UnmappedStatusRow = {
+    /** The grid's row id: the lowest lot id carrying the status (the lot the row opens). */
+    id: number;
+    label: string;
+    normalised: string | null;
+    lots: number;
+    lot_id: number;
 };
 
 // ---- POs / Contracts screen (ContractController::index) --------------------------------------------------------
@@ -309,11 +441,11 @@ export type ContractScreenRow = {
     contract_qty: number;
     lots_count: number;
     oracle_missing_at: string | null;
-    greige_qty: number;
-    stock_qty: number;
-    issued_qty: number;
-    wip_qty: number;
-    finished_qty: number;
-    dispatched_qty: number;
+    greige_received_oracle: number;
+    greige_in_stock_oracle: number;
+    qty_issued: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
     loss_qty: number;
 };

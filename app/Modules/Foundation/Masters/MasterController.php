@@ -72,6 +72,8 @@ class MasterController extends Controller
     {
         $res = $this->authorizeEdit($request, $resource);
         $model = $res->model()::query()->findOrFail($id);
+        // Checks the database cannot make for us (a nullable reference that would be emptied, not refused).
+        $res->assertDeletable($model);
         try {
             $model->deleteOrFail();
         } catch (QueryException $e) {

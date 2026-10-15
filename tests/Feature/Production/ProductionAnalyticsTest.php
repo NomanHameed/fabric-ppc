@@ -23,7 +23,7 @@ beforeEach(function () {
     $this->today = CarbonImmutable::today();
     $this->analytics = app(ProductionAnalyticsService::class);
 
-    $this->lot = Lot::factory()->create(['greige_qty' => 1000, 'po_type' => 'DYED', 'created_at' => now()->subDays(10)]);
+    $this->lot = Lot::factory()->create(['greige_received_oracle' => 1000, 'po_type_oracle' => 'DYED', 'created_at' => now()->subDays(10)]);
     app(LotIntakeService::class)->receive($this->lot, $this->ppc->id);
     $this->lot->refresh();
     $this->step = $this->lot->routeSteps()->firstOrFail();
@@ -163,7 +163,7 @@ it('clamps a range longer than a year instead of scanning it', function () {
 it('renders the timeline and capacity screens', function () {
     $this->actingAs($this->ppc)->get('/production/timeline?lot='.$this->lot->id)->assertOk()
         ->assertInertia(fn ($page) => $page->component('production/LotTimeline')
-            ->where('lot.lot_no', $this->lot->lot_no)
+            ->where('lot.lot_no_oracle', $this->lot->lot_no_oracle)
             ->has('types'));
 
     $this->actingAs($this->ppc)->get('/production/timeline')->assertOk()

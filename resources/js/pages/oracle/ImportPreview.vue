@@ -147,15 +147,23 @@ const diffText = (d: ImportRow['diff']) =>
 
 const columns = computed<ColumnDef<ImportRow>[]>(() => [
     { field: 'row_no', headerName: t('oracle.fields.row_no'), width: 70 },
-    { field: 'lot_no', headerName: t('oracle.fields.lot_no'), width: 100 },
+    {
+        field: 'lot_no_oracle',
+        headerName: t('oracle.fields.lot_no_oracle'),
+        width: 100,
+    },
     { field: 'po_no', headerName: t('oracle.fields.po_no'), width: 100 },
     { field: 'party', headerName: t('oracle.fields.party'), flex: 2 },
     { field: 'design', headerName: t('oracle.fields.design'), flex: 1 },
-    { field: 'colour', headerName: t('oracle.fields.colour'), flex: 1 },
+    {
+        field: 'color_oracle_name',
+        headerName: t('oracle.fields.color_oracle_name'),
+        flex: 1,
+    },
     { field: 'quality', headerName: t('oracle.fields.quality'), flex: 3 },
     {
-        field: 'greige_qty',
-        headerName: t('oracle.fields.greige_qty'),
+        field: 'greige_received_oracle',
+        headerName: t('oracle.fields.greige_received_oracle'),
         width: 110,
         type: 'numericColumn',
         valueFormatter: (p) =>

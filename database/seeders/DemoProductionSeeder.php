@@ -86,9 +86,10 @@ class DemoProductionSeeder extends Seeder
 
         for ($c = 0; $c < self::CONTRACTS; $c++) {
             $poDate = CarbonImmutable::now()->subDays(60 - $c * 5)->startOfDay();
+            $party = $parties[$c % count($parties)];
             $contract = Contract::query()->create([
                 'po_no' => self::FIRST_PO + $c,
-                'party_id' => $parties[$c % count($parties)]->id,
+                'party_id' => $party->id,
                 'ref_no' => 'REF-'.(2600 + $c),
                 'po_date' => $poDate,
                 'contract_qty' => 0,
@@ -102,19 +103,26 @@ class DemoProductionSeeder extends Seeder
 
                 $lot = Lot::query()->create([
                     'oracle_line_id' => $oracleLineId++,
-                    'lot_no' => (string) $lotNo++,
+                    'lot_no_oracle' => (string) $lotNo++,
                     'contract_id' => $contract->id,
                     'quality_id' => $qualities[$n % count($qualities)]->id,
                     'gsm' => 120 + ($n % 5) * 10,
-                    'design_code' => 'D-'.(700 + $n),
+                    'design_oracle_id' => 'D-'.(700 + $n),
                     'design' => 'Design '.(700 + $n),
-                    'colour_code' => $colourCode,
-                    'colour' => $colour,
-                    'g_width' => 60 + ($n % 3),
+                    'color_oracle_id' => $colourCode,
+                    'color_oracle_name' => $colour,
+                    'gw_oracle' => 60 + ($n % 3),
                     'f_width' => 56 + ($n % 3),
-                    'po_type' => self::PO_TYPES[$n % count(self::PO_TYPES)],
-                    'greige_qty' => $greige,
-                    'colour_status' => self::COLOUR_STATUSES[$n % count(self::COLOUR_STATUSES)],
+                    'po_type_oracle' => self::PO_TYPES[$n % count(self::PO_TYPES)],
+                    'greige_received_oracle' => $greige,
+                    'clr_status_oracle' => self::COLOUR_STATUSES[$n % count(self::COLOUR_STATUSES)],
+                    // The denormalised copies the report prints without joining (Lot::ORACLE_FIELDS).
+                    'party_oracle_id' => $party->oracle_code,
+                    'party_oracle_name' => $party->name,
+                    'po_no' => $contract->po_no,
+                    'ref' => $contract->ref_no,
+                    'date_oracle' => $poDate,
+                    'quality' => $qualities[$n % count($qualities)]->description,
                     'created_at' => $poDate->addDay(),
                     'updated_at' => $poDate->addDay(),
                 ]);
@@ -156,7 +164,7 @@ class DemoProductionSeeder extends Seeder
         }
 
         $issuedAt = $poDate->addDays(2);
-        $qty = round((float) $lot->greige_qty, 2);
+        $qty = round((float) $lot->greige_received_oracle, 2);
         // IssueService records `lot.issued` itself now, stamped with the issue date, so there is nothing to
         // log here — doing it again would put two identical rows on every demo lot's timeline.
         $issues->issue($lot, $qty, $ppc, $issuedAt);
@@ -179,7 +187,7 @@ class DemoProductionSeeder extends Seeder
             $to = Position::step($steps[$i]->id);
             $ledger->post($lot, 'process', $from, $to, $qty, $qty, ['userId' => $ppc->id, 'movedAt' => $movedAt]);
             $logger->record(ActionKeys::LOT_MOVED, $lot, [
-                'lot' => $lot->lot_no,
+                'lot' => $lot->lot_no_oracle,
                 'from' => $i === 0 ? 'ISSUED' : $this->stepName($steps[$i - 1]),
                 'to' => $this->stepName($steps[$i]),
             ], $ppc, null, null, null, $movedAt);
@@ -197,7 +205,7 @@ class DemoProductionSeeder extends Seeder
         }
 
         // A colour override wherever production ran on a lot whose colour is not approved.
-        if (in_array($lot->colour_status, ['DIP', 'SHADE'], true)) {
+        if (in_array($lot->clr_status_oracle, ['DIP', 'SHADE'], true)) {
             ColourOverride::query()->create([
                 'lot_id' => $lot->id,
                 'reason' => 'Party confirmed the shade on the phone; written approval to follow.',
@@ -205,7 +213,7 @@ class DemoProductionSeeder extends Seeder
                 'approved_at' => $issuedAt->addDay(),
             ]);
         } else {
-            $logger->record(ActionKeys::COLOUR_APPROVED, $lot, ['colour' => (string) $lot->colour, 'lot' => $lot->lot_no],
+            $logger->record(ActionKeys::COLOUR_APPROVED, $lot, ['colour' => (string) $lot->color_oracle_name, 'lot' => $lot->lot_no_oracle],
                 $lab, null, null, null, $issuedAt->addDay());
         }
 
@@ -228,7 +236,7 @@ class DemoProductionSeeder extends Seeder
         if ($stage === 5) {
             $movedAt = $movedAt->addDays(3);
             $ledger->post($lot, 'dispatch', Position::finished(), Position::dispatched(), $qty, $qty, ['userId' => $ppc->id, 'movedAt' => $movedAt]);
-            $logger->record(ActionKeys::LOT_DISPATCHED, $lot, ['qty' => $qty, 'lot' => $lot->lot_no], $ppc, null, null, null, $movedAt);
+            $logger->record(ActionKeys::LOT_DISPATCHED, $lot, ['qty' => $qty, 'lot' => $lot->lot_no_oracle], $ppc, null, null, null, $movedAt);
         }
     }
 

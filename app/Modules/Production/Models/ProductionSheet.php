@@ -3,6 +3,7 @@
 namespace App\Modules\Production\Models;
 
 use App\Models\User;
+use App\Modules\Foundation\Casts\DateOnly;
 use App\Modules\Foundation\Models\Department;
 use App\Modules\Foundation\Models\Machine;
 use App\Modules\Foundation\Models\Shift;
@@ -37,7 +38,7 @@ class ProductionSheet extends Model implements Auditable
     protected $guarded = ['id'];
 
     protected $casts = [
-        'sheet_date' => 'date', 'shift_id' => 'integer', 'department_id' => 'integer', 'machine_id' => 'integer',
+        'sheet_date' => DateOnly::class, 'shift_id' => 'integer', 'department_id' => 'integer', 'machine_id' => 'integer',
         'downtime_minutes' => 'integer', 'entered_by' => 'integer',
     ];
 

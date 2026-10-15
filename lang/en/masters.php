@@ -4,6 +4,7 @@ return [
     'titles' => [
         'departments' => 'Departments', 'machines' => 'Machines', 'operations' => 'Operations', 'shifts' => 'Shifts',
         'qualities' => 'Qualities', 'lookups' => 'Lookup Lists', 'parties' => 'Parties', 'route_templates' => 'Route Templates',
+        'stages' => 'Stages', 'stage_processes' => 'Stage Processes',
     ],
     'fields' => [
         'code' => 'Code', 'name' => 'Name', 'name_en' => 'Name (English)', 'name_ur' => 'Name (Urdu)', 'sort' => 'Sort',
@@ -17,11 +18,16 @@ return [
         'po_type' => 'PO type', 'quality_pattern' => 'Quality pattern', 'priority' => 'Priority', 'seq' => 'Seq',
         'hourly_capacity' => 'Capacity / hour', 'daily_capacity' => 'Capacity / day', 'capacity_uom' => 'Capacity unit',
         'operation' => 'Operation', 'steps' => 'Steps',
+        'stage' => 'Stage', 'sort_order' => 'Sort order', 'quantity_type' => 'Quantity',
+        'is_wip' => 'WIP', 'is_finished' => 'Finished', 'is_dispatch' => 'Dispatch',
+        'status_aliases' => 'Statuses that mean this stage (comma separated; * is a wildcard, e.g. DISP *; #BLANK means no status at all)',
     ],
     'options' => [
         'normal' => 'Normal', 'reprocess' => 'Reprocess', 'dyed' => 'Dyed', 'print' => 'Print', 'brand' => 'Brand', 'local' => 'Local',
-        'colour_status' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
+        'clr_status_oracle' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
         'hold_reason' => 'Hold reason', 'reprocess_reason' => 'Reprocess reason',
+        'quantity_stock' => 'Greige in stock', 'quantity_wip' => 'WIP', 'quantity_finished' => 'Finished',
+        'quantity_dispatched' => 'Dispatched', 'quantity_loss' => 'Loss',
     ],
     'quality_pattern_hint' => 'SQL LIKE pattern, e.g. %VISCOSE%',
 ];

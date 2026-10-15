@@ -87,10 +87,11 @@ const reasonLabel = (code: string | null): string =>
         ? ''
         : (props.holdReasons.find((r) => r.value === code)?.label ?? code);
 const colourStatusLabel = computed(() =>
-    props.lot.colour_status === null
+    props.lot.clr_status_oracle === null
         ? t('production.sheet.no_colour_status')
-        : (props.colourStatuses.find((s) => s.value === props.lot.colour_status)
-              ?.label ?? props.lot.colour_status),
+        : (props.colourStatuses.find(
+              (s) => s.value === props.lot.clr_status_oracle,
+          )?.label ?? props.lot.clr_status_oracle),
 );
 const stateNote = computed(() => {
     const l = props.lot;
@@ -184,7 +185,7 @@ function post(path: string, data: Record<string, string>): void {
 
 async function hold(): Promise<void> {
     const reason = await prompt.ask({
-        title: t('inquiry.lot.hold_title', { lot: props.lot.lot_no }),
+        title: t('inquiry.lot.hold_title', { lot: props.lot.lot_no_oracle }),
         label: t('inquiry.lot.reason_label'),
         options: activeReasons.value,
     });
@@ -196,7 +197,7 @@ async function hold(): Promise<void> {
 async function release(): Promise<void> {
     if (
         await confirm.ask(
-            t('inquiry.lot.release_confirm', { lot: props.lot.lot_no }),
+            t('inquiry.lot.release_confirm', { lot: props.lot.lot_no_oracle }),
         )
     ) {
         post('release', {});
@@ -205,7 +206,7 @@ async function release(): Promise<void> {
 
 async function cancel(): Promise<void> {
     const reason = await prompt.ask({
-        title: t('inquiry.lot.cancel_title', { lot: props.lot.lot_no }),
+        title: t('inquiry.lot.cancel_title', { lot: props.lot.lot_no_oracle }),
         message: t('inquiry.lot.cancel_hint'),
         label: t('inquiry.lot.reason_label'),
         options: activeReasons.value,
@@ -510,12 +511,12 @@ const showing = computed(() => {
 </script>
 
 <template>
-    <Head :title="t('inquiry.lot.title', { lot: lot.lot_no })" />
+    <Head :title="t('inquiry.lot.title', { lot: lot.lot_no_oracle })" />
     <div class="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
         <div class="flex flex-wrap items-center gap-2">
             <h1 class="text-lg font-semibold">
                 {{ t('inquiry.lot.heading') }}
-                <span class="tabular-nums">{{ lot.lot_no }}</span>
+                <span class="tabular-nums">{{ lot.lot_no_oracle }}</span>
             </h1>
             <Badge
                 variant="outline"
@@ -524,16 +525,16 @@ const showing = computed(() => {
                 >{{ stateText }}</Badge
             >
             <Badge
-                v-if="lot.current_label"
+                v-if="lot.status_oracle"
                 variant="secondary"
                 class="font-mono"
-                >{{ lot.current_label }}</Badge
+                >{{ lot.status_oracle }}</Badge
             >
             <Badge variant="outline">{{
                 t(`inquiry.lot.process_flag.${lot.process_flag}`)
             }}</Badge>
             <Badge variant="outline"
-                >{{ t('inquiry.fields.colour_status') }}:
+                >{{ t('inquiry.fields.clr_status_oracle') }}:
                 {{ colourStatusLabel }}</Badge
             >
             <Link
@@ -560,9 +561,9 @@ const showing = computed(() => {
         />
 
         <FormBlock :title="t('inquiry.lot.oracle')">
-            <FormField :label="t('inquiry.fields.lot_no')" :span="2">
+            <FormField :label="t('inquiry.fields.lot_no_oracle')" :span="2">
                 <Input
-                    :model-value="lot.lot_no"
+                    :model-value="lot.lot_no_oracle"
                     readonly
                     class="tabular-nums"
                 />
@@ -600,13 +601,13 @@ const showing = computed(() => {
             <FormField :label="t('inquiry.fields.design')" :span="3">
                 <Input :model-value="lot.design ?? ''" readonly />
             </FormField>
-            <FormField :label="t('inquiry.fields.colour')" :span="2">
-                <Input :model-value="lot.colour ?? ''" readonly />
+            <FormField :label="t('inquiry.fields.color_oracle_name')" :span="2">
+                <Input :model-value="lot.color_oracle_name ?? ''" readonly />
             </FormField>
-            <FormField :label="t('inquiry.fields.g_width')" :span="1">
+            <FormField :label="t('inquiry.fields.gw_oracle')" :span="1">
                 <Input
                     :model-value="
-                        lot.g_width === null ? '' : formatQty(lot.g_width)
+                        lot.gw_oracle === null ? '' : formatQty(lot.gw_oracle)
                     "
                     readonly
                     class="text-end tabular-nums"
@@ -621,8 +622,8 @@ const showing = computed(() => {
                     class="text-end tabular-nums"
                 />
             </FormField>
-            <FormField :label="t('inquiry.fields.po_type')" :span="2">
-                <Input :model-value="lot.po_type ?? ''" readonly />
+            <FormField :label="t('inquiry.fields.po_type_oracle')" :span="2">
+                <Input :model-value="lot.po_type_oracle ?? ''" readonly />
             </FormField>
             <FormField :label="t('inquiry.fields.oracle_line_id')" :span="2">
                 <Input
@@ -653,25 +654,30 @@ const showing = computed(() => {
 
         <div class="grid gap-3 lg:grid-cols-2">
             <FormBlock :title="t('inquiry.lot.quantities')">
+                <!--
+                  Label key -> column, written out because the two no longer share a stem: the columns carry
+                  the mill's own field names (`greige_received_oracle`, `qty_issued`, `dispatch`, …) while
+                  the labels stay the planner's short words.
+                -->
                 <FormField
                     v-for="q in [
-                        'greige',
-                        'stock',
-                        'issued',
-                        'wip',
-                        'finished',
-                        'dispatched',
-                        'loss',
+                        { label: 'greige', field: 'greige_received_oracle' },
+                        { label: 'stock', field: 'greige_in_stock_oracle' },
+                        { label: 'issued', field: 'qty_issued' },
+                        { label: 'wip', field: 'wip' },
+                        { label: 'finished', field: 'finished' },
+                        { label: 'dispatched', field: 'dispatch' },
+                        { label: 'loss', field: 'loss_qty' },
                     ] as const"
-                    :key="q"
-                    :label="t(`inquiry.fields.${q}`)"
+                    :key="q.label"
+                    :label="t(`inquiry.fields.${q.label}`)"
                     :span="3"
                 >
                     <Input
-                        :model-value="formatQty(lot[`${q}_qty`])"
+                        :model-value="formatQty(lot[q.field])"
                         readonly
                         class="text-end tabular-nums"
-                        :data-qty="q"
+                        :data-qty="q.label"
                     />
                 </FormField>
                 <div class="col-span-12">
@@ -725,7 +731,7 @@ const showing = computed(() => {
                 </FormField>
                 <FormField :label="t('inquiry.fields.label')" :span="4">
                     <Input
-                        :model-value="lot.current_label ?? ''"
+                        :model-value="lot.status_oracle ?? ''"
                         readonly
                         class="font-mono"
                     />
@@ -804,7 +810,7 @@ const showing = computed(() => {
                             {{ t('inquiry.lot.dispatches') }}
                         </h3>
                         <p class="text-sm tabular-nums">
-                            {{ formatQty(lot.dispatched_qty) }}
+                            {{ formatQty(lot.dispatch) }}
                         </p>
                         <p class="text-muted-foreground text-xs">
                             {{ t('inquiry.lot.dispatches_hint') }}

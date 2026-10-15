@@ -3,6 +3,7 @@
 namespace App\Modules\Foundation\Masters;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 abstract class MasterResource
 {
@@ -64,6 +65,18 @@ abstract class MasterResource
 
     /** Relations (pivots) after save. */
     public function afterSave(Model $m, array $data): void {}
+
+    /**
+     * Refuse a delete the database itself would allow.
+     *
+     * A foreign key already stops a delete that would orphan rows (MasterController maps that violation to
+     * `forms.in_use`), but a nullable `nullOnDelete` reference does not: the delete succeeds and quietly
+     * empties a column on rows nobody meant to touch. A resource whose references are of that kind says so
+     * here by throwing a ValidationException on `record`, exactly as the FK path does.
+     *
+     * @throws ValidationException
+     */
+    public function assertDeletable(Model $m): void {}
 
     /** @return array<string, array{column: string, type: string}> */
     public function queryFields(): array

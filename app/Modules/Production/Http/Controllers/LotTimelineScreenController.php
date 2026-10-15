@@ -18,27 +18,27 @@ class LotTimelineScreenController extends Controller
     public function index(Request $request): Response
     {
         $lot = $request->filled('lot')
-            ? Lot::query()->with(['contract.party', 'quality'])->find($request->integer('lot'))
+            ? Lot::query()->with('contract.party')->find($request->integer('lot'))
             : null;
 
         return Inertia::render('production/LotTimeline', [
             'lot' => $lot === null ? null : [
                 'id' => $lot->id,
-                'lot_no' => $lot->lot_no,
+                'lot_no_oracle' => $lot->lot_no_oracle,
                 'po_no' => $lot->contract->po_no,
                 'contract_id' => $lot->contract_id,
                 'party' => $lot->contract->party->name,
-                'quality' => $lot->quality?->description,
+                'quality' => $lot->quality,
                 'design' => $lot->design,
-                'colour' => $lot->colour,
-                'colour_status' => $lot->colour_status,
-                'po_type' => $lot->po_type,
+                'color_oracle_name' => $lot->color_oracle_name,
+                'clr_status_oracle' => $lot->clr_status_oracle,
+                'po_type_oracle' => $lot->po_type_oracle,
                 'state' => $lot->state,
-                'current_label' => $lot->current_label,
-                'greige_qty' => (float) $lot->greige_qty,
-                'wip_qty' => (float) $lot->wip_qty,
-                'finished_qty' => (float) $lot->finished_qty,
-                'dispatched_qty' => (float) $lot->dispatched_qty,
+                'status_oracle' => $lot->status_oracle,
+                'greige_received_oracle' => (float) $lot->greige_received_oracle,
+                'wip' => (float) $lot->wip,
+                'finished' => (float) $lot->finished,
+                'dispatch' => (float) $lot->dispatch,
             ],
             'types' => TimelineEventType::ALL,
         ]);

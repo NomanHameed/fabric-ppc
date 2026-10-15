@@ -44,8 +44,8 @@ final class LotRouteService
             if (! $replace && $current->isNotEmpty()) {
                 return 0;
             }
-            $quality = $lot->quality;
-            $template ??= $this->matcher->match($lot->po_type, $quality instanceof Quality ? $quality->description : null) ?? $this->defaultTemplate();
+            $quality = $lot->qualityRecord;
+            $template ??= $this->matcher->match($lot->po_type_oracle, $quality instanceof Quality ? $quality->description : null) ?? $this->defaultTemplate();
             if ($template === null) {
                 return 0;
             }

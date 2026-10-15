@@ -29,12 +29,12 @@ class IssueController extends Controller
     public function index(): Response
     {
         return Inertia::render('production/IssueToFloor', [
-            'recent' => LotMovement::query()->with(['lot.contract.party', 'lot.quality', 'user'])
+            'recent' => LotMovement::query()->with(['lot.contract.party', 'user'])
                 ->where('kind', 'issue')->latest('id')->limit(self::RECENT)->get()
                 ->map(fn (LotMovement $m): array => [
-                    'id' => $m->id, 'lot_id' => $m->lot_id, 'lot_no' => $m->lot->lot_no, 'po_no' => $m->lot->contract->po_no,
-                    'party' => $m->lot->contract->party->name, 'design' => $m->lot->design, 'colour' => $m->lot->colour,
-                    'quality' => $m->lot->quality?->description, 'stock_qty' => (float) $m->lot->stock_qty,
+                    'id' => $m->id, 'lot_id' => $m->lot_id, 'lot_no_oracle' => $m->lot->lot_no_oracle, 'po_no' => $m->lot->contract->po_no,
+                    'party' => $m->lot->contract->party->name, 'design' => $m->lot->design, 'color_oracle_name' => $m->lot->color_oracle_name,
+                    'quality' => $m->lot->quality, 'greige_in_stock_oracle' => (float) $m->lot->greige_in_stock_oracle,
                     'qty' => (float) ($m->reversal_of_id === null ? $m->qty_into_to : $m->qty_out_of_from),
                     'reversal' => $m->reversal_of_id !== null, 'moved_at' => $m->moved_at->format('d-m-Y'),
                     'user' => $m->user?->name, 'remarks' => $m->reason,
@@ -61,7 +61,7 @@ class IssueController extends Controller
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('production.issue.issued', [
-            'qty' => number_format((float) $data['qty'], 2), 'lot' => $lot->lot_no,
+            'qty' => number_format((float) $data['qty'], 2), 'lot' => $lot->lot_no_oracle,
         ])]);
 
         return back();

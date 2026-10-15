@@ -25,7 +25,7 @@ class ContractController extends Controller
     public const ROW_CAP = 200;
 
     /** @var list<string> the lot columns a PO row totals (spec §5.3 "Derived lot values") */
-    private const QTY_COLUMNS = ['greige_qty', 'stock_qty', 'issued_qty', 'wip_qty', 'finished_qty', 'dispatched_qty', 'loss_qty'];
+    private const QTY_COLUMNS = ['greige_received_oracle', 'greige_in_stock_oracle', 'qty_issued', 'wip', 'finished', 'dispatch', 'loss_qty'];
 
     /** The query-mode fields (spec §4.2), over the contract and its joined party. */
     private const CRITERIA = [

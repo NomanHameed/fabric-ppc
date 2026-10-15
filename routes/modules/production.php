@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Production\Http\Controllers\ContractController;
+use App\Modules\Production\Http\Controllers\FabricReportController;
 use App\Modules\Production\Http\Controllers\IssueController;
 use App\Modules\Production\Http\Controllers\LotController;
 use App\Modules\Production\Http\Controllers\LotRouteController;
@@ -10,6 +11,7 @@ use App\Modules\Production\Http\Controllers\LotTimelineScreenController;
 use App\Modules\Production\Http\Controllers\MachineUtilisationController;
 use App\Modules\Production\Http\Controllers\ProductionAnalyticsController;
 use App\Modules\Production\Http\Controllers\ProductionSheetController;
+use App\Modules\Production\Http\Controllers\UnmappedStatusController;
 use Illuminate\Support\Facades\Route;
 
 // One `production` group; later tasks add their controllers' routes inside it (there is no catch-all here).
@@ -25,8 +27,20 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         // Dashboard charts. inquiry.view is the widest production read every role holds; the capacity half of
         // the payload is dropped inside the controller for anyone without production.sheet.view.
         Route::get('analytics', [ProductionAnalyticsController::class, 'index'])->name('analytics.index');
+        // The fabric report's stage -> stage process figures, with `?shape=flat` listing each process's lots
+        // in the flat Oracle-shaped payload. A read of the same lots the Lots screen shows, so it follows the
+        // same permission.
+        Route::get('fabric-report', [FabricReportController::class, 'index'])->name('fabric_report.index');
         Route::put('lots/{lot}', [LotController::class, 'update'])->whereNumber('lot')->name('lots.update');
         Route::get('contracts', [ContractController::class, 'index'])->name('contracts.index');
+    });
+
+    // R1, the Month Wise Fabric Report screen (spec §7.1). A mill-wide month report with no department
+    // dimension at all, so it follows `reports.all` — the "Reports: all" column of spec §8 — and not
+    // `reports.department`, which exists for the per-department reports a Dept In-charge may see.
+    // The JSON endpoint above keeps `inquiry.view`: it is the stage figures the dashboard reads, not R1.
+    Route::middleware('permission:reports.all')->group(function () {
+        Route::get('reports/fabric', [FabricReportController::class, 'screen'])->name('fabric_report.screen');
     });
 
     Route::middleware('permission:production.issue')->group(function () {
@@ -36,6 +50,11 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
     });
 
     Route::middleware('permission:production.route.manage')->group(function () {
+        // The manual stage override on the Lots screen. The controller checks the same permission again
+        // before it validates anything, so the 403 does not depend on this group alone.
+        Route::put('lots/{lot}/stage', [LotController::class, 'overrideStage'])->whereNumber('lot')->name('lots.stage.override');
+        Route::delete('lots/{lot}/stage', [LotController::class, 'clearStageOverride'])->whereNumber('lot')->name('lots.stage.clear');
+
         Route::get('routes', [LotRouteController::class, 'index'])->name('routes.index');
         Route::put('routes/{lot}', [LotRouteController::class, 'update'])->whereNumber('lot')->name('routes.update');
         Route::post('routes/{lot}/steps/{step}/skip', [LotRouteController::class, 'skip'])->whereNumber('lot')->whereNumber('step')->name('routes.skip');
@@ -47,6 +66,16 @@ Route::middleware(['auth', 'verified'])->prefix('production')->name('production.
         Route::post('lots/{lot}/hold', [LotStateController::class, 'hold'])->whereNumber('lot')->name('lots.hold');
         Route::post('lots/{lot}/release', [LotStateController::class, 'release'])->whereNumber('lot')->name('lots.release');
         Route::post('lots/{lot}/cancel', [LotStateController::class, 'cancel'])->whereNumber('lot')->name('lots.cancel');
+    });
+
+    // Unmapped statuses: a master-data gap report whose only remedy is adding an alias on the Stages
+    // master, so it follows that master's edit permission rather than a read one.
+    Route::middleware('permission:masters.manage')->group(function () {
+        Route::get('unmapped-statuses', [UnmappedStatusController::class, 'index'])->name('unmapped_statuses.index');
+        // Mapping a status from the report itself: the alias is added to the stage and the lots on that
+        // status are re-resolved. The controller re-checks the permission before it validates anything.
+        Route::post('unmapped-statuses/{stage}/aliases', [UnmappedStatusController::class, 'map'])
+            ->whereNumber('stage')->name('unmapped_statuses.map');
     });
 
     // Capacity/utilisation: a planning read, so it follows the sheet-view permission every floor role has.

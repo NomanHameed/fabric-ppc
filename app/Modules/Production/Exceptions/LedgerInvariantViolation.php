@@ -12,7 +12,7 @@ final class LedgerInvariantViolation extends RuntimeException
     public function __construct(public readonly Lot $lot, public readonly array $differences)
     {
         parent::__construct(__('production.errors.invariant', [
-            'lot' => $lot->lot_no,
+            'lot' => $lot->lot_no_oracle,
             'positions' => implode(', ', array_keys($differences)),
         ]));
     }

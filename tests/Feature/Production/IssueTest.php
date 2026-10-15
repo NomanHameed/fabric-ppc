@@ -12,13 +12,13 @@ beforeEach(function () {
     $this->ppc = User::factory()->create()->assignRole('ppc');
     $this->ledger = app(LedgerService::class);
     $this->issues = app(IssueService::class);
-    $this->lot = Lot::factory()->create(['greige_qty' => 500, 'design' => 'E1143/119', 'colour' => '520 PLUM']);
+    $this->lot = Lot::factory()->create(['greige_received_oracle' => 500, 'design' => 'E1143/119', 'color_oracle_name' => '520 PLUM']);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 500);
 });
 
 function receivedLot(LedgerService $ledger, array $attrs, float $qty): Lot
 {
-    $lot = Lot::factory()->create($attrs + ['greige_qty' => $qty]);
+    $lot = Lot::factory()->create($attrs + ['greige_received_oracle' => $qty]);
     if ($qty > 0) {
         $ledger->post($lot, 'import', null, Position::stock(), 0, $qty);
     }
@@ -39,7 +39,7 @@ it('posts STOCK → ISSUED through the ledger, partial quantities allowed', func
 
     $this->issues->issue($this->lot, 379.5, $this->ppc);
     $lot = $this->lot->fresh();
-    expect((float) $lot->stock_qty)->toBe(0.0)->and((float) $lot->issued_qty)->toBe(500.0)->and((float) $lot->wip_qty)->toBe(500.0)
+    expect((float) $lot->greige_in_stock_oracle)->toBe(0.0)->and((float) $lot->qty_issued)->toBe(500.0)->and((float) $lot->wip)->toBe(500.0)
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 0.0, 'ISSUED' => 500.0]);
     $this->ledger->assertInvariant($lot);
 });
@@ -56,10 +56,10 @@ it('issues the whole stock of every open lot on the PO and skips held, cancelled
     $on = now()->subDay()->startOfDay();
     expect($this->issues->issueContract($contract, $this->ppc, $on))->toBe(2);
 
-    expect((float) $this->lot->fresh()->stock_qty)->toBe(0.0)->and((float) $this->lot->fresh()->issued_qty)->toBe(500.0)
-        ->and((float) $partly->fresh()->stock_qty)->toBe(0.0)->and((float) $partly->fresh()->issued_qty)->toBe(300.0)
-        ->and((float) $held->fresh()->stock_qty)->toBe(10.0)->and((float) $cancelled->fresh()->stock_qty)->toBe(10.0)
-        ->and($empty->movements()->count())->toBe(0)->and((float) $other->fresh()->stock_qty)->toBe(40.0)
+    expect((float) $this->lot->fresh()->greige_in_stock_oracle)->toBe(0.0)->and((float) $this->lot->fresh()->qty_issued)->toBe(500.0)
+        ->and((float) $partly->fresh()->greige_in_stock_oracle)->toBe(0.0)->and((float) $partly->fresh()->qty_issued)->toBe(300.0)
+        ->and((float) $held->fresh()->greige_in_stock_oracle)->toBe(10.0)->and((float) $cancelled->fresh()->greige_in_stock_oracle)->toBe(10.0)
+        ->and($empty->movements()->count())->toBe(0)->and((float) $other->fresh()->greige_in_stock_oracle)->toBe(40.0)
         ->and($this->lot->movements()->where('kind', 'issue')->firstOrFail()->moved_at->format('Y-m-d H:i:s'))->toBe($on->format('Y-m-d H:i:s'));
 
     expect($this->issues->issueContract($contract, $this->ppc))->toBe(0);
@@ -74,9 +74,9 @@ it('renders the page with the recent issues, newest first', function () {
     $this->actingAs($this->ppc)->get('/production/issue')->assertOk()
         ->assertInertia(fn ($page) => $page->component('production/IssueToFloor')
             ->has('recent', 2)
-            ->where('recent.0.remarks', 'second')->where('recent.0.qty', 25)->where('recent.0.lot_no', $this->lot->lot_no)
-            ->where('recent.0.po_no', $this->lot->contract->po_no)->where('recent.0.design', 'E1143/119')->where('recent.0.colour', '520 PLUM')
-            ->where('recent.0.stock_qty', 425)->where('recent.0.reversal', false)->where('recent.0.user', $this->ppc->name)
+            ->where('recent.0.remarks', 'second')->where('recent.0.qty', 25)->where('recent.0.lot_no_oracle', $this->lot->lot_no_oracle)
+            ->where('recent.0.po_no', $this->lot->contract->po_no)->where('recent.0.design', 'E1143/119')->where('recent.0.color_oracle_name', '520 PLUM')
+            ->where('recent.0.greige_in_stock_oracle', 425)->where('recent.0.reversal', false)->where('recent.0.user', $this->ppc->name)
             ->where('recent.0.moved_at', now()->format('d-m-Y'))
             ->where('recent.1.remarks', 'first'));
 });
@@ -85,11 +85,11 @@ it('issues part of a lot with the date and remarks recorded on the movement, and
     $this->actingAs($this->ppc)
         ->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => 120.5, 'issued_on' => '11-09-2026', 'remarks' => 'Jigger 2'])
         ->assertRedirect()->assertSessionHasNoErrors()
-        ->assertSessionHas('inertia.flash_data.toast', ['type' => 'success', 'message' => __('production.issue.issued', ['qty' => '120.50', 'lot' => $this->lot->lot_no])]);
+        ->assertSessionHas('inertia.flash_data.toast', ['type' => 'success', 'message' => __('production.issue.issued', ['qty' => '120.50', 'lot' => $this->lot->lot_no_oracle])]);
 
     $lot = $this->lot->fresh();
     $m = $lot->movements()->where('kind', 'issue')->firstOrFail();
-    expect((float) $lot->stock_qty)->toBe(379.5)->and((float) $lot->issued_qty)->toBe(120.5)
+    expect((float) $lot->greige_in_stock_oracle)->toBe(379.5)->and((float) $lot->qty_issued)->toBe(120.5)
         ->and($m->moved_at->format('d-m-Y'))->toBe('11-09-2026')->and($m->reason)->toBe('Jigger 2')->and($m->user_id)->toBe($this->ppc->id);
     $this->ledger->assertInvariant($lot);
 });
@@ -97,16 +97,16 @@ it('issues part of a lot with the date and remarks recorded on the movement, and
 it('reports the available quantity on the qty field when over-issuing', function () {
     $this->actingAs($this->ppc)->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => 600, 'issued_on' => '11-09-2026'])
         ->assertSessionHasErrors(['qty' => __('production.errors.insufficient_quantity', [
-            'lot' => $this->lot->lot_no, 'position' => __('production.positions.stock'), 'available' => '500.00', 'requested' => '600.00',
+            'lot' => $this->lot->lot_no_oracle, 'position' => __('production.positions.stock'), 'available' => '500.00', 'requested' => '600.00',
         ])]);
-    expect((float) $this->lot->fresh()->stock_qty)->toBe(500.0)->and($this->lot->movements()->where('kind', 'issue')->count())->toBe(0);
+    expect((float) $this->lot->fresh()->greige_in_stock_oracle)->toBe(500.0)->and($this->lot->movements()->where('kind', 'issue')->count())->toBe(0);
 });
 
 it('refuses a held lot on the lot field', function () {
     $held = receivedLot($this->ledger, ['state' => 'hold'], 10);
     $this->actingAs($this->ppc)->post('/production/issue', ['lot_id' => $held->id, 'qty' => 5, 'issued_on' => '11-09-2026'])
-        ->assertSessionHasErrors(['lot_id' => __('production.errors.lot_not_open', ['lot' => $held->lot_no, 'state' => __('production.states.hold')])]);
-    expect((float) $held->fresh()->stock_qty)->toBe(10.0);
+        ->assertSessionHasErrors(['lot_id' => __('production.errors.lot_not_open', ['lot' => $held->lot_no_oracle, 'state' => __('production.states.hold')])]);
+    expect((float) $held->fresh()->greige_in_stock_oracle)->toBe(10.0);
 });
 
 it('validates the request before touching the ledger', function () {
@@ -124,7 +124,7 @@ it('refuses quantities below 0.01 m or with more than two decimals', function ()
         $this->actingAs($this->ppc)->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => $qty, 'issued_on' => '11-09-2026'])
             ->assertSessionHasErrors('qty');
     }
-    expect($this->lot->movements()->where('kind', 'issue')->count())->toBe(0)->and((float) $this->lot->fresh()->stock_qty)->toBe(500.0);
+    expect($this->lot->movements()->where('kind', 'issue')->count())->toBe(0)->and((float) $this->lot->fresh()->greige_in_stock_oracle)->toBe(500.0);
 });
 
 it('issues every open lot of a PO in one go from the screen and toasts the count', function () {
@@ -136,7 +136,7 @@ it('issues every open lot of a PO in one go from the screen and toasts the count
         ->assertRedirect()->assertSessionHasNoErrors()
         ->assertSessionHas('inertia.flash_data.toast', ['type' => 'success', 'message' => __('production.issue.issued_contract', ['n' => 1, 'po' => $contract->po_no])]);
 
-    expect((float) $this->lot->fresh()->stock_qty)->toBe(0.0)->and((float) $held->fresh()->stock_qty)->toBe(10.0)
+    expect((float) $this->lot->fresh()->greige_in_stock_oracle)->toBe(0.0)->and((float) $held->fresh()->greige_in_stock_oracle)->toBe(10.0)
         ->and($empty->movements()->count())->toBe(0)
         ->and($this->lot->movements()->where('kind', 'issue')->firstOrFail()->moved_at->format('Y-m-d H:i:s'))->toBe('2026-09-12 00:00:00');
 
@@ -161,7 +161,7 @@ it('requires production.issue', function () {
         $this->actingAs($user)->post('/production/issue', ['lot_id' => $this->lot->id, 'qty' => 1, 'issued_on' => '11-09-2026'])->assertForbidden();
         $this->actingAs($user)->post('/production/issue/contract', ['contract_id' => $this->lot->contract_id, 'issued_on' => '11-09-2026'])->assertForbidden();
     }
-    expect((float) $this->lot->fresh()->stock_qty)->toBe(500.0);
+    expect((float) $this->lot->fresh()->greige_in_stock_oracle)->toBe(500.0);
 
     $manager = User::factory()->create()->assignRole('manager');
     $this->actingAs($manager)->get('/production/issue')->assertOk();
@@ -169,8 +169,8 @@ it('requires production.issue', function () {
 
 it('carries the balances and state on the lots LOV row', function () {
     $this->issues->issue($this->lot, 100, $this->ppc);
-    $row = $this->actingAs($this->ppc)->getJson('/lov/lots?exact='.$this->lot->lot_no)->assertOk()->json('data.0');
-    expect($row)->toMatchArray(['stock_qty' => 400.0, 'wip_qty' => 100.0, 'finished_qty' => 0.0, 'state' => 'open', 'contract_id' => $this->lot->contract_id])
+    $row = $this->actingAs($this->ppc)->getJson('/lov/lots?exact='.$this->lot->lot_no_oracle)->assertOk()->json('data.0');
+    expect($row)->toMatchArray(['greige_in_stock_oracle' => 400.0, 'wip' => 100.0, 'finished' => 0.0, 'state' => 'open', 'contract_id' => $this->lot->contract_id])
         ->and($row['label'])->toContain(' · E1143/119 · 520 PLUM');
 });
 
@@ -183,10 +183,10 @@ it('carries the open lots and their stock on the contracts LOV row', function ()
     receivedLot($this->ledger, [], 40);
 
     $row = $this->actingAs($this->ppc)->getJson('/lov/contracts?exact='.$contract->po_no)->assertOk()->json('data.0');
-    expect($row)->toMatchArray(['id' => $contract->id, 'open_lots' => 2, 'stock_qty' => 700.0]);
+    expect($row)->toMatchArray(['id' => $contract->id, 'open_lots' => 2, 'greige_in_stock_oracle' => 700.0]);
 
     $rows = $this->actingAs($this->ppc)->getJson('/lov/contracts?q='.$contract->po_no)->assertOk()->json('data');
-    expect(collect($rows)->firstWhere('id', $contract->id))->toMatchArray(['open_lots' => 2, 'stock_qty' => 700.0]);
+    expect(collect($rows)->firstWhere('id', $contract->id))->toMatchArray(['open_lots' => 2, 'greige_in_stock_oracle' => 700.0]);
 });
 
 it('keeps only lots with greige in stock on the lots LOV when in_stock is set', function () {

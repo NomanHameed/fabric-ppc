@@ -34,7 +34,7 @@ beforeEach(function () {
     $this->incharge = User::factory()->create()->assignRole('dept_incharge');
     $this->incharge->departments()->attach($this->singeing->id);
     $this->ledger = app(LedgerService::class);
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100, 'colour_status' => 'APPROVED']);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100, 'clr_status_oracle' => 'APPROVED']);
     app(LotRouteService::class)->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 100);
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
@@ -61,7 +61,7 @@ it('stores a sheet, flashes its id and posts its line', function () {
     $sheet = ProductionSheet::firstOrFail();
     expect(ProductionSheet::count())->toBe(1)->and($sheet->sheet_date->format('Y-m-d'))->toBe('2026-09-11')->and($sheet->downtime_minutes)->toBe(15)
         ->and($sheet->entered_by)->toBe($this->ppc->id)->and($sheet->lines()->count())->toBe(1)
-        ->and((float) $this->lot->fresh()->wip_qty)->toBe(99.0)->and($this->ledger->balances($this->lot)['ISSUED'])->toBe(0.0);
+        ->and((float) $this->lot->fresh()->wip)->toBe(99.0)->and($this->ledger->balances($this->lot)['ISSUED'])->toBe(0.0);
 });
 
 it('validates the header and the lines', function () {
@@ -114,7 +114,7 @@ it('deletes a sheet and returns the metres', function () {
     $this->actingAs($this->ppc)->post('/production/sheets', ($this->payload)())->assertSessionHasNoErrors();
     $sheet = ProductionSheet::firstOrFail();
     $this->actingAs($this->ppc)->delete("/production/sheets/{$sheet->id}")->assertSessionHasNoErrors()->assertRedirect();
-    expect(ProductionSheet::count())->toBe(0)->and((float) $this->lot->fresh()->wip_qty)->toBe(100.0)
+    expect(ProductionSheet::count())->toBe(0)->and((float) $this->lot->fresh()->wip)->toBe(100.0)
         ->and($this->ledger->balances($this->lot)['ISSUED'])->toBe(100.0)->and($this->lot->routeSteps->first()->fresh()->status)->toBe('pending');
 });
 
@@ -132,7 +132,7 @@ it('turns the service refusals into field errors, never 500s', function () {
     ]]))->assertSessionHasNoErrors();
     expect(LotMovement::where('lot_id', $this->lot->id)->orderBy('id')->pluck('kind')->all())->toBe(['import', 'issue', 'adjustment', 'process']);
     // the colour gate
-    $this->lot->update(['colour_status' => 'DIP']);
+    $this->lot->update(['clr_status_oracle' => 'DIP']);
     $bleach = ['lot_id' => $this->lot->id, 'operation_id' => Operation::where('name', 'SINGLE BLEACH')->value('id'), 'qty_in' => 150, 'qty_out' => 150];
     $jigger = ['department_id' => Department::where('code', 'JIGGER_DYEING')->value('id'), 'machine_id' => Machine::where('code', 'JIGGER')->value('id')];
     $this->actingAs($this->ppc)->post('/production/sheets', ($this->payload)($jigger + ['lines' => [$bleach]]))->assertSessionHasErrors('lines.0.colour_override_reason');
@@ -205,8 +205,8 @@ it('serves the lot context and the batch split as JSON', function () {
     // whole numbers arrive as JSON integers (json_encode drops a zero fraction); the screen reads them as numbers either way
     $s1 = $this->lot->routeSteps->first();
     $this->actingAs($this->ppc)->getJson("/production/sheets/lot-context/{$this->lot->id}?department_id={$this->singeing->id}")->assertOk()
-        ->assertJsonPath('lot_id', $this->lot->id)->assertJsonPath('lot_no', $this->lot->lot_no)->assertJsonPath('po_no', $this->lot->contract->po_no)
-        ->assertJsonPath('balances.ISSUED', 100)->assertJsonPath('colour_status', 'APPROVED')->assertJsonPath('colour_approved', true)
+        ->assertJsonPath('lot_id', $this->lot->id)->assertJsonPath('lot_no_oracle', $this->lot->lot_no_oracle)->assertJsonPath('po_no', $this->lot->contract->po_no)
+        ->assertJsonPath('balances.ISSUED', 100)->assertJsonPath('clr_status_oracle', 'APPROVED')->assertJsonPath('colour_approved', true)
         ->assertJsonPath('default_step_id', $s1->id)->assertJsonPath('next_step_id', $s1->id)
         ->assertJsonPath('floor_position', 'ISSUED')->assertJsonPath('floor_available', 100)
         ->assertJsonCount(5, 'steps')

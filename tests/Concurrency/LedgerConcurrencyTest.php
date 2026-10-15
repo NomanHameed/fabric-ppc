@@ -23,7 +23,7 @@ beforeEach(function () {
     $this->default = DB::getDefaultConnection();
     config(['database.connections.mysql2' => config('database.connections.'.$this->default)]);
     $this->user = User::factory()->create();
-    $this->lot = Lot::factory()->create(['greige_qty' => 1000]);
+    $this->lot = Lot::factory()->create(['greige_received_oracle' => 1000]);
     $this->ledger = app(LedgerService::class);
 
     // the ledger uses the default connection (DB::transaction, the models' resolver), so the other process is
@@ -59,7 +59,7 @@ it('sees an issue committed by another connection after this transaction took it
     });
 
     $lot = $this->lot->fresh();
-    expect((float) $lot->issued_qty)->toBe(500.0)->and((float) $lot->stock_qty)->toBe(500.0)->and((float) $lot->wip_qty)->toBe(500.0)
+    expect((float) $lot->qty_issued)->toBe(500.0)->and((float) $lot->greige_in_stock_oracle)->toBe(500.0)->and((float) $lot->wip)->toBe(500.0)
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 500.0, 'ISSUED' => 500.0]);
     $this->ledger->assertInvariant($lot);
 });
@@ -82,7 +82,7 @@ it('posts no phantom adjustment on an override when another connection topped th
     expect($adjustment)->toBeNull()->and($issue->kind)->toBe('issue')
         ->and(LotMovement::query()->where('lot_id', $lot->id)->orderBy('id')->pluck('kind')->all())->toBe(['import', 'adjustment', 'issue'])
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 300.0, 'ISSUED' => 300.0])
-        ->and((float) $lot->stock_qty)->toBe(300.0)->and((float) $lot->issued_qty)->toBe(300.0);
+        ->and((float) $lot->greige_in_stock_oracle)->toBe(300.0)->and((float) $lot->qty_issued)->toBe(300.0);
     $this->ledger->assertInvariant($lot);
 });
 
@@ -97,7 +97,7 @@ it('rebuilds from every committed movement, not from this transaction\'s snapsho
 
     $lot = $this->lot->fresh();
     expect($this->ledger->balances($lot))->toBe(['STOCK' => 750.0, 'ISSUED' => 250.0])
-        ->and((float) $lot->issued_qty)->toBe(250.0)->and((float) $lot->wip_qty)->toBe(250.0);
+        ->and((float) $lot->qty_issued)->toBe(250.0)->and((float) $lot->wip)->toBe(250.0);
     $this->ledger->assertInvariant($lot);
 });
 
@@ -114,6 +114,6 @@ it('refuses the second of two concurrent reversals of the same movement', functi
     $lot = $this->lot->fresh();
     expect(LotMovement::query()->where('reversal_of_id', $issue->id)->count())->toBe(1)
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 1000.0, 'ISSUED' => 0.0])
-        ->and((float) $lot->issued_qty)->toBe(0.0);
+        ->and((float) $lot->qty_issued)->toBe(0.0);
     $this->ledger->assertInvariant($lot);
 });

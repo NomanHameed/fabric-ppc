@@ -15,7 +15,7 @@ beforeEach(function () {
     $this->routes = app(LotRouteService::class);
     $this->labeller = app(LotStatusLabeller::class);
     // Half Bleach: SINGING → SINGLE BLEACH → DRY → WHITE FINISH FOR SANFORIZING → SANFORIZE
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 100);
     $this->through = function (LotRouteStep $step, float $qty): void {
@@ -26,17 +26,17 @@ beforeEach(function () {
 // ---- rule 6 / rule 4 -------------------------------------------------------------------------------------------
 
 it('is blank while everything is in stock, then names the next stage of the largest WIP portion', function () {
-    expect($this->lot->fresh()->current_label)->toBeNull();
+    expect($this->lot->fresh()->status_oracle)->toBeNull();
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
-    expect($this->lot->fresh()->current_label)->toBe('SINGEING/')->and($this->lot->current_label)->toBe('SINGEING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('SINGEING/')->and($this->lot->status_oracle)->toBe('SINGEING/');
     [$s1, $s2] = $this->lot->routeSteps->all();
     ($this->through)($s1, 70);
-    expect($this->lot->fresh()->current_label)->toBe('BLEACHING/'); // 70 m waits for step 2, 30 m for step 1
+    expect($this->lot->fresh()->status_oracle)->toBe('BLEACHING/'); // 70 m waits for step 2, 30 m for step 1
     ($this->through)($s2, 70);
-    expect($this->lot->fresh()->current_label)->toBe('DRYING/');   // 70 m at step 2's position
+    expect($this->lot->fresh()->status_oracle)->toBe('DRYING/');   // 70 m at step 2's position
     ($this->through)($s1, 30);
     ($this->through)($s2, 30);
-    expect($this->lot->fresh()->current_label)->toBe('DRYING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DRYING/');
 });
 
 it('names the last stage as SANFO/CAL and bypasses skipped steps', function () {
@@ -44,22 +44,22 @@ it('names the last stage as SANFO/CAL and bypasses skipped steps', function () {
     $this->routes->setSkipped($s2, true);
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
     ($this->through)($s1, 100);
-    expect($this->lot->fresh()->current_label)->toBe('DRYING/'); // step 2 is skipped
+    expect($this->lot->fresh()->status_oracle)->toBe('DRYING/'); // step 2 is skipped
     ($this->through)($s3, 100);
     ($this->through)($s4, 100);
-    expect($this->lot->fresh()->current_label)->toBe('SANFO/CAL');
+    expect($this->lot->fresh()->status_oracle)->toBe('SANFO/CAL');
 });
 
 it('only names the stage while part of the lot is still in stock', function () {
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 40, 40);
-    expect($this->lot->fresh()->current_label)->toBe('SINGEING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('SINGEING/');
 });
 
 it('falls back to WIP/ for a lot without a route', function () {
-    $lot = Lot::factory()->create(['po_type' => 'NONE', 'greige_qty' => 10]);
+    $lot = Lot::factory()->create(['po_type_oracle' => 'NONE', 'greige_received_oracle' => 10]);
     $this->ledger->post($lot, 'import', null, Position::stock(), 0, 10);
     $this->ledger->post($lot, 'issue', Position::stock(), Position::issued(), 10, 10);
-    expect($lot->routeSteps()->count())->toBe(0)->and($lot->fresh()->current_label)->toBe('WIP/');
+    expect($lot->routeSteps()->count())->toBe(0)->and($lot->fresh()->status_oracle)->toBe('WIP/');
 });
 
 // ---- rule 5 + process flag ------------------------------------------------------------------------------------
@@ -70,7 +70,7 @@ it('becomes RF-INSP when all metres are finished, and processFlag stays pending 
         ($this->through)($step, 100);
     }
     $lot = $this->lot->fresh();
-    expect($lot->current_label)->toBe('RF-INSP/')->and($this->labeller->processFlag($lot))->toBe('pending');
+    expect($lot->status_oracle)->toBe('RF-INSP/')->and($this->labeller->processFlag($lot))->toBe('pending');
     $this->ledger->post($lot, 'dispatch', Position::finished(), Position::dispatched(), 100, 100);
     expect($this->labeller->processFlag($lot->fresh()))->toBe('complete');
 });
@@ -81,7 +81,7 @@ it('is RF-INSP once nothing is on the floor and some metres are finished, even w
         ($this->through)($step, 40);
     }
     $lot = $this->lot->fresh();
-    expect($lot->current_label)->toBe('RF-INSP/')->and($lot->stock_qty)->toBe('60.00')->and($lot->wip_qty)->toBe('0.00');
+    expect($lot->status_oracle)->toBe('RF-INSP/')->and($lot->greige_in_stock_oracle)->toBe('60.00')->and($lot->wip)->toBe('0.00');
 });
 
 it('reports a closed lot as complete whatever remains, and an untouched one as pending', function () {
@@ -95,12 +95,12 @@ it('reports a cancelled lot as complete even with metres left in stock', functio
     $this->lot->update(['state' => 'cancelled']);
     $this->ledger->relabel($this->lot);
     $lot = $this->lot->fresh();
-    expect($lot->stock_qty)->toBe('50.00')->and($lot->current_label)->toBe('CANCELLED/')->and($this->labeller->processFlag($lot))->toBe('complete');
+    expect($lot->greige_in_stock_oracle)->toBe('50.00')->and($lot->status_oracle)->toBe('CANCELLED/')->and($this->labeller->processFlag($lot))->toBe('complete');
 });
 
 it('reports an open lot that has not received any greige yet as pending', function () {
-    $lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 0]);
-    expect($lot->movements()->count())->toBe(0)->and((float) $lot->stock_qty)->toBe(0.0)
+    $lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 0]);
+    expect($lot->movements()->count())->toBe(0)->and((float) $lot->greige_in_stock_oracle)->toBe(0.0)
         ->and($this->labeller->processFlag($lot))->toBe('pending');
 });
 
@@ -112,7 +112,7 @@ it('shows DISP dd-mm-yy while finished or WIP metres remain after a dispatch', f
         ($this->through)($step, 100);
     }
     $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 40, 40, ['movedAt' => now()->parse('2026-09-11 10:00:00')]);
-    expect($this->lot->fresh()->current_label)->toBe('DISP 11-09-26/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DISP 11-09-26/');
 });
 
 it('keeps DISP dd-mm-yy after everything was dispatched until the lot is closed', function () {
@@ -122,10 +122,10 @@ it('keeps DISP dd-mm-yy after everything was dispatched until the lot is closed'
     }
     $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 100, 100, ['movedAt' => now()->parse('2026-09-11 10:00:00')]);
     $lot = $this->lot->fresh();
-    expect($lot->current_label)->toBe('DISP 11-09-26/')->and($lot->finished_qty)->toBe('0.00')->and($lot->wip_qty)->toBe('0.00');
+    expect($lot->status_oracle)->toBe('DISP 11-09-26/')->and($lot->finished)->toBe('0.00')->and($lot->wip)->toBe('0.00');
     $this->lot->update(['state' => 'closed']);
     $this->ledger->relabel($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('DISPATCHED/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DISPATCHED/');
 });
 
 it('dates the label from the last dispatch that still stands', function () {
@@ -135,9 +135,9 @@ it('dates the label from the last dispatch that still stands', function () {
     }
     $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 40, 40, ['movedAt' => now()->parse('2026-09-11 10:00:00')]);
     $later = $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 20, 20, ['movedAt' => now()->parse('2026-09-15 10:00:00')]);
-    expect($this->lot->fresh()->current_label)->toBe('DISP 15-09-26/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DISP 15-09-26/');
     $this->ledger->reverse($later, null);
-    expect($this->lot->fresh()->current_label)->toBe('DISP 11-09-26/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DISP 11-09-26/');
 });
 
 it('shows DISP while WIP remains after a partial dispatch', function () {
@@ -150,7 +150,7 @@ it('shows DISP while WIP remains after a partial dispatch', function () {
         ($this->through)($step, 60);
     }
     $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 60, 60, ['movedAt' => now()->parse('2026-08-01 08:00:00')]);
-    expect($this->lot->fresh()->current_label)->toBe('DISP 01-08-26/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DISP 01-08-26/');
 });
 
 // ---- rules 1 and 2 --------------------------------------------------------------------------------------------
@@ -159,13 +159,13 @@ it('puts the state first: HOLD, CANCELLED, CLOSED/DISPATCHED', function () {
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
     $this->lot->update(['state' => 'hold']);
     $this->ledger->relabel($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('HOLD/')->and($this->lot->current_label)->toBe('HOLD/');
+    expect($this->lot->fresh()->status_oracle)->toBe('HOLD/')->and($this->lot->status_oracle)->toBe('HOLD/');
     $this->lot->update(['state' => 'cancelled']);
     $this->ledger->relabel($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('CANCELLED/');
+    expect($this->lot->fresh()->status_oracle)->toBe('CANCELLED/');
     $this->lot->update(['state' => 'closed']);
     $this->ledger->relabel($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('CLOSED/');
+    expect($this->lot->fresh()->status_oracle)->toBe('CLOSED/');
     $this->lot->update(['state' => 'open']);
     foreach ($this->lot->routeSteps as $step) {
         ($this->through)($step, 100);
@@ -173,7 +173,7 @@ it('puts the state first: HOLD, CANCELLED, CLOSED/DISPATCHED', function () {
     $this->ledger->post($this->lot, 'dispatch', Position::finished(), Position::dispatched(), 100, 100);
     $this->lot->update(['state' => 'closed']);
     $this->ledger->relabel($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('DISPATCHED/');
+    expect($this->lot->fresh()->status_oracle)->toBe('DISPATCHED/');
 });
 
 it('keeps HOLD/ over every other rule and comes back to the derived label on release', function () {
@@ -181,17 +181,17 @@ it('keeps HOLD/ over every other rule and comes back to the derived label on rel
     $this->lot->update(['state' => 'hold']);
     // a loss is still allowed on a held lot and re-labels through the ledger
     $this->ledger->post($this->lot, 'loss', Position::issued(), Position::loss(), 5, 5);
-    expect($this->lot->fresh()->current_label)->toBe('HOLD/');
+    expect($this->lot->fresh()->status_oracle)->toBe('HOLD/');
     $this->lot->update(['state' => 'open']);
     $this->ledger->relabel($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('SINGEING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('SINGEING/');
 });
 
 // ---- the label is the ledger's --------------------------------------------------------------------------------
 
 it('is re-derived by rebuild from the movements', function () {
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
-    Lot::query()->whereKey($this->lot->id)->update(['current_label' => 'STALE/']);
+    Lot::query()->whereKey($this->lot->id)->update(['status_oracle' => 'STALE/']);
     $this->ledger->rebuild($this->lot);
-    expect($this->lot->fresh()->current_label)->toBe('SINGEING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('SINGEING/');
 });

@@ -46,11 +46,19 @@ function onAction(action: FormsAction): void {
 const qty = (p: { value: unknown }): string => formatQty(p.value);
 
 const lotColumns = computed<ColumnDef<SearchLotRow>[]>(() => [
-    { field: 'lot_no', headerName: t('inquiry.fields.lot_no'), width: 100 },
+    {
+        field: 'lot_no_oracle',
+        headerName: t('inquiry.fields.lot_no_oracle'),
+        width: 100,
+    },
     { field: 'po_no', headerName: t('inquiry.fields.po_no'), width: 100 },
     { field: 'party', headerName: t('inquiry.fields.party'), flex: 2 },
     { field: 'design', headerName: t('inquiry.fields.design'), flex: 1 },
-    { field: 'colour', headerName: t('inquiry.fields.colour'), flex: 1 },
+    {
+        field: 'color_oracle_name',
+        headerName: t('inquiry.fields.color_oracle_name'),
+        flex: 1,
+    },
     { field: 'quality', headerName: t('inquiry.fields.quality'), flex: 2 },
     {
         field: 'state',
@@ -60,27 +68,27 @@ const lotColumns = computed<ColumnDef<SearchLotRow>[]>(() => [
             p.value ? t(`production.states.${String(p.value)}`) : '',
     },
     {
-        field: 'current_label',
+        field: 'status_oracle',
         headerName: t('inquiry.fields.label'),
         width: 130,
         cellClass: 'font-mono',
     },
     {
-        field: 'stock_qty',
+        field: 'greige_in_stock_oracle',
         headerName: t('inquiry.fields.stock'),
         width: 120,
         type: 'numericColumn',
         valueFormatter: qty,
     },
     {
-        field: 'wip_qty',
+        field: 'wip',
         headerName: t('inquiry.fields.wip'),
         width: 110,
         type: 'numericColumn',
         valueFormatter: qty,
     },
     {
-        field: 'finished_qty',
+        field: 'finished',
         headerName: t('inquiry.fields.finished'),
         width: 110,
         type: 'numericColumn',

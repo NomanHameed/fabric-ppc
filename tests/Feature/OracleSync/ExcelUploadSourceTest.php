@@ -42,9 +42,9 @@ it('maps the first row exactly', function () {
         ->and($row->toArray())->toBe([
             'party_name' => 'AL HAMD TEXTILE   (PRIVATE) LTD', 'party_code' => 561, 'po_no' => 261061, 'ref_no' => 'ALP-3104',
             'po_date' => '2026-08-20', 'quality_description' => '0X0/0X0 100% CTN [AJ]  JAQ -AHT-3057', 'quality_code' => 2931,
-            'lot_no' => '265025', 'oracle_line_id' => 47090, 'gsm' => 79, 'design_code' => '17020', 'design' => 'D1',
-            'colour_code' => '46', 'colour' => 'BLACK', 'g_width' => 50.0, 'f_width' => 40.0, 'po_type' => 'DYED',
-            'greige_qty' => 3650.0, 'contract_qty' => 3650.0,
+            'lot_no_oracle' => '265025', 'oracle_line_id' => 47090, 'gsm' => 79, 'design_oracle_id' => '17020', 'design' => 'D1',
+            'color_oracle_id' => '46', 'color_oracle_name' => 'BLACK', 'gw_oracle' => 50.0, 'f_width' => 40.0, 'po_type_oracle' => 'DYED',
+            'greige_received_oracle' => 3650.0, 'contract_qty' => 3650.0,
         ]);
 });
 

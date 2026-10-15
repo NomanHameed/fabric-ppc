@@ -17,7 +17,7 @@ beforeEach(function () {
     $this->ppc = User::factory()->create()->assignRole('ppc');
     $this->routes = app(LotRouteService::class);
     $this->ledger = app(LedgerService::class);
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 100, 'design' => 'E1143/119', 'colour' => '520 PLUM']);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100, 'design' => 'E1143/119', 'color_oracle_name' => '520 PLUM']);
     $this->routes->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 100);
 });
@@ -42,11 +42,11 @@ it('shows the lot header and its steps with metres waiting after each one and th
 
     $this->actingAs($this->ppc)->get("/production/routes?lot={$this->lot->id}")->assertOk()
         ->assertInertia(fn ($page) => $page->component('production/LotRoute')
-            ->where('lot.id', $this->lot->id)->where('lot.lot_no', $this->lot->lot_no)->where('lot.po_no', $this->lot->contract->po_no)
+            ->where('lot.id', $this->lot->id)->where('lot.lot_no_oracle', $this->lot->lot_no_oracle)->where('lot.po_no', $this->lot->contract->po_no)
             ->where('lot.party', $this->lot->contract->party->name)->where('lot.contract_id', $this->lot->contract_id)
-            ->where('lot.design', 'E1143/119')->where('lot.colour', '520 PLUM')->where('lot.po_type', 'HALF BLEACH')->where('lot.state', 'open')
-            ->where('lot.stock_qty', 0)->where('lot.issued', 0)->where('lot.wip_qty', 100)->where('lot.finished_qty', 0)
-            ->where('lot.current_label', $steps[2]->operation->stage_label)
+            ->where('lot.design', 'E1143/119')->where('lot.color_oracle_name', '520 PLUM')->where('lot.po_type_oracle', 'HALF BLEACH')->where('lot.state', 'open')
+            ->where('lot.greige_in_stock_oracle', 0)->where('lot.issued', 0)->where('lot.wip', 100)->where('lot.finished', 0)
+            ->where('lot.status_oracle', $steps[2]->operation->stage_label)
             ->has('steps', 5)
             ->where('steps.0.id', $steps[0]->id)->where('steps.0.seq', 10)->where('steps.0.operation', $steps[0]->operation->name)
             ->where('steps.0.department', $steps[0]->operation->department->name)->where('steps.0.status', 'done')
@@ -159,7 +159,7 @@ it('validates the steps payload', function () {
 
 it('refuses a step id of another lot, a duplicate step id and an inactive operation without touching any route', function () {
     $steps = $this->lot->routeSteps()->get();
-    $other = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $other = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($other);
     $otherSteps = $other->routeSteps()->get();
     $rows = fn (Lot $lot) => $lot->routeSteps()->get()->map(fn (LotRouteStep $s) => [$s->id, $s->seq, $s->operation_id, $s->status])->all();
@@ -192,7 +192,7 @@ it('refuses a step id of another lot, a duplicate step id and an inactive operat
 
 it('re-derives the lot status label when a save changes the first active step', function () {
     $this->ledger->post($this->lot, 'issue', Position::stock(), Position::issued(), 100, 100);
-    expect($this->lot->fresh()->current_label)->toBe('SINGEING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('SINGEING/');
     $steps = $this->lot->routeSteps()->get();
     $payload = fn () => $steps->map(fn (LotRouteStep $s) => ['id' => $s->id, 'operation_id' => $s->operation_id, 'skipped' => false])->all();
 
@@ -200,15 +200,15 @@ it('re-derives the lot status label when a save changes the first active step', 
     $skipped = $payload();
     $skipped[0]['skipped'] = true;
     $this->actingAs($this->ppc)->put("/production/routes/{$this->lot->id}", ['steps' => $skipped])->assertSessionHasNoErrors();
-    expect($this->lot->fresh()->current_label)->toBe('BLEACHING/');
+    expect($this->lot->fresh()->status_oracle)->toBe('BLEACHING/');
     $this->actingAs($this->ppc)->get("/production/routes?lot={$this->lot->id}")
-        ->assertInertia(fn ($page) => $page->where('lot.current_label', 'BLEACHING/')->where('lot.issued', 100)->where('steps.0.status', 'skipped'));
+        ->assertInertia(fn ($page) => $page->where('lot.status_oracle', 'BLEACHING/')->where('lot.issued', 100)->where('steps.0.status', 'skipped'));
 
     // un-skipped and moved: SINGING second, DRY first
     $reordered = $payload();
     [$reordered[0], $reordered[2]] = [$reordered[2], $reordered[0]];
     $this->actingAs($this->ppc)->put("/production/routes/{$this->lot->id}", ['steps' => $reordered])->assertSessionHasNoErrors();
-    expect($this->lot->fresh()->current_label)->toBe('DRYING/')
+    expect($this->lot->fresh()->status_oracle)->toBe('DRYING/')
         ->and($this->lot->routeSteps()->pluck('id')->all())->toBe([$steps[2]->id, $steps[1]->id, $steps[0]->id, $steps[3]->id, $steps[4]->id]);
 });
 
@@ -230,7 +230,7 @@ it('skips and un-skips one step, refuses one with metres waiting, and 404s a ste
         ->assertSessionHasErrors(['skipped' => __('production.errors.route_step_in_progress')]);
     expect($steps[0]->fresh()->status)->toBe('done');
 
-    $other = Lot::factory()->create(['po_type' => 'HALF BLEACH']);
+    $other = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH']);
     $this->routes->assign($other);
     $this->actingAs($this->ppc)->post("/production/routes/{$this->lot->id}/steps/{$other->routeSteps->first()->id}/skip", ['skipped' => true])->assertNotFound();
     $this->actingAs($this->ppc)->post("/production/routes/{$this->lot->id}/steps/999999/skip", ['skipped' => true])->assertNotFound();
@@ -242,7 +242,7 @@ it('applies a template to one lot and refuses once the lot has production', func
     $t = RouteTemplate::query()->where('name', 'Dyed - Standard')->firstOrFail();
     $this->actingAs($this->ppc)->post("/production/routes/{$this->lot->id}/apply", ['route_template_id' => $t->id])
         ->assertRedirect()->assertSessionHasNoErrors()
-        ->assertSessionHas('inertia.flash_data.toast', ['type' => 'success', 'message' => __('production.route.applied_lot', ['n' => 7, 'lot' => $this->lot->lot_no])]);
+        ->assertSessionHas('inertia.flash_data.toast', ['type' => 'success', 'message' => __('production.route.applied_lot', ['n' => 7, 'lot' => $this->lot->lot_no_oracle])]);
     expect($this->lot->routeSteps()->count())->toBe(7);
 
     processThrough($this->lot, 1);
@@ -256,10 +256,10 @@ it('applies a template to one lot and refuses once the lot has production', func
 });
 
 it('applies a template to every open lot of the PO without production and toasts the count', function () {
-    $sibling = Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'po_type' => 'HALF BLEACH', 'greige_qty' => 100]);
+    $sibling = Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 100]);
     $this->routes->assign($sibling);
     $this->ledger->post($sibling, 'import', null, Position::stock(), 0, 100);
-    $held = Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'po_type' => 'HALF BLEACH', 'state' => 'hold']);
+    $held = Lot::factory()->create(['contract_id' => $this->lot->contract_id, 'po_type_oracle' => 'HALF BLEACH', 'state' => 'hold']);
     $this->routes->assign($held);
     $t = RouteTemplate::query()->where('name', 'Dyed - Standard')->firstOrFail();
 

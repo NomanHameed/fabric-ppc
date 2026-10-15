@@ -8,6 +8,8 @@ use App\Modules\Foundation\Http\Controllers\ApprovalPendingController;
 use App\Modules\Foundation\Http\Controllers\LocaleController;
 use App\Modules\Foundation\Http\Controllers\PartyController;
 use App\Modules\Foundation\Http\Controllers\RouteTemplateController;
+use App\Modules\Foundation\Http\Controllers\StageController;
+use App\Modules\Foundation\Http\Controllers\StageProcessController;
 use App\Modules\Foundation\Http\Controllers\TranslationController;
 use App\Modules\Foundation\Lov\LovController;
 use App\Modules\Foundation\Masters\MasterController;
@@ -23,6 +25,20 @@ Route::get('approval/pending', ApprovalPendingController::class)->middleware('au
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('locale', [LocaleController::class, 'update'])->name('locale.update');
     Route::get('lov/{name}', [LovController::class, 'show'])->name('lov.show');
+
+    // The stage / stage process read API (spec §16), for StageSelect and StageProcessSelect. Under the web
+    // middleware group on purpose: this application authenticates with the session, so a stateless `api`
+    // route group would simply be unauthenticated. `api/*` already renders errors as JSON (bootstrap/app.php).
+    // `masters.view` because stages are master data, and every seeded role that can reach a screen showing a
+    // lot's stage holds it.
+    Route::middleware('permission:masters.view')->prefix('api')->name('api.')->group(function () {
+        Route::get('stages', [StageController::class, 'index'])->name('stages.index');
+        // Explicit, above `stages/{stage}`: `{stage}` is numeric-constrained, so there is no ambiguity.
+        Route::get('stages/{stage}/processes', [StageController::class, 'processes'])->whereNumber('stage')->name('stages.processes');
+        Route::get('stages/{stage}', [StageController::class, 'show'])->whereNumber('stage')->name('stages.show');
+        Route::get('stage-processes/{stageProcess}', [StageProcessController::class, 'show'])
+            ->whereNumber('stageProcess')->name('stage_processes.show');
+    });
 
     Route::prefix('masters')->name('masters.')->group(function () {
         Route::get('parties', [PartyController::class, 'index'])->name('parties.index');

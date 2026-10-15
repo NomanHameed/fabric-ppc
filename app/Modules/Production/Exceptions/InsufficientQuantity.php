@@ -16,7 +16,7 @@ final class InsufficientQuantity extends DomainException
         public readonly float $requested,
     ) {
         parent::__construct(__('production.errors.insufficient_quantity', [
-            'lot' => $lot->lot_no,
+            'lot' => $lot->lot_no_oracle,
             'position' => __('production.positions.'.$position->labelKey()),
             'available' => number_format($available, 2),
             'requested' => number_format($requested, 2),

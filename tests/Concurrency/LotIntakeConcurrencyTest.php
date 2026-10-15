@@ -24,7 +24,7 @@ beforeEach(function () {
     config(['database.connections.mysql2' => config('database.connections.'.$this->default)]);
     $this->seed([FoundationSeeder::class, RouteTemplateSeeder::class]);
     $this->user = User::factory()->create();
-    $this->lot = Lot::factory()->create(['po_type' => 'DYED', 'greige_qty' => 500]);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'DYED', 'greige_received_oracle' => 500]);
     $this->intake = app(LotIntakeService::class);
     $this->ledger = app(LedgerService::class);
 
@@ -61,6 +61,6 @@ it('receives a lot once when two connections receive it at the same time', funct
         ->and(LotMovement::query()->where('lot_id', $lot->id)->where('kind', 'import')->count())->toBe(1)
         ->and($lot->routeSteps()->count())->toBe(7)
         ->and($this->ledger->balances($lot))->toBe(['STOCK' => 500.0])
-        ->and((float) $lot->stock_qty)->toBe(500.0);
+        ->and((float) $lot->greige_in_stock_oracle)->toBe(500.0);
     $this->ledger->assertInvariant($lot);
 });

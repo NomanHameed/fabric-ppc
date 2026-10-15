@@ -25,7 +25,7 @@ class CheckLedgerInvariant implements ShouldQueue
                     $ledger->assertInvariant($lot);
                 } catch (LedgerInvariantViolation $e) {
                     $this->violations[] = $lot->id;
-                    Log::error('Ledger invariant violated', ['lot_id' => $lot->id, 'lot_no' => $lot->lot_no, 'differences' => $e->differences]);
+                    Log::error('Ledger invariant violated', ['lot_id' => $lot->id, 'lot_no_oracle' => $lot->lot_no_oracle, 'differences' => $e->differences]);
                 }
             }
         });

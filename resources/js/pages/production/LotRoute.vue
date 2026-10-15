@@ -46,7 +46,7 @@ const props = defineProps<{ lot: RouteLot | null; steps: RouteStep[] }>();
 
 function lotLabel(lot: RouteLot | null): string {
     return lot
-        ? `${lot.lot_no} · ${lot.po_no} · ${lot.design ?? ''} · ${lot.colour ?? ''}`
+        ? `${lot.lot_no_oracle} · ${lot.po_no} · ${lot.design ?? ''} · ${lot.color_oracle_name ?? ''}`
         : '';
 }
 
@@ -170,7 +170,7 @@ function applyTemplate(scope: 'lot' | 'po'): void {
         const ok = await confirm.ask(
             scope === 'lot'
                 ? t('production.route.confirm_apply_lot', {
-                      lot: lot.lot_no,
+                      lot: lot.lot_no_oracle,
                       template: name,
                   })
                 : t('production.route.confirm_apply_po', {
@@ -371,7 +371,7 @@ function onAction(action: FormsAction): void {
         />
         <FormBlock :title="t('production.route.lot_block')">
             <FormField
-                :label="t('production.fields.lot_no')"
+                :label="t('production.fields.lot_no_oracle')"
                 for="f-lot"
                 :span="4"
                 :hint="t('production.route.lot_hint')"
@@ -397,11 +397,14 @@ function onAction(action: FormsAction): void {
             <FormField :label="t('production.fields.design')" :span="3">
                 <Input :model-value="lot?.design ?? ''" disabled />
             </FormField>
-            <FormField :label="t('production.fields.colour')" :span="3">
-                <Input :model-value="lot?.colour ?? ''" disabled />
+            <FormField
+                :label="t('production.fields.color_oracle_name')"
+                :span="3"
+            >
+                <Input :model-value="lot?.color_oracle_name ?? ''" disabled />
             </FormField>
-            <FormField :label="t('production.route.po_type')" :span="2">
-                <Input :model-value="lot?.po_type ?? ''" disabled />
+            <FormField :label="t('production.route.po_type_oracle')" :span="2">
+                <Input :model-value="lot?.po_type_oracle ?? ''" disabled />
             </FormField>
             <FormField :label="t('production.route.state')" :span="2">
                 <Input
@@ -412,11 +415,13 @@ function onAction(action: FormsAction): void {
                 />
             </FormField>
             <FormField :label="t('production.route.label')" :span="2">
-                <Input :model-value="lot?.current_label ?? ''" disabled />
+                <Input :model-value="lot?.status_oracle ?? ''" disabled />
             </FormField>
             <FormField :label="t('production.route.stock')" :span="3">
                 <Input
-                    :model-value="lot ? formatQty(lot.stock_qty) : ''"
+                    :model-value="
+                        lot ? formatQty(lot.greige_in_stock_oracle) : ''
+                    "
                     disabled
                     class="text-end tabular-nums"
                 />
@@ -430,14 +435,14 @@ function onAction(action: FormsAction): void {
             </FormField>
             <FormField :label="t('production.route.wip')" :span="3">
                 <Input
-                    :model-value="lot ? formatQty(lot.wip_qty) : ''"
+                    :model-value="lot ? formatQty(lot.wip) : ''"
                     disabled
                     class="text-end tabular-nums"
                 />
             </FormField>
             <FormField :label="t('production.route.finished')" :span="3">
                 <Input
-                    :model-value="lot ? formatQty(lot.finished_qty) : ''"
+                    :model-value="lot ? formatQty(lot.finished) : ''"
                     disabled
                     class="text-end tabular-nums"
                 />

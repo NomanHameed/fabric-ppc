@@ -6,19 +6,19 @@ export type InquiryTab = 'route' | 'movements' | 'lines' | 'audit';
 
 /** The seven derived quantities (spec §5.3 "Derived lot values"), on the lot summary and on every PO row. */
 export type LotQuantities = {
-    greige_qty: number;
-    stock_qty: number;
-    issued_qty: number;
-    wip_qty: number;
-    finished_qty: number;
-    dispatched_qty: number;
+    greige_received_oracle: number;
+    greige_in_stock_oracle: number;
+    qty_issued: number;
+    wip: number;
+    finished: number;
+    dispatch: number;
     loss_qty: number;
 };
 
 /** The lot summary of the Lot Inquiry (InquiryController::lot → `lot`). */
 export type InquiryLot = LotQuantities & {
     id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     oracle_line_id: number;
     contract_id: number;
     po_no: number;
@@ -28,20 +28,26 @@ export type InquiryLot = LotQuantities & {
     contract_qty: number;
     quality: string;
     gsm: number | null;
-    design_code: string | null;
+    design_oracle_id: string | null;
     design: string | null;
-    colour_code: string | null;
-    colour: string | null;
-    colour_status: string | null;
-    g_width: number | null;
+    color_oracle_id: string | null;
+    color_oracle_name: string | null;
+    clr_status_oracle: string | null;
+    gw_oracle: number | null;
     f_width: number | null;
-    po_type: string | null;
+    po_type_oracle: string | null;
     state: LotState;
     hold_reason: string | null;
     cancel_reason: string | null;
     state_changed_at: string | null;
-    current_label: string | null;
+    status_oracle: string | null;
     process_flag: ProcessFlag;
+    /** The reporting stage, derived from the status unless `stage_overridden` says PPC pinned it. */
+    stage_id: number | null;
+    stage: string | null;
+    stage_overridden: boolean;
+    stage_overridden_at: string | null;
+    stage_overridden_by: string | null;
     oracle_missing_at: string | null;
     last_movement_at: string | null;
     loss_reason: string | null;
@@ -117,7 +123,7 @@ export type LineRow = {
     qty_in: number;
     qty_out: number;
     output_type: string | null;
-    g_width: number | null;
+    gw_oracle: number | null;
     f_width: number | null;
     colour_override: string | null;
     remarks: string | null;
@@ -146,14 +152,16 @@ export type ReasonOption = {
 /** A row of the PO Inquiry's lots grid. */
 export type PoLotRow = LotQuantities & {
     id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     quality: string;
     design: string | null;
-    colour: string | null;
-    colour_status: string | null;
-    po_type: string | null;
+    color_oracle_name: string | null;
+    clr_status_oracle: string | null;
+    po_type_oracle: string | null;
     state: LotState;
-    current_label: string | null;
+    status_oracle: string | null;
+    stage_id: number | null;
+    stage: string | null;
     process_flag: ProcessFlag;
     oracle_missing_at: string | null;
 };
@@ -172,17 +180,17 @@ export type InquiryContract = {
 /** A lot on the search chooser. */
 export type SearchLotRow = {
     id: number;
-    lot_no: string;
+    lot_no_oracle: string;
     po_no: number;
     party: string;
     design: string | null;
-    colour: string | null;
+    color_oracle_name: string | null;
     quality: string;
     state: LotState;
-    current_label: string | null;
-    stock_qty: number;
-    wip_qty: number;
-    finished_qty: number;
+    status_oracle: string | null;
+    greige_in_stock_oracle: number;
+    wip: number;
+    finished: number;
 };
 
 export type SearchContractRow = {

@@ -25,11 +25,11 @@ class LotLov implements LovDefinition
     public function columns(): array
     {
         return [
-            ['key' => 'code', 'label' => __('oracle.fields.lot_no')],
+            ['key' => 'code', 'label' => __('oracle.fields.lot_no_oracle')],
             ['key' => 'po_no', 'label' => __('oracle.fields.po_no')],
             ['key' => 'party', 'label' => __('oracle.fields.party')],
             ['key' => 'design', 'label' => __('oracle.fields.design')],
-            ['key' => 'colour', 'label' => __('oracle.fields.colour')],
+            ['key' => 'color_oracle_name', 'label' => __('oracle.fields.color_oracle_name')],
             ['key' => 'quality', 'label' => __('oracle.fields.quality')],
         ];
     }
@@ -43,19 +43,19 @@ class LotLov implements LovDefinition
     {
         $states = array_values(array_intersect(explode(',', (string) ($filters['states'] ?? 'open')), self::STATES)) ?: ['open'];
 
-        return Lot::query()->whereIn('lots.state', $states)->with(['contract.party', 'quality'])
+        return Lot::query()->whereIn('lots.state', $states)->with(['contract.party', 'stage'])
             ->join('contracts', 'contracts.id', '=', 'lots.contract_id')->select('lots.*')
-            ->when(filter_var($filters['in_stock'] ?? false, FILTER_VALIDATE_BOOL), fn ($q) => $q->where('lots.stock_qty', '>', 0));
+            ->when(filter_var($filters['in_stock'] ?? false, FILTER_VALIDATE_BOOL), fn ($q) => $q->where('lots.greige_in_stock_oracle', '>', 0));
     }
 
     public function searchColumns(): array
     {
-        return ['lots.lot_no', 'contracts.po_no', 'lots.design', 'lots.colour'];
+        return ['lots.lot_no_oracle', 'contracts.po_no', 'lots.design', 'lots.color_oracle_name'];
     }
 
     public function exactColumn(): string
     {
-        return 'lots.lot_no';
+        return 'lots.lot_no_oracle';
     }
 
     /** Exact: the full lot no., the last 4 digits as written on floor sheets, or a PO number (spec §6.3). */
@@ -67,11 +67,11 @@ class LotLov implements LovDefinition
             return;
         }
         if (strlen($value) <= 4) {
-            $query->where('lots.lot_no', 'like', '%'.$value);
+            $query->where('lots.lot_no_oracle', 'like', '%'.$value);
 
             return;
         }
-        $query->where(fn ($q) => $q->where('lots.lot_no', $value)->orWhere('contracts.po_no', (int) $value));
+        $query->where(fn ($q) => $q->where('lots.lot_no_oracle', $value)->orWhere('contracts.po_no', (int) $value));
     }
 
     /** Beyond the columns(): the balances and state a picking screen needs (Issue to Floor shows what is in stock). */
@@ -82,13 +82,15 @@ class LotLov implements LovDefinition
         }
 
         return [
-            'id' => $m->id, 'code' => $m->lot_no,
-            'label' => "{$m->lot_no} · {$m->contract->po_no} · {$m->design} · {$m->colour}",
+            'id' => $m->id, 'code' => $m->lot_no_oracle,
+            'label' => "{$m->lot_no_oracle} · {$m->contract->po_no} · {$m->design} · {$m->color_oracle_name}",
             'po_no' => $m->contract->po_no, 'party' => $m->contract->party->name, 'design' => $m->design,
-            'colour' => $m->colour, 'quality' => $m->quality->description,
-            'g_width' => $m->g_width === null ? null : (float) $m->g_width, 'f_width' => $m->f_width === null ? null : (float) $m->f_width,
-            'stock_qty' => (float) $m->stock_qty, 'wip_qty' => (float) $m->wip_qty, 'finished_qty' => (float) $m->finished_qty,
-            'state' => $m->state, 'current_label' => $m->current_label, 'contract_id' => $m->contract_id,
+            'color_oracle_name' => $m->color_oracle_name, 'quality' => $m->quality,
+            'gw_oracle' => $m->gw_oracle === null ? null : (float) $m->gw_oracle, 'f_width' => $m->f_width === null ? null : (float) $m->f_width,
+            'greige_in_stock_oracle' => (float) $m->greige_in_stock_oracle, 'wip' => (float) $m->wip, 'finished' => (float) $m->finished,
+            'state' => $m->state, 'status_oracle' => $m->status_oracle, 'contract_id' => $m->contract_id,
+            // The reporting taxonomy, for a picking screen that groups by stage rather than by raw status.
+            'stage_id' => $m->stage_id, 'stage' => $m->stage?->name,
         ];
     }
 }

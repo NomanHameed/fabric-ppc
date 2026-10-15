@@ -75,6 +75,6 @@ export type TimelineEvent = {
 };
 
 export type TimelineResponse = {
-    lot: { id: number; lot_no: string; state: string };
+    lot: { id: number; lot_no_oracle: string; state: string };
     events: TimelineEvent[];
 };

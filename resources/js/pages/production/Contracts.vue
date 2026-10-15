@@ -156,12 +156,12 @@ const columns = computed<ColumnDef<ContractScreenRow>[]>(() => [
         width: 90,
         type: 'numericColumn',
     },
-    qtyColumn('greige_qty', 'greige'),
-    qtyColumn('stock_qty', 'stock'),
-    qtyColumn('issued_qty', 'issued'),
-    qtyColumn('wip_qty', 'wip'),
-    qtyColumn('finished_qty', 'finished'),
-    qtyColumn('dispatched_qty', 'dispatched'),
+    qtyColumn('greige_received_oracle', 'greige'),
+    qtyColumn('greige_in_stock_oracle', 'stock'),
+    qtyColumn('qty_issued', 'issued'),
+    qtyColumn('wip', 'wip'),
+    qtyColumn('finished', 'finished'),
+    qtyColumn('dispatch', 'dispatched'),
     qtyColumn('loss_qty', 'loss'),
     {
         field: 'oracle_missing_at',
@@ -172,21 +172,21 @@ const columns = computed<ColumnDef<ContractScreenRow>[]>(() => [
 ]);
 
 const TOTAL_FIELDS = [
-    'greige_qty',
-    'stock_qty',
-    'issued_qty',
-    'wip_qty',
-    'finished_qty',
-    'dispatched_qty',
+    'greige_received_oracle',
+    'greige_in_stock_oracle',
+    'qty_issued',
+    'wip',
+    'finished',
+    'dispatch',
     'loss_qty',
 ] as const;
 const TOTAL_LABELS: Record<(typeof TOTAL_FIELDS)[number], string> = {
-    greige_qty: 'greige',
-    stock_qty: 'stock',
-    issued_qty: 'issued',
-    wip_qty: 'wip',
-    finished_qty: 'finished',
-    dispatched_qty: 'dispatched',
+    greige_received_oracle: 'greige',
+    greige_in_stock_oracle: 'stock',
+    qty_issued: 'issued',
+    wip: 'wip',
+    finished: 'finished',
+    dispatch: 'dispatched',
     loss_qty: 'loss',
 };
 </script>

@@ -3,6 +3,7 @@
 namespace App\Modules\Production\Models;
 
 use App\Models\User;
+use App\Modules\Foundation\Casts\DateOnly;
 use App\Modules\Foundation\Models\Department;
 use App\Modules\Foundation\Models\Machine;
 use App\Modules\Foundation\Models\Operation;
@@ -48,7 +49,7 @@ class MachineAllocation extends Model implements Auditable
     protected $casts = [
         'machine_id' => 'integer', 'operation_id' => 'integer', 'department_id' => 'integer',
         'shift_id' => 'integer', 'lot_id' => 'integer', 'created_by' => 'integer',
-        'allocated_on' => 'date', 'allocated_qty' => 'decimal:2',
+        'allocated_on' => DateOnly::class, 'allocated_qty' => 'decimal:2',
     ];
 
     /** @return BelongsTo<Machine, $this> */
@@ -90,10 +91,10 @@ class MachineAllocation extends Model implements Auditable
     /**
      * Inclusive date range.
      *
-     * The bounds are asymmetric on purpose. `allocated_on` is a DATE on MySQL but plain text on SQLite, where
-     * a `date` cast writes 'Y-m-d H:i:s' and a raw seeder insert writes 'Y-m-d'; a bare BETWEEN on two date
-     * strings then drops every row on the last day. A date-only lower bound and an end-of-day upper bound
-     * catch both spellings on both drivers, and still use the index.
+     * The bounds are asymmetric on purpose. `allocated_on` is a DATE on MySQL but plain text on SQLite, so a
+     * row could carry a time part there; a bare BETWEEN on two date strings would then drop every row on the
+     * last day. The `DateOnly` cast now writes 'Y-m-d' on both drivers, but the end-of-day upper bound still
+     * catches any row written another way (a raw insert, legacy data), and it still uses the index.
      *
      * @param  Builder<$this>  $q
      * @return Builder<$this>

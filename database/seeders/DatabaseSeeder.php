@@ -12,9 +12,10 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      *
-     * Reference data (roles, departments, machines, operations, shifts, lookups, parties, route templates) and
-     * the administrator account are seeded everywhere: the go-live checklist runs `migrate --force --seed` on
-     * the first install (HANDOFF §13) and the application does not work without them.
+     * Reference data (roles, departments, machines, operations, shifts, lookups, stages and stage processes,
+     * parties, route templates) and the administrator account are seeded everywhere: the go-live checklist
+     * runs `migrate --force --seed` on the first install (HANDOFF §13) and the application does not work
+     * without them.
      *
      * The demo material is not. `DemoUsersSeeder` creates one login per role with the password `password`, and
      * `DemoDataSeeder` writes fake signups, 24 fake lots with real `lot_movements` / `lot_balances` posted
@@ -30,6 +31,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolesAndPermissionsSeeder::class,
             FoundationSeeder::class,
+            // Before anything that can write a lot: LedgerService resolves a lot's stage from its status as
+            // it writes it, and with no stages seeded every lot would start with a null stage.
+            StageSeeder::class,
             PartySeeder::class,
             RouteTemplateSeeder::class,
             AdminUserSeeder::class,

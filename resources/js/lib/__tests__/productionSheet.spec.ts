@@ -75,19 +75,19 @@ const operations: OperationOption[] = [
 
 const ctx: LotContext = {
     lot_id: 1,
-    lot_no: '260123',
+    lot_no_oracle: '260123',
     po_no: 5,
     party: 'P',
     quality: null,
     design: null,
-    colour: null,
-    po_type: null,
+    color_oracle_name: null,
+    po_type_oracle: null,
     state: 'open',
-    current_label: null,
-    colour_status: null,
+    status_oracle: null,
+    clr_status_oracle: null,
     colour_approved: false,
     balances: { ISSUED: 100, 'STEP:10': 40 },
-    g_width: null,
+    gw_oracle: null,
     f_width: null,
     default_step_id: 10,
     next_step_id: 10,
@@ -362,7 +362,12 @@ describe('productionSheet rows', () => {
 });
 
 describe('productionSheet row patches', () => {
-    const lotRow = { id: 1, code: '260123', label: '260123 · 5', g_width: 60 };
+    const lotRow = {
+        id: 1,
+        code: '260123',
+        label: '260123 · 5',
+        gw_oracle: 60,
+    };
 
     it('applyLotPick fills the lot and resets the step, availability and override answers', () => {
         const rows = [

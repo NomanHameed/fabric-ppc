@@ -2,6 +2,7 @@ import type { LucideIcon } from '@lucide/vue';
 import {
     Boxes,
     Building2,
+    CircleHelp,
     ClipboardList,
     Clock,
     Cog,
@@ -9,11 +10,14 @@ import {
     Factory,
     FileText,
     Gauge,
+    GitBranch,
     History,
     Layers,
     LayoutGrid,
     ListTree,
+    Milestone,
     PackageOpen,
+    ReceiptText,
     Route,
     ScrollText,
     Search,
@@ -117,6 +121,22 @@ export const NAVIGATION: NavGroup[] = [
         ],
     },
     {
+        key: 'reports',
+        titleKey: 'app.nav.reports',
+        items: [
+            // R1, the Month Wise Fabric Report (spec §7.1). Mill-wide, with no department dimension, so it
+            // follows `reports.all` and not `reports.department`. Its title comes from the lang group the
+            // screen owns, as the other post-P1 screens' do.
+            {
+                key: 'fabric_report',
+                titleKey: 'production.fabric_report.title',
+                href: '/production/reports/fabric',
+                icon: ReceiptText,
+                permission: 'reports.all',
+            },
+        ],
+    },
+    {
         key: 'inquiry',
         titleKey: 'app.nav.inquiry',
         items: [
@@ -188,6 +208,30 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/masters/lookups',
                 icon: Tags,
                 permission: 'masters.view',
+            },
+            {
+                key: 'stages',
+                titleKey: 'app.nav.stages',
+                href: '/masters/stages',
+                icon: Milestone,
+                permission: 'masters.view',
+            },
+            {
+                key: 'stage_processes',
+                titleKey: 'app.nav.stage_processes',
+                href: '/masters/stage_processes',
+                icon: GitBranch,
+                permission: 'masters.view',
+            },
+            // The status -> stage gap report. It reads lots, so it is a Production route; it is listed here
+            // because the only way to act on it is the Stages master above — the aliases live there — and
+            // only someone who may edit that master (`masters.manage`) can do anything with it.
+            {
+                key: 'unmapped_statuses',
+                titleKey: 'production.unmapped.title',
+                href: '/production/unmapped-statuses',
+                icon: CircleHelp,
+                permission: 'masters.manage',
             },
         ],
     },

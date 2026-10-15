@@ -14,7 +14,7 @@ it('logs the lots whose balances disagree with their movements', function () {
     $bad = Lot::factory()->create();
     Lot::factory()->create(); // never moved: zero balances and zero totals agree
     $stale = Lot::factory()->create(); // never moved, but a total was set outside the ledger
-    Lot::whereKey($stale->id)->update(['stock_qty' => 5]);
+    Lot::whereKey($stale->id)->update(['greige_in_stock_oracle' => 5]);
     $ledger->post($ok, 'import', null, Position::stock(), 0, 10);
     $ledger->post($bad, 'import', null, Position::stock(), 0, 10);
     LotBalance::where('lot_id', $bad->id)->update(['qty' => 1]);
@@ -26,10 +26,10 @@ it('logs the lots whose balances disagree with their movements', function () {
     expect($job->violations)->toBe([$bad->id, $stale->id]);
     Log::shouldHaveReceived('error')->twice();
     Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => $context['lot_id'] === $bad->id
-        && $context['lot_no'] === $bad->lot_no
+        && $context['lot_no_oracle'] === $bad->lot_no_oracle
         && $context['differences'] === ['STOCK' => ['balance' => 1.0, 'expected' => 10.0]])->once();
     Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => $context['lot_id'] === $stale->id
-        && $context['differences'] === ['lots.stock_qty' => ['balance' => 5.0, 'expected' => 0.0]])->once();
+        && $context['differences'] === ['lots.greige_in_stock_oracle' => ['balance' => 5.0, 'expected' => 0.0]])->once();
 });
 
 it('is scheduled daily', function () {

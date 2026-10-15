@@ -32,7 +32,7 @@ beforeEach(function () {
     $this->seed([RolesAndPermissionsSeeder::class, FoundationSeeder::class, RouteTemplateSeeder::class]);
     $this->ppc = User::factory()->create()->assignRole('ppc');
     $this->ledger = app(LedgerService::class);
-    $this->lot = Lot::factory()->create(['po_type' => 'HALF BLEACH', 'greige_qty' => 500, 'colour_status' => 'APPROVED']);
+    $this->lot = Lot::factory()->create(['po_type_oracle' => 'HALF BLEACH', 'greige_received_oracle' => 500, 'clr_status_oracle' => 'APPROVED']);
     app(LotRouteService::class)->assign($this->lot);
     $this->ledger->post($this->lot, 'import', null, Position::stock(), 0, 500);
 });
@@ -50,7 +50,7 @@ it('records lot.issued when a lot is issued over HTTP, and shows it on the timel
     expect($action->user_id)->toBe($this->ppc->id)
         ->and($action->subject_type)->toBe($this->lot->getMorphClass())
         ->and($action->subject_id)->toBe($this->lot->id)
-        ->and($action->description)->toContain($this->lot->lot_no)
+        ->and($action->description)->toContain($this->lot->lot_no_oracle)
         ->and($action->description)->toContain('120.5')
         ->and($action->device_id)->not->toBeNull();
 
@@ -60,13 +60,13 @@ it('records lot.issued when a lot is issued over HTTP, and shows it on the timel
     $actions = collect($timeline)->where('type', TimelineEventType::ACTION);
 
     expect($actions)->toHaveCount(1)
-        ->and($actions->first()['title'])->toContain($this->lot->lot_no)
+        ->and($actions->first()['title'])->toContain($this->lot->lot_no_oracle)
         ->and($actions->first()['actor'])->toBe($this->ppc->name);
 });
 
 it('records one lot.issued per lot on a bulk contract issue, after the outer transaction', function () {
     $contract = Contract::query()->findOrFail($this->lot->contract_id);
-    $second = Lot::factory()->create(['contract_id' => $contract->id, 'greige_qty' => 200]);
+    $second = Lot::factory()->create(['contract_id' => $contract->id, 'greige_received_oracle' => 200]);
     $this->ledger->post($second, 'import', null, Position::stock(), 0, 200);
 
     $this->actingAs($this->ppc)->from('/production/issue')->post('/production/issue/contract', [
@@ -92,7 +92,7 @@ it('records lot.held, lot.released and lot.cancelled with the reason', function 
         ->and($held->description)->toContain('PARTY_HOLD')
         ->and($released->subject_id)->toBe($this->lot->id);
 
-    $cancellable = Lot::factory()->create(['greige_qty' => 10]);
+    $cancellable = Lot::factory()->create(['greige_received_oracle' => 10]);
     $this->actingAs($this->ppc)->post("/production/lots/{$cancellable->id}/cancel", ['reason' => 'PARTY_HOLD'])
         ->assertSessionHasNoErrors();
 
@@ -129,7 +129,7 @@ it('records lot.moved when a production sheet posts a line', function () {
 
     expect($moved->subject_id)->toBe($this->lot->id)
         ->and($moved->user_id)->toBe($this->ppc->id)
-        ->and($moved->description)->toContain($this->lot->lot_no)
+        ->and($moved->description)->toContain($this->lot->lot_no_oracle)
         ->and($moved->context['from'])->toBe(__('production.positions.issued'))
         ->and($moved->context['to'])->toBe('SINGING');
 });
@@ -142,22 +142,22 @@ it('records colour.approved and colour.rejected from the Lots screen', function 
 
     expect($approvedCode)->not->toBeNull()->and($unapprovedCode)->not->toBeNull();
 
-    $lot = Lot::factory()->create(['colour_status' => null, 'colour' => '520 PLUM']);
+    $lot = Lot::factory()->create(['clr_status_oracle' => null, 'color_oracle_name' => '520 PLUM']);
 
-    $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", ['colour_status' => $approvedCode->code])
+    $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", ['clr_status_oracle' => $approvedCode->code])
         ->assertSessionHasNoErrors();
 
     $approved = UserAction::query()->where('action', ActionKeys::COLOUR_APPROVED)->sole();
     expect($approved->subject_id)->toBe($lot->id)
         ->and($approved->description)->toContain('520 PLUM');
 
-    $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", ['colour_status' => $unapprovedCode->code])
+    $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", ['clr_status_oracle' => $unapprovedCode->code])
         ->assertSessionHasNoErrors();
 
     expect(UserAction::query()->where('action', ActionKeys::COLOUR_REJECTED)->sole()->subject_id)->toBe($lot->id);
 
     // Saving the same status again is not a new decision.
-    $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", ['colour_status' => $unapprovedCode->code])
+    $this->actingAs($this->ppc)->put("/production/lots/{$lot->id}", ['clr_status_oracle' => $unapprovedCode->code])
         ->assertSessionHasNoErrors();
 
     expect(UserAction::query()->where('action', ActionKeys::COLOUR_REJECTED)->count())->toBe(1);

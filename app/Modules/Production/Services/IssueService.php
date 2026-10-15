@@ -43,7 +43,7 @@ final class IssueService
         DB::afterCommit(fn () => $this->recordAction(
             ActionKeys::LOT_ISSUED,
             $lot,
-            ['qty' => round($qty, 2), 'lot' => $lot->lot_no],
+            ['qty' => round($qty, 2), 'lot' => $lot->lot_no_oracle],
             $user,
             $on,
         ));
@@ -63,13 +63,13 @@ final class IssueService
     {
         return DB::transaction(function () use ($contract, $user, $on): int {
             $lots = Lot::query()->where('contract_id', $contract->getKey())
-                ->orderBy('lot_no')->orderBy('id')->lockForUpdate()->get();
+                ->orderBy('lot_no_oracle')->orderBy('id')->lockForUpdate()->get();
             $n = 0;
             foreach ($lots as $lot) {
-                if ($lot->state !== 'open' || (float) $lot->stock_qty <= 0) {
+                if ($lot->state !== 'open' || (float) $lot->greige_in_stock_oracle <= 0) {
                     continue;
                 }
-                $this->issue($lot, (float) $lot->stock_qty, $user, $on);
+                $this->issue($lot, (float) $lot->greige_in_stock_oracle, $user, $on);
                 $n++;
             }
 

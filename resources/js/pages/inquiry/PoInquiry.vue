@@ -41,9 +41,11 @@ watch(
 );
 
 /** The totals row for the grid (T extends { id }); the string id keeps it apart from the lots' numeric ids. */
-type GridRow = PoLotRow | (LotQuantities & { id: string; lot_no: string });
+type GridRow =
+    | PoLotRow
+    | (LotQuantities & { id: string; lot_no_oracle: string });
 const totalsRow = computed<GridRow[]>(() => [
-    { ...props.totals, id: 'total', lot_no: t('inquiry.po.total') },
+    { ...props.totals, id: 'total', lot_no_oracle: t('inquiry.po.total') },
 ]);
 
 function open(row: GridRow): void {
@@ -86,24 +88,32 @@ const qtyColumn = (
 
 const columns = computed<ColumnDef<GridRow>[]>(() => [
     {
-        field: 'lot_no',
-        headerName: t('inquiry.fields.lot_no'),
+        field: 'lot_no_oracle',
+        headerName: t('inquiry.fields.lot_no_oracle'),
         width: 100,
         pinned: 'left',
     },
     { field: 'design', headerName: t('inquiry.fields.design'), flex: 1 },
-    { field: 'colour', headerName: t('inquiry.fields.colour'), flex: 1 },
+    {
+        field: 'color_oracle_name',
+        headerName: t('inquiry.fields.color_oracle_name'),
+        flex: 1,
+    },
     { field: 'quality', headerName: t('inquiry.fields.quality'), flex: 2 },
-    { field: 'po_type', headerName: t('inquiry.fields.po_type'), width: 100 },
-    qtyColumn('greige_qty', 'greige'),
-    qtyColumn('stock_qty', 'stock'),
-    qtyColumn('issued_qty', 'issued'),
-    qtyColumn('wip_qty', 'wip'),
-    qtyColumn('finished_qty', 'finished'),
-    qtyColumn('dispatched_qty', 'dispatched'),
+    {
+        field: 'po_type_oracle',
+        headerName: t('inquiry.fields.po_type_oracle'),
+        width: 100,
+    },
+    qtyColumn('greige_received_oracle', 'greige'),
+    qtyColumn('greige_in_stock_oracle', 'stock'),
+    qtyColumn('qty_issued', 'issued'),
+    qtyColumn('wip', 'wip'),
+    qtyColumn('finished', 'finished'),
+    qtyColumn('dispatch', 'dispatched'),
     qtyColumn('loss_qty', 'loss'),
     {
-        field: 'current_label',
+        field: 'status_oracle',
         headerName: t('inquiry.fields.label'),
         width: 130,
         cellClass: 'font-mono',
@@ -123,8 +133,8 @@ const columns = computed<ColumnDef<GridRow>[]>(() => [
             p.value ? t(`production.states.${String(p.value)}`) : '',
     },
     {
-        field: 'colour_status',
-        headerName: t('inquiry.fields.colour_status'),
+        field: 'clr_status_oracle',
+        headerName: t('inquiry.fields.clr_status_oracle'),
         width: 120,
     },
 ]);

@@ -11,7 +11,7 @@ final class LotNotOpen extends DomainException
     public function __construct(public readonly Lot $lot)
     {
         parent::__construct(__('production.errors.lot_not_open', [
-            'lot' => $lot->lot_no,
+            'lot' => $lot->lot_no_oracle,
             'state' => __('production.states.'.$lot->state),
         ]));
     }

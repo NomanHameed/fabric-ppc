@@ -335,7 +335,7 @@ export function applyLotPick(
     Object.assign(row, {
         lot_id: picked.id,
         lot: String(picked.label),
-        g_width: (picked.g_width as number | null | undefined) ?? null,
+        g_width: (picked.gw_oracle as number | null | undefined) ?? null,
         f_width: (picked.f_width as number | null | undefined) ?? null,
         lot_route_step_id: null,
         available: null,
@@ -378,7 +378,7 @@ export function applyLotContext(
             resolvedStep({ ...row, lot_route_step_id: null }, ctx, departmentId)
                 ?.id ?? null;
     }
-    row.g_width ??= ctx.g_width;
+    row.g_width ??= ctx.gw_oracle;
     row.f_width ??= ctx.f_width;
     row.available = availableFor(row, ctx, departmentId);
     return row;
