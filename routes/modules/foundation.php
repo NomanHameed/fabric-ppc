@@ -26,7 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('locale', [LocaleController::class, 'update'])->name('locale.update');
     Route::get('lov/{name}', [LovController::class, 'show'])->name('lov.show');
 
-    // The stage / stage process read API (spec §16), for StageSelect and StageProcessSelect. Under the web
+    // The stage / stage process read API (spec §16), for StageSelect. Under the web
     // middleware group on purpose: this application authenticates with the session, so a stateless `api`
     // route group would simply be unauthenticated. `api/*` already renders errors as JSON (bootstrap/app.php).
     // `masters.view` because stages are master data, and every seeded role that can reach a screen showing a

@@ -23,7 +23,6 @@ use App\Modules\Foundation\Masters\Resources\ShiftResource;
 use App\Modules\Foundation\Masters\Resources\StageProcessResource;
 use App\Modules\Foundation\Masters\Resources\StageResource;
 use App\Modules\Foundation\Models\Stage;
-use App\Modules\Foundation\Models\StageProcess;
 use App\Modules\OracleSync\Services\PartyResolver;
 use App\Modules\Production\Lov\ContractLov;
 use App\Modules\Production\Lov\LotLov;
@@ -98,13 +97,13 @@ class AppServiceProvider extends ServiceProvider
             $masters->register(new $class);
         }
 
-        // The alias map is master data the operator edits on those two screens; forget the memoised copy as
-        // soon as it changes, so the next lot resolved in this request uses the alias just saved.
+        // The alias map is master data the operator edits on the Stages screen; forget the memoised copy as
+        // soon as it changes, so the next lot resolved in this request uses the alias just saved. Only
+        // `stages` can change it: resolution is stage-only, and `stage_processes` carries no aliases at all
+        // since the user's restructure (migration `2026_10_13_000100`).
         $forget = fn () => $this->app->make(StatusStageResolver::class)->flush();
-        foreach ([Stage::class, StageProcess::class] as $model) {
-            $model::saved($forget);
-            $model::deleted($forget);
-        }
+        Stage::saved($forget);
+        Stage::deleted($forget);
 
         $this->configureDefaults();
     }

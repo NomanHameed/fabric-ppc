@@ -2,6 +2,7 @@
 
 namespace App\Modules\Foundation\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\Modules\Foundation\StageProcessFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,15 +12,37 @@ use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
 /**
- * One position inside a stage (Bleaching, Dyeing, Sanforizing / Calendaring, Dispatch, Cancelled, …).
+ * One Oracle production line, linked to the reporting stage it belongs to.
  *
- * **It no longer carries the status mapping.** Resolution is stage-only — `lots.stage_process_id` is gone
- * and StatusStageResolver reads `stages.status_aliases` — so nothing resolves to a process. The
- * `status_aliases` column survives here, unread and no longer edited on the master screen, so the move stays
- * reversible; `aliasList()` is kept for the same reason and for the migration that collapsed the sets onto
- * the stages.
+ * **Deliberately restructured by the user** (migration `2026_10_13_000100`): this is no longer the
+ * process-name taxonomy. `code`, `name`, `description`, `sort_order`, `quantity_type`, the three `is_*`
+ * flags, `status_aliases` and `is_active` are gone, and in their place are the twenty Oracle fields the mill
+ * works from — the same columns, with the same types, as on `lots`. `QUANTITY_TYPES` and `aliasList()` went
+ * with them; the status mapping lives on `Stage::$status_aliases` and resolution is stage-only.
  *
- * @property array<int, mixed>|null $status_aliases whatever the JSON column holds; aliasList() cleans it
+ * `stage_id` is the link to the stage and is `restrictOnDelete`, so a stage with rows here cannot be deleted
+ * while they exist — the master screen reports that as `forms.in_use`.
+ *
+ * @property int|null $party_oracle_id
+ * @property string|null $party_oracle_name
+ * @property int|null $po_no
+ * @property string|null $ref
+ * @property string|null $design_oracle_id
+ * @property string|null $color_oracle_id
+ * @property string|null $color_oracle_name
+ * @property string|null $clr_status_oracle
+ * @property string|null $po_type_oracle
+ * @property CarbonImmutable|null $date_oracle
+ * @property string|null $lot_no_oracle
+ * @property string|null $quality
+ * @property numeric-string|null $gw_oracle
+ * @property string|null $status_oracle
+ * @property numeric-string|null $greige_received_oracle
+ * @property numeric-string|null $greige_in_stock_oracle
+ * @property numeric-string|null $qty_issued
+ * @property numeric-string|null $wip
+ * @property numeric-string|null $finished
+ * @property numeric-string|null $dispatch
  */
 #[UseFactory(StageProcessFactory::class)]
 class StageProcess extends Model implements Auditable
@@ -28,46 +51,33 @@ class StageProcess extends Model implements Auditable
     use AuditableTrait, HasFactory;
 
     /**
-     * Which of the report's quantity columns a process carries; null for a state that holds no metres.
+     * The six quantity columns, in the order the Month Wise Fabric Report prints them.
      *
      * @var list<string>
      */
-    public const QUANTITY_TYPES = ['stock', 'wip', 'finished', 'dispatched', 'loss'];
+    public const QUANTITY_COLUMNS = [
+        'greige_received_oracle', 'greige_in_stock_oracle', 'qty_issued', 'wip', 'finished', 'dispatch',
+    ];
 
     protected $guarded = ['id'];
 
     protected $casts = [
         'stage_id' => 'integer',
-        'sort_order' => 'integer',
-        'status_aliases' => 'array',
-        'is_wip' => 'boolean',
-        'is_finished' => 'boolean',
-        'is_dispatch' => 'boolean',
-        'is_active' => 'boolean',
+        'party_oracle_id' => 'integer',
+        'po_no' => 'integer',
+        'date_oracle' => 'datetime',
+        'gw_oracle' => 'decimal:2',
+        'greige_received_oracle' => 'decimal:2',
+        'greige_in_stock_oracle' => 'decimal:2',
+        'qty_issued' => 'decimal:2',
+        'wip' => 'decimal:2',
+        'finished' => 'decimal:2',
+        'dispatch' => 'decimal:2',
     ];
 
     /** @return BelongsTo<Stage, $this> */
     public function stage(): BelongsTo
     {
         return $this->belongsTo(Stage::class);
-    }
-
-    /**
-     * The aliases as a clean list of non-empty strings, whatever the column happens to hold (null, a loosely
-     * typed JSON array from an older write, or the array the cast gives).
-     *
-     * @return list<string>
-     */
-    public function aliasList(): array
-    {
-        $aliases = $this->status_aliases;
-        if (! is_array($aliases)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(fn ($alias): string => is_scalar($alias) ? trim((string) $alias) : '', $aliases),
-            fn (string $alias): bool => $alias !== '',
-        ));
     }
 }

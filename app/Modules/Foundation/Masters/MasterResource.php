@@ -28,6 +28,10 @@ abstract class MasterResource
         return [];
     }
 
+    /**
+     * The column the screen's rows are ordered by. `MasterController::index` always appends the primary key
+     * as a tie-breaker, so a sort column with repeats still gives a total, repeatable order.
+     */
     public function defaultSort(): string
     {
         return 'id';

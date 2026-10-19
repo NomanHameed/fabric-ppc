@@ -12,7 +12,7 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      *
-     * Reference data (roles, departments, machines, operations, shifts, lookups, stages and stage processes,
+     * Reference data (roles, departments, machines, operations, shifts, lookups, stages,
      * parties, route templates) and the administrator account are seeded everywhere: the go-live checklist
      * runs `migrate --force --seed` on the first install (HANDOFF §13) and the application does not work
      * without them.
