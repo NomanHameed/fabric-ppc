@@ -18,16 +18,22 @@ return [
         'po_type' => 'PO type', 'quality_pattern' => 'Quality pattern', 'priority' => 'Priority', 'seq' => 'Seq',
         'hourly_capacity' => 'Capacity / hour', 'daily_capacity' => 'Capacity / day', 'capacity_uom' => 'Capacity unit',
         'operation' => 'Operation', 'steps' => 'Steps',
-        'stage' => 'Stage', 'sort_order' => 'Sort order', 'quantity_type' => 'Quantity',
-        'is_wip' => 'WIP', 'is_finished' => 'Finished', 'is_dispatch' => 'Dispatch',
+        'stage' => 'Stage', 'sort_order' => 'Sort order',
         'status_aliases' => 'Statuses that mean this stage (comma separated; * is a wildcard, e.g. DISP *; #BLANK means no status at all)',
+        // The Oracle production line a stage process row now holds. Same wording as the report's own column
+        // headers (`production.flat.*`), restated here because a Foundation screen reads the masters group.
+        'lot_no_oracle' => 'Lot # (Oracle)', 'po_no' => 'PO #', 'ref' => 'Ref.',
+        'party_oracle_id' => 'Party code', 'party_oracle_name' => 'Party', 'date_oracle' => 'PO date',
+        'design_oracle_id' => 'Design code', 'color_oracle_id' => 'Colour code', 'color_oracle_name' => 'Colour / Shade',
+        'clr_status_oracle' => 'Colour status', 'po_type_oracle' => 'PO type', 'quality' => 'Quality',
+        'gw_oracle' => 'G/W', 'status_oracle' => 'Status',
+        'greige_received_oracle' => 'Greige received', 'greige_in_stock_oracle' => 'Greige in stock',
+        'qty_issued' => 'Qty issued', 'wip' => 'WIP', 'finished' => 'Finished', 'dispatch' => 'Dispatch',
     ],
     'options' => [
         'normal' => 'Normal', 'reprocess' => 'Reprocess', 'dyed' => 'Dyed', 'print' => 'Print', 'brand' => 'Brand', 'local' => 'Local',
         'clr_status_oracle' => 'Colour status', 'po_type' => 'PO type', 'loss_reason' => 'Loss reason',
         'hold_reason' => 'Hold reason', 'reprocess_reason' => 'Reprocess reason',
-        'quantity_stock' => 'Greige in stock', 'quantity_wip' => 'WIP', 'quantity_finished' => 'Finished',
-        'quantity_dispatched' => 'Dispatched', 'quantity_loss' => 'Loss',
     ],
     'quality_pattern_hint' => 'SQL LIKE pattern, e.g. %VISCOSE%',
 ];

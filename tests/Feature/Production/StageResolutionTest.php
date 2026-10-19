@@ -51,14 +51,14 @@ it('seeds the user\'s own stage list and is idempotent', function () {
         'DISPATCH', 'EXCEPTION', 'RETURN', 'EXTERNAL', 'QUALITY', 'COMMERCIAL', 'CLOSED',
     ])
         ->and(Stage::query()->whereIn('code', ['PACKING', 'WIP'])->count())->toBe(0)
-        // the processes earlier seeds invented under a stage the user does keep
-        ->and(StageProcess::query()->whereIn('code', ['SINGEING', 'MERCERIZING', 'CURING', 'DRYING', 'CLOSED'])->count())->toBe(0);
+        // No stage process is seeded any more: `stage_processes` holds Oracle production lines since the
+        // user's restructure (migration `2026_10_13_000100`), and there is no taxonomy left to seed.
+        ->and(StageProcess::count())->toBe(0);
 
     $stages = Stage::count();
-    $processes = StageProcess::count();
     $this->seed(StageSeeder::class);
 
-    expect(Stage::count())->toBe($stages)->and(StageProcess::count())->toBe($processes)
+    expect(Stage::count())->toBe($stages)->and(StageProcess::count())->toBe(0)
         ->and(Stage::where('code', 'DISPATCH')->first()->name)->toBe('Dispatch');
 });
 

@@ -81,10 +81,8 @@ return [
         // The reporting stage: derived from the status, or pinned by hand by PPC.
         'stage_block' => 'Reporting stage',
         'stage_derived' => 'Derived from the status; the ledger keeps it up to date.',
-        'stage_none' => 'No stage: no stage process claims this status.',
+        'stage_none' => 'No stage: this status is in no stage\'s aliases.',
         'stage_pick' => 'Pick a stage',
-        'stage_process_pick' => 'Pick a stage process',
-        'stage_pick_stage_first' => 'Pick a stage first',
         'stage_loading' => 'Loading…',
         'stage_failed' => 'The stages could not be loaded.',
         'stage_override' => 'Override stage',

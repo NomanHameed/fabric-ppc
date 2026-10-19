@@ -11,8 +11,9 @@ use Closure;
  * mapped on the Stages master, not in a deploy.
  *
  * **Stage-only.** A lot carries one stage and no stage process (`lots.stage_process_id` is gone), so the
- * report has one grouping level and this class answers one question. The `stage_processes` table survives as
- * the mill's own naming of the positions inside a stage, but nothing resolves to it.
+ * report has one grouping level and this class answers one question. The `stage_processes` table now holds
+ * the mill's Oracle production lines (migration `2026_10_13_000100`) and has no aliases at all, so nothing
+ * resolves to it and this class never reads it.
  *
  * **Normalisation** (spec §8), applied to the status *and* to every alias before they are compared — the
  * stored status itself is never changed:

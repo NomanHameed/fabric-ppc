@@ -56,10 +56,17 @@ class Stage extends Model implements Auditable
         ));
     }
 
-    /** @return HasMany<StageProcess, $this> */
+    /**
+     * The Oracle production lines filed under this stage.
+     *
+     * Ordered by id: `sort_order` and `code` went with the process taxonomy (migration
+     * `2026_10_13_000100`), and insertion order is the only order the rows now have of their own.
+     *
+     * @return HasMany<StageProcess, $this>
+     */
     public function processes(): HasMany
     {
-        return $this->hasMany(StageProcess::class)->orderBy('sort_order')->orderBy('code');
+        return $this->hasMany(StageProcess::class)->orderBy('id');
     }
 
     /** @return HasMany<Lot, $this> */

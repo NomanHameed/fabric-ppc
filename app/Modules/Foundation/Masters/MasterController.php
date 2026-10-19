@@ -24,7 +24,12 @@ class MasterController extends Controller
         $criteria = (array) $request->query('q', []);
         $query = $res->model()::query()->with($res->with());
         QueryCriteria::apply($query, $criteria, $res->queryFields());
-        $rows = $query->orderBy($res->defaultSort())->limit($res->rowLimit())->get()->map(fn ($m) => $res->toRow($m));
+        // The primary key breaks every tie on the resource's sort column. Without it a sort column that
+        // repeats (`stage_id`, `department_id`, `list_key`, …) leaves the row order up to the database, and
+        // `MasterForm` drives the selected record, the prev/next walk and "record i of n" off that order —
+        // so two loads of unchanged data could put the same keystroke on a different row.
+        $rows = $query->orderBy($res->defaultSort())->orderBy($query->getModel()->getQualifiedKeyName())
+            ->limit($res->rowLimit())->get()->map(fn ($m) => $res->toRow($m));
 
         return Inertia::render('masters/MasterForm', [
             'resource' => $res->meta($request->user()->can($res->editPermission())),
