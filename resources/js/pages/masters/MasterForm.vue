@@ -202,8 +202,44 @@ function onAction(action: FormsAction): void {
 }
 
 const inQuery = computed(() => query.mode.value === 'enterQuery');
+
+/*
+ * Oracle-owned masters (App\Modules\Foundation\Masters\OracleOwned, shipped in `resource`): the screen
+ * keeps browsing, query mode and record navigation, but the write actions are greyed out instead of hidden,
+ * and the status line says who owns the data. `MasterController` refuses the same writes, so a user who
+ * crafts the request gets the same answer as a user who clicks the disabled button.
+ */
+const appOwned = (name: string) =>
+    !props.resource.oracleOwned ||
+    props.resource.appOwnedFields.includes(name);
+// Creating and deleting a record belongs to Oracle on an Oracle-owned master, whatever the field ownership.
+const canCreate = computed(
+    () => props.resource.canEdit && !props.resource.oracleOwned,
+);
+// Save survives only while something on the screen is still ours to change.
+const canSave = computed(
+    () =>
+        props.resource.canEdit &&
+        (!props.resource.oracleOwned ||
+            props.resource.appOwnedFields.length > 0),
+);
 const editable = (f: MasterField) =>
-    props.resource.canEdit && !f.readonly && !inQuery.value;
+    props.resource.canEdit && !f.readonly && !inQuery.value && appOwned(f.name);
+watch(
+    [() => props.resource.oracleOwned, inQuery],
+    ([owned]) => {
+        if (owned) {
+            statusLine.setMessage(
+                t(
+                    props.resource.appOwnedFields.length > 0
+                        ? 'masters.oracle_owned.note_partial'
+                        : 'masters.oracle_owned.note',
+                ),
+            );
+        }
+    },
+    { immediate: true },
+);
 const criteria = reactive(query.criteria);
 </script>
 
@@ -214,9 +250,9 @@ const criteria = reactive(query.criteria);
         <FormsToolbar
             :mode="query.mode.value"
             :disabled="{
-                save: !resource.canEdit || inQuery,
-                newRecord: !resource.canEdit,
-                deleteRecord: !resource.canEdit || currentId === null,
+                save: !canSave || inQuery,
+                newRecord: !canCreate,
+                deleteRecord: !canCreate || currentId === null,
             }"
             @action="onAction"
         />

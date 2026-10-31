@@ -5,7 +5,6 @@ use App\Modules\Foundation\Models\Party;
 use App\Modules\Production\Models\Contract;
 use Database\Seeders\PartySeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
-use Inertia\Support\SessionKey;
 
 beforeEach(function () {
     $this->seed([RolesAndPermissionsSeeder::class, PartySeeder::class]);
@@ -19,21 +18,26 @@ it('lists parties with aliases and filters by normalised name', function () {
                 && collect($rows)->firstWhere('name', 'MARIA-B')['aliases'] !== []));
 });
 
-it('creates a party with aliases', function () {
-    $this->actingAs($this->ppc)->post('/masters/parties', [
+/*
+ * Parties are an Oracle-owned master (OracleOwnedMastersTest): the screen cannot create or delete one, and
+ * cannot touch `oracle_code` or `name`. What it still owns — the aliases the floor's shorthand maps through,
+ * plus `type` and `is_active` — is what these tests cover, through the update path that remains.
+ */
+it('adds aliases to a party, ignoring blanks, and resolves them by name', function () {
+    $p = Party::query()->create(['oracle_code' => 999, 'name' => 'New Brand Ltd', 'type' => 'brand']);
+    $this->actingAs($this->ppc)->put("/masters/parties/{$p->id}", [
         'oracle_code' => 999, 'name' => 'New Brand Ltd', 'type' => 'brand', 'is_active' => true, 'aliases' => ['NB', ' ', 'New-B'],
-    ])->assertRedirect()->assertSessionHas(SessionKey::FLASH_DATA, fn ($flash) => $flash['selectedId'] === Party::where('oracle_code', 999)->value('id'));
-    $p = Party::where('oracle_code', 999)->firstOrFail();
-    expect($p->aliases->pluck('alias')->sort()->values()->all())->toBe(['NB', 'New-B'])
+    ])->assertRedirect();
+    expect($p->fresh()->aliases->pluck('alias')->sort()->values()->all())->toBe(['NB', 'New-B'])
         ->and(Party::findByName('nb')?->id)->toBe($p->id);
 });
 
 it('syncs aliases on update', function () {
     $p = Party::where('name', 'MARIA-B')->first();
     $this->actingAs($this->ppc)->put("/masters/parties/{$p->id}", [
-        'oracle_code' => 394, 'name' => 'MARIA-B', 'type' => 'brand', 'is_active' => true, 'aliases' => ['MB'],
+        'name' => 'MARIA-B', 'type' => 'brand', 'is_active' => true, 'aliases' => ['MB'],
     ])->assertRedirect();
-    expect($p->fresh()->aliases->pluck('alias')->all())->toBe(['MB'])->and($p->fresh()->oracle_code)->toBe(394);
+    expect($p->fresh()->aliases->pluck('alias')->all())->toBe(['MB']);
 });
 
 it('rejects an alias already used by another party', function () {
@@ -44,17 +48,25 @@ it('rejects an alias already used by another party', function () {
 });
 
 it('rejects duplicate aliases within the same request', function () {
-    $this->actingAs($this->ppc)->post('/masters/parties', [
+    $p = Party::query()->create(['name' => 'Dup Brand', 'type' => 'brand']);
+    $this->actingAs($this->ppc)->put("/masters/parties/{$p->id}", [
         'name' => 'Dup Brand', 'type' => 'brand', 'is_active' => true, 'aliases' => ['NB', 'nb '],
     ])->assertSessionHasErrors('aliases.1');
-    expect(Party::where('name', 'Dup Brand')->exists())->toBeFalse();
+    expect($p->fresh()->aliases)->toBeEmpty();
 });
 
-it('refuses to delete a party that has contracts, reporting it as in use', function () {
-    $party = Party::create(['name' => 'Busy Party', 'type' => 'brand']);
-    Contract::factory()->create(['party_id' => $party->id]);
+it('refuses to delete a party, in use or not', function () {
+    // While Oracle owns this master, PartyController's foreign-key check is never reached: the refusal comes
+    // first and is the same whether or not the party is referenced. (`forms.in_use` itself is covered on an
+    // app-owned master in MasterScreensTest; PartyController keeps the mapping for when parties are the
+    // app's own again.)
+    $busy = Party::create(['name' => 'Busy Party', 'type' => 'brand']);
+    Contract::factory()->create(['party_id' => $busy->id]);
+    $idle = Party::create(['name' => 'Idle Party', 'type' => 'brand']);
 
-    $this->actingAs($this->ppc)->delete("/masters/parties/{$party->id}")->assertSessionHasErrors(['record' => __('forms.in_use')]);
-
-    expect(Party::whereKey($party->id)->exists())->toBeTrue();
+    foreach ([$busy, $idle] as $party) {
+        $this->actingAs($this->ppc)->delete("/masters/parties/{$party->id}")
+            ->assertSessionHasErrors(['record' => __('masters.oracle_owned.cannot_delete')]);
+        expect(Party::whereKey($party->id)->exists())->toBeTrue();
+    }
 });

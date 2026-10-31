@@ -90,11 +90,15 @@ abstract class MasterResource
             ->all();
     }
 
+    /**
+     * `oracleOwned` / `appOwnedFields` come straight from `OracleOwned` so the screen greys out exactly the
+     * write actions the controller refuses (see that class).
+     */
     public function meta(bool $canEdit): array
     {
         return [
             'key' => $this->key(), 'title' => __($this->titleKey()), 'canEdit' => $canEdit,
             'fields' => array_map(fn (Field $f) => $f->toArray(), $this->fields()),
-        ];
+        ] + OracleOwned::meta($this->key());
     }
 }

@@ -34,6 +34,10 @@ const props = defineProps<{
     parties: PartyRow[];
     canEdit: boolean;
     criteria: Record<string, string>;
+    /** Oracle owns the parties master (App\Modules\Foundation\Masters\OracleOwned). */
+    oracleOwned: boolean;
+    /** The fields this application still owns on it: `type`, `is_active` and the local `aliases`. */
+    appOwnedFields: string[];
 }>();
 
 const typeOptions = [
@@ -124,7 +128,39 @@ watch(
 );
 
 const inQuery = computed(() => query.mode.value === 'enterQuery');
-const editable = computed(() => props.canEdit && !inQuery.value);
+
+/*
+ * Oracle owns a party's identity — `oracle_code` and `name` — so those two inputs are greyed out and
+ * `PartyController` refuses a request that changes them. What the mill owns stays editable: `type`
+ * (brand/local is this application's classification, picked in the import's resolve-party dialog, never
+ * supplied by Oracle), `is_active` (LOV visibility) and the `aliases` the floor's shorthand maps through —
+ * the unresolved-party flow depends on those. New and Delete are off: a party is created by the import.
+ */
+const canEditField = (name: string) =>
+    props.canEdit &&
+    !inQuery.value &&
+    (!props.oracleOwned || props.appOwnedFields.includes(name));
+const canCreate = computed(() => props.canEdit && !props.oracleOwned);
+const canSave = computed(
+    () =>
+        props.canEdit &&
+        (!props.oracleOwned || props.appOwnedFields.length > 0),
+);
+watch(
+    [() => props.oracleOwned, inQuery],
+    ([owned]) => {
+        if (owned) {
+            statusLine.setMessage(
+                t(
+                    props.appOwnedFields.length > 0
+                        ? 'masters.oracle_owned.note_partial'
+                        : 'masters.oracle_owned.note',
+                ),
+            );
+        }
+    },
+    { immediate: true },
+);
 const criteria = query.criteria;
 
 const aliasColumns = computed<ColumnDef<AliasRow>[]>(() => [
@@ -132,7 +168,7 @@ const aliasColumns = computed<ColumnDef<AliasRow>[]>(() => [
         field: 'alias',
         headerName: t('masters.fields.alias'),
         flex: 1,
-        editable: editable.value,
+        editable: canEditField('aliases'),
     },
 ]);
 
@@ -269,9 +305,9 @@ function onAction(action: FormsAction): void {
         <FormsToolbar
             :mode="query.mode.value"
             :disabled="{
-                save: !canEdit || inQuery,
-                newRecord: !canEdit,
-                deleteRecord: !canEdit || currentId === null,
+                save: !canSave || inQuery,
+                newRecord: !canCreate,
+                deleteRecord: !canCreate || currentId === null,
             }"
             @action="onAction"
         />
@@ -292,7 +328,7 @@ function onAction(action: FormsAction): void {
                     id="f-oracle_code"
                     v-model="form.oracle_code as string"
                     type="number"
-                    :disabled="!editable"
+                    :disabled="!canEditField('oracle_code')"
                 />
             </FormField>
             <FormField
@@ -311,7 +347,7 @@ function onAction(action: FormsAction): void {
                     v-else
                     id="f-name"
                     v-model="form.name as string"
-                    :disabled="!editable"
+                    :disabled="!canEditField('name')"
                 />
             </FormField>
             <FormField
@@ -330,7 +366,7 @@ function onAction(action: FormsAction): void {
                     v-else
                     id="f-type"
                     v-model="form.type"
-                    :disabled="!editable"
+                    :disabled="!canEditField('type')"
                     class="bg-background h-9 rounded-md border px-2 text-sm"
                 >
                     <option
@@ -352,7 +388,7 @@ function onAction(action: FormsAction): void {
                     v-else
                     id="f-is_active"
                     :model-value="Boolean(form.is_active)"
-                    :disabled="!editable"
+                    :disabled="!canEditField('is_active')"
                     @update:model-value="(v) => (form.is_active = v === true)"
                 />
             </FormField>

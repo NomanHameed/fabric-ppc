@@ -74,8 +74,8 @@ completed request; `colour_overrides.approved_at` silently rewritten by MariaDB;
 
 **Waiting on the business / DBA**
 
-11. Oracle connection details and the master-table dumps listed in `docs/planning/findings.md` §7 — without the cost-centre and operation masters, no imported movement can be resolved to a department or operation.
-12. Meanings of `NON_PROCESS`, `GREIGE_RECEIPT`, `PLOT_NUM`, `SECTION_CODE`.
+11. ~~Oracle connection details and the master-table dumps listed in `docs/planning/findings.md` §7~~ — **done.** The connection is configured, and the masters were found in the instance itself, in the `ERP` schema: see `findings.md` §9 for the verified mapping (2026-10-31). `php artisan oracle:ping` is the check.
+12. Meanings of `NON_PROCESS`, `GREIGE_RECEIPT`, `SECTION_CODE`, the `PROCESS_TYPE` value set and the `LOCATION` master. (`PLOT_NUM` is off this list: `PROCESSING_LOTS` has no such column — `findings.md` §9.2.)
 13. Long-standing from P1: `DOX`/`LCR` codes, the Sanforizing numeric process codes, the exact `counts_as_finish_production` set, and the company name/logo for report headers (the logo is now supplied).
 
 ## Decisions that reversed earlier ones

@@ -117,12 +117,18 @@ function payload(machines: Row[], departments: Row[] = []) {
  * `defineAsyncComponent`, so its module resolves a few microtasks after the page itself mounts.
  */
 async function settle(): Promise<void> {
-    // Real ticks, not just a microtask drain: the runner reads the chart module off disk.
-    for (let i = 0; i < 50; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        await flushPromises();
-        if (document.body.querySelector('[data-testid="chart-canvas"]')) {
-            return;
+    // Real ticks, not just a microtask drain: the runner reads the chart module off disk. Fifty zero-delay
+    // ticks are not always enough wall-clock for that read when the workers are contended, which surfaced as
+    // a flaky "chart-canvas does not exist"; the second pass buys real milliseconds. Both passes return the
+    // instant the canvas appears, and exhausting them is still a legitimate outcome — several cases below
+    // assert that no chart is rendered at all, so this cannot simply throw on exhaustion.
+    for (const delay of [0, 5]) {
+        for (let i = 0; i < 50; i += 1) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            await flushPromises();
+            if (document.body.querySelector('[data-testid="chart-canvas"]')) {
+                return;
+            }
         }
     }
 }

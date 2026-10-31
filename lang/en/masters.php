@@ -36,4 +36,12 @@ return [
         'hold_reason' => 'Hold reason', 'reprocess_reason' => 'Reprocess reason',
     ],
     'quality_pattern_hint' => 'SQL LIKE pattern, e.g. %VISCOSE%',
+    // Oracle-owned masters (App\Modules\Foundation\Masters\OracleOwned): the screen stays, the writing stops.
+    'oracle_owned' => [
+        'note' => 'These records come from Oracle: query only. Use F7 to enter a query and F8 to run it.',
+        'note_partial' => 'These records come from Oracle: the greyed-out fields are read-only. Only the fields this system owns can be changed here.',
+        'cannot_create' => 'New records come from the Oracle import, not from this screen.',
+        'cannot_update' => 'Oracle owns these values. Change them in Oracle and run the import again.',
+        'cannot_delete' => 'Oracle owns these records. They cannot be deleted here.',
+    ],
 ];

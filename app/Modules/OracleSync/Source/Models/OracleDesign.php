@@ -5,14 +5,21 @@ namespace App\Modules\OracleSync\Source\Models;
 use App\Modules\OracleSync\Source\SourceModel;
 
 /**
- * Design — grouping and reporting.
+ * `ERP.DESIGNS` — design master (20 467 rows). `DESIGN_CODE NUMBER(6) NOT NULL`, `DESIGN_NAME
+ * VARCHAR2(50)`: exactly the two columns expected, in the `ERP` schema (verified 2026-10-31).
  *
- * A code master Oracle never supplied (findings.md §4.1): the transaction tables carry the bare number and
- * nothing else, so without this table `DESIGN_CODE` cannot be resolved to anything a human reads.
+ * @property int $DESIGN_CODE
+ * @property string|null $DESIGN_NAME
  */
 class OracleDesign extends SourceModel
 {
-    protected $table = 'DESIGN_M';
+    public const TABLE = 'DESIGNS';
+
+    public const NAME_COLUMN = 'DESIGN_NAME';
+
+    protected string $oracleSchema = self::SCHEMA_ERP;
+
+    protected $table = self::TABLE;
 
     protected $primaryKey = 'DESIGN_CODE';
 }

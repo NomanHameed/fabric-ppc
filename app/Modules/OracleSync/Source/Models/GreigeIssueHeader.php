@@ -6,14 +6,22 @@ use App\Modules\OracleSync\Source\SourceModel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Greige issue document header (findings.md §2.1). FINAL is the document's status, not the lot's.
+ * `PRODUCTION.GREIGE_ISSUE_M` — greige issue document header (findings.md §2.1). FINAL is the document's
+ * status, not the lot's.
+ *
+ * Verified against the live instance on 2026-10-31: all 13 columns match the supplied DDL exactly. Nothing
+ * about this object needed correcting.
  *
  * @property int $GI_MAIN_ID
  * @property int $CC_CODE
  */
 class GreigeIssueHeader extends SourceModel
 {
-    protected $table = 'GREIGE_ISSUE_M';
+    public const TABLE = 'GREIGE_ISSUE_M';
+
+    protected string $oracleSchema = self::SCHEMA_PRODUCTION;
+
+    protected $table = self::TABLE;
 
     protected $primaryKey = 'GI_MAIN_ID';
 

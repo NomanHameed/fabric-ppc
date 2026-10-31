@@ -6,6 +6,7 @@ import {
     ClipboardList,
     Clock,
     Cog,
+    Database,
     DatabaseZap,
     Factory,
     FileText,
@@ -61,6 +62,15 @@ export const NAVIGATION: NavGroup[] = [
                 href: '/oracle/imports',
                 icon: DatabaseZap,
                 permission: 'oracle.import.view',
+            },
+            // The read-only source schema browser. Its own permission, not the importer's: this is the
+            // only screen that reads the client's live ERP, and its title comes from the oracle group.
+            {
+                key: 'oracle_source',
+                titleKey: 'oracle.source.title',
+                href: '/oracle/source',
+                icon: Database,
+                permission: 'oracle.source.browse',
             },
         ],
     },

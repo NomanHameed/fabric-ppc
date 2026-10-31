@@ -108,8 +108,18 @@ it('filters on the joined PO, party and quality columns and on a date range', fu
     $other = Contract::factory()->create(['po_no' => 999999, 'po_date' => '2026-01-05']);
     Lot::factory()->create(['contract_id' => $other->id, 'lot_no_oracle' => '270000']);
 
-    // joined party name, with a wildcard
-    $needle = $this->contract->party->name;
+    // Party name, with a wildcard. The needle is only the first three characters, and ContractFactory names
+    // parties with faker's unique()->company() — unique in full, but two company names readily share a
+    // three-letter prefix ("Herman…" / "Hermann…"), so this assertion failed for whichever faker sequence the
+    // full suite happened to produce. Pin both names so the prefix is unambiguous. LOT_CRITERIA filters the
+    // lot's denormalised `party_oracle_name`, and LotFactory warns that column must agree with the contract's
+    // party, so both are set together.
+    foreach ([[$this->contract, 'Alpha Textiles'], [$other, 'Zeta Mills']] as [$contract, $partyName]) {
+        DB::table('parties')->where('id', $contract->party_id)->update(['name' => $partyName]);
+        DB::table('lots')->where('contract_id', $contract->id)->update(['party_oracle_name' => $partyName]);
+    }
+
+    $needle = 'Alpha Textiles';
     $this->actingAs($this->viewer)->get('/production/lots?q[party]='.urlencode(mb_substr($needle, 0, 3).'%'))->assertOk()
         ->assertInertia(fn (AssertableInertia $p) => $p->has('lots', 2)); // both lots of that party's PO
     $this->actingAs($this->viewer)->get('/production/lots?q[party]=zzz-no-such-party')->assertOk()

@@ -27,6 +27,10 @@ export type MasterMeta = {
     title: string;
     canEdit: boolean;
     fields: MasterField[];
+    /** The Oracle import owns these rows: the screen queries them, it never writes them. */
+    oracleOwned: boolean;
+    /** On an Oracle-owned master, the fields this application still owns (empty = none). */
+    appOwnedFields: string[];
 };
 
 export type MasterRow = { id: number; [field: string]: unknown };

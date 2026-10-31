@@ -26,6 +26,19 @@ final class OracleSourceConnection
         return in_array(self::driver(), self::MOCK_DRIVERS, true);
     }
 
+    /**
+     * Whether the connection is a real Oracle instance.
+     *
+     * Deliberately not `! isMocked()`: an unconfigured or misspelled driver is neither a stand-in nor
+     * Oracle, and the two questions have different answers for it. Schema qualification asks *this* one —
+     * `ERP.PARTIES` is only ever a schema-qualified Oracle name, while on MySQL it would silently mean
+     * "database ERP, table PARTIES" and on SQLite nothing at all (SourceModel::getTable()).
+     */
+    public static function isOracle(): bool
+    {
+        return self::driver() === 'oracle';
+    }
+
     /** @throws RuntimeException when the connection is (or might be) a real Oracle instance */
     public static function assertMocked(): void
     {

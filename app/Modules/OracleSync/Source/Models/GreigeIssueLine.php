@@ -6,7 +6,11 @@ use App\Modules\OracleSync\Source\SourceModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Greige issue line (findings.md §2.2). PC_DTL_ID is the reliable lot key; LOT_NUM alone is not unique.
+ * `PRODUCTION.GREIGE_ISSUE_D` — greige issue line (findings.md §2.2). PC_DTL_ID is the reliable lot key;
+ * LOT_NUM alone is not unique.
+ *
+ * Verified against the live instance on 2026-10-31: all 14 columns match the supplied DDL exactly (the
+ * dictionary lists them in a different order, which is immaterial). Nothing here needed correcting.
  *
  * @property int $GI_MAIN_ID
  * @property int $GI_DTL_ID
@@ -16,7 +20,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class GreigeIssueLine extends SourceModel
 {
-    protected $table = 'GREIGE_ISSUE_D';
+    public const TABLE = 'GREIGE_ISSUE_D';
+
+    protected string $oracleSchema = self::SCHEMA_PRODUCTION;
+
+    protected $table = self::TABLE;
 
     // Composite (GI_MAIN_ID, GI_DTL_ID) in the mock; Oracle declares no key at all.
     protected $primaryKey = 'GI_DTL_ID';

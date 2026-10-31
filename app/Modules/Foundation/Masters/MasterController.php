@@ -41,6 +41,8 @@ class MasterController extends Controller
     public function store(Request $request, string $resource): RedirectResponse
     {
         $res = $this->authorizeEdit($request, $resource);
+        // Oracle-owned masters are query-only here; only the import creates their rows.
+        OracleOwned::assertCanCreate($res->key());
         $data = $request->validate($res->rules(null));
         $model = DB::transaction(function () use ($res, $data) {
             $m = new ($res->model());
@@ -62,6 +64,8 @@ class MasterController extends Controller
         $res = $this->authorizeEdit($request, $resource);
         $model = $res->model()::query()->findOrFail($id);
         $data = $request->validate($res->rules($model));
+        // Keeps only what the app still owns on an Oracle-owned master; refuses a change to Oracle's own data.
+        $data = OracleOwned::assertCanUpdate($res->key(), $model, $data);
         DB::transaction(function () use ($res, $model, $data) {
             $res->fill($model, $data);
             $model->save();
@@ -77,6 +81,7 @@ class MasterController extends Controller
     {
         $res = $this->authorizeEdit($request, $resource);
         $model = $res->model()::query()->findOrFail($id);
+        OracleOwned::assertCanDelete($res->key());
         // Checks the database cannot make for us (a nullable reference that would be emptied, not refused).
         $res->assertDeletable($model);
         try {

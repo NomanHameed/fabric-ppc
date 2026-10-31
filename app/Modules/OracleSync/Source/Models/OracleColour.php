@@ -5,14 +5,21 @@ namespace App\Modules\OracleSync\Source\Models;
 use App\Modules\OracleSync\Source\SourceModel;
 
 /**
- * Colour / shade.
+ * `ERP.COLOURS` — colour/shade master (4 813 rows). `COLOUR_CODE NUMBER(4) NOT NULL`, `COLOUR_NAME
+ * VARCHAR2(50)`: exactly the two columns expected, in the `ERP` schema (verified 2026-10-31).
  *
- * A code master Oracle never supplied (findings.md §4.1): the transaction tables carry the bare number and
- * nothing else, so without this table `COLOUR_CODE` cannot be resolved to anything a human reads.
+ * @property int $COLOUR_CODE
+ * @property string|null $COLOUR_NAME
  */
 class OracleColour extends SourceModel
 {
-    protected $table = 'COLOUR_M';
+    public const TABLE = 'COLOURS';
+
+    public const NAME_COLUMN = 'COLOUR_NAME';
+
+    protected string $oracleSchema = self::SCHEMA_ERP;
+
+    protected $table = self::TABLE;
 
     protected $primaryKey = 'COLOUR_CODE';
 }

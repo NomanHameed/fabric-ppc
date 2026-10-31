@@ -22,7 +22,7 @@ final class Permissions
     public const ALL = [
         'admin.users.manage', 'admin.users.approve', 'admin.roles.manage', 'admin.settings.manage',
         'masters.view', 'masters.manage',
-        'oracle.import.run', 'oracle.import.view',
+        'oracle.import.run', 'oracle.import.view', 'oracle.source.browse',
         'production.route.manage', 'production.issue', 'production.hold', 'production.close', 'production.override',
         'production.sheet.view', 'production.sheet.edit.all', 'production.sheet.edit.own_department',
         'colour.view', 'colour.edit', 'colour.override.approve',
@@ -36,7 +36,7 @@ final class Permissions
     public const ROLES = [
         self::ROLE_ADMIN => '*',
         self::ROLE_PPC => [
-            'masters.view', 'masters.manage', 'oracle.import.run', 'oracle.import.view',
+            'masters.view', 'masters.manage', 'oracle.import.run', 'oracle.import.view', 'oracle.source.browse',
             'production.route.manage', 'production.issue', 'production.hold', 'production.close', 'production.override',
             'production.sheet.view', 'production.sheet.edit.all',
             'colour.view', 'colour.edit', 'colour.override.approve',

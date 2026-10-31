@@ -10,6 +10,7 @@ use App\Modules\Foundation\Http\Middleware\SetLocale;
 use App\Modules\Foundation\Http\Middleware\ThrottleRegistrations;
 use App\Modules\Foundation\Support\ErrorReference;
 use App\Modules\OracleSync\Console\ImportOracleFile;
+use App\Modules\OracleSync\Console\PingOracleSource;
 use App\Modules\Production\Console\BackfillLedger;
 use App\Modules\Production\Console\SyncLotStages;
 use Illuminate\Auth\AuthenticationException;
@@ -31,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([ImportOracleFile::class, BackfillLedger::class, SyncLotStages::class, PruneUserActions::class])
+    ->withCommands([ImportOracleFile::class, PingOracleSource::class, BackfillLedger::class, SyncLotStages::class, PruneUserActions::class])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 

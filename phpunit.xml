@@ -41,6 +41,17 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <!--
+            The Oracle source is pinned to the in-memory stand-in, exactly like the app connection above.
+            Without this, a developer with real ORACLE_SRC_* credentials in .env runs the whole suite against
+            the mill's live ERP: every OracleSync test either dies with "Unsupported driver [oracle]" (no
+            oci8 on the machine) or, once oci8 is installed, reads the real instance. The suite owns its
+            source data (OracleMockSeeder) and must never reach outside the process for it.
+        -->
+        <env name="ORACLE_SRC_DRIVER" value="sqlite"/>
+        <env name="ORACLE_SRC_DATABASE" value=":memory:"/>
+        <env name="ORACLE_SRC_TNS" value=""/>
+        <env name="ORACLE_SRC_SERVICE_NAME" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

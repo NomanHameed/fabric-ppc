@@ -205,7 +205,25 @@ app/Modules/OracleSync/
   Events/{LotImported,LotChanged}.php     (fired after the commit transaction)
   Http/Controllers/OracleImportController.php
   Console/ImportOracleFile.php            (php artisan oracle:import {path} [--user=] [--commit])
+  Source/SourceModel.php                  (read-only base; declares each object's Oracle schema)
+  Source/OracleSourceConnection.php       (isMocked() / isOracle() / assertMocked())
+  Source/OracleSourceReader.php           (every read of the live source; nothing writes)
+  Source/OracleSchemaBrowser.php          (read-only /oracle/source dictionary browser)
+  Source/OracleSourceDiagnostics.php
+  Source/Models/*.php                     (12 source objects — see the two-schema note below)
+  Http/Controllers/OracleSourceController.php
+  Console/PingOracleSource.php            (php artisan oracle:ping — read-only connection check)
 ```
+
+**The live Oracle source spans two schemas.** Transactions are owned by `PRODUCTION` (`PROCESSING_LOTS`,
+`GREIGE_ISSUE_M/_D`, `PROCESSING_CONTRACT_M/_D`, `PC_DTL_LOTS`) and the code masters by `ERP` (`PARTIES`,
+`QUALITIES`, `DESIGNS`, `COLOURS`, `PROCESSING_OPERATIONS`, `COST_CENTRES`), so `ORACLE_SRC_SCHEMA_PREFIX`
+cannot address it and must stay empty — each model names its own owner instead, and qualifies the table only
+when the driver is `oracle`. There is no machine master: machines are `ERP.COST_CENTRES` rows with
+`TYPE = 'MACHINE'`. Contracts are master/detail, and `GSM` is on `PC_DTL_LOTS`. Verified over a read-only
+connection on 2026-10-31 — the mapping table and the evidence are in `docs/planning/findings.md` §9, and
+`php artisan oracle:ping` is the check. This is the *live-connection* path and is independent of the Excel
+import above, which production uses today and which reads the flattened WIP export, not these tables.
 
 Import status flow: `previewed` → (commit screen: checks + atomic flip) `committing` → queued job → `committed`, or `failed` with `error_message`; a preview can also be `discarded`. The CLI path claims `previewed` → `committing` itself.
 

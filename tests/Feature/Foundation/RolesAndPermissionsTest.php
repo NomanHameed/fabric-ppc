@@ -15,7 +15,11 @@ it('creates the seven roles', function () {
 it('gives ppc all-department sheet editing and imports', function () {
     $ppc = Role::findByName('ppc');
     expect($ppc->hasPermissionTo('production.sheet.edit.all'))->toBeTrue()
-        ->and($ppc->hasPermissionTo('oracle.import.run'))->toBeTrue();
+        ->and($ppc->hasPermissionTo('oracle.import.run'))->toBeTrue()
+        // Reading the client's live ERP schema is a PPC job and nobody else's by default.
+        ->and($ppc->hasPermissionTo('oracle.source.browse'))->toBeTrue()
+        ->and(Role::findByName('manager')->hasPermissionTo('oracle.source.browse'))->toBeFalse()
+        ->and(Role::findByName('viewer')->hasPermissionTo('oracle.source.browse'))->toBeFalse();
 });
 
 it('limits department in-charge to own department editing', function () {
